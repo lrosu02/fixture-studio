@@ -523,10 +523,11 @@ odd-hole layouts, face selection with and without holes, missing-hole rejection,
 locating trays and strap slots, through passages, independent STEP probes,
 revision/restore and legacy reproduction.
 Pointer-event tests run when Node.js is available. Subsequent
-verification is recorded in Notes.md. The live browser also
-generated six parts on four rails through the subscription backend:
+verification is recorded in Notes.md. Below, the supplied D3536 motor is shown
+mounted on its generated ribbed L-bracket in Fixture Studio. Gray is the imported
+motor; teal is the fixture:
 
-![Live application with six aligned source parts and SMLib fixture rails](demo/app-screenshot.jpg)
+![D3536 motor mounted on a generated ribbed L-bracket in Fixture Studio](demo/motor-l-bracket.png)
 
 ## Limits and remaining deliverables
 
