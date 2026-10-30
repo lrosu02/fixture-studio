@@ -239,14 +239,16 @@ def proposal_requirements(requirements, proposal):
 
 def compile_plan(a, r, require_ready=True, compiler_version=9):
     if compiler_version < 9:
-        if r.access_selections:
-            raise ValueError('Selected access needs compiler version 9.')
+        if r.access_selections or r.base_mount:
+            raise ValueError('Selected access / existing bases need compiler version 9.')
         return _compile_plan(a, r, require_ready, compiler_version)
     if compiler_version != 9:
         raise ValueError('Unsupported compiler version.')
     from .access import add_access
+    from .existing_base import add_base
     plan = _compile_plan(a, r, require_ready, 8)
     plan = plan.model_copy(update={'version':9})
+    plan = add_base(a, r, plan)
     return add_access(a, r, plan)
 
 

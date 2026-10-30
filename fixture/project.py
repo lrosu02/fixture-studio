@@ -201,6 +201,8 @@ class Project:
                 json.dumps([c.model_dump() for c in r.plan.clearances], indent=2),
             )
             z.writestr("requirements.json", r.requirements.model_dump_json(indent=2))
+            if r.requirements.base_mount:
+                z.writestr('base-analysis.json',r.requirements.base_mount.analysis.model_dump_json(indent=2))
             # Each export describes this revision's review, never a newer attempt.
             z.writestr(
                 "ai-feedback.json",

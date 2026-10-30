@@ -9,6 +9,7 @@ from .intake import get_interface, local_points
 from .structures import STRUCTURES
 
 CAPABILITIES = {
+    "existing_base": "A second uploaded STEP can supply a confirmed planar base face and selected measured bolt pattern. The fixture copies those centers with explicit in-plane translation/rotation; unsupported foot/contact conflicts fail. The second part is a reference, excluded from fixture-only STEP export.",
     "selected_access": "Measured face/hole/rear profile IDs can become through openings or finite outward keep-clear boxes. Full-depth geometry is rederived on revisions; native independent obstruction checks and existing contact checks must pass.",
     "purpose": "Reusable fixture design across part types; no part-specific templates or mounting decisions.",
     "supported_input": "Planar attachment/support faces, with or without circular holes, with user-confirmed contact meaning.",
@@ -85,6 +86,9 @@ def review_context(analysis, build, repairs_remaining):
     data = build.model_dump()
     for key in ("material", "print_settings"):
         data["requirements"].pop(key, None)
+    if build.requirements.base_mount:
+        base=build.requirements.base_mount
+        data['requirements']['base_mount']={'source_name':base.analysis.source_name,'source_hash':base.analysis.source_hash,'interface_id':base.interface_id,'hole_ids':base.hole_ids}
     return {
         "capabilities": CAPABILITIES,
         "source_hash": analysis.source_hash,
@@ -124,6 +128,12 @@ def render_review(analysis, revision):
         (np.array(m.vertices), m.triangles, "#25afa3", False)
         for m in revision.meshes.values()
     )
+    if revision.requirements.base_mount:
+        from .existing_base import transform
+        r=revision.requirements; base=r.base_mount
+        origin,basis=transform(r,revision.plan)
+        points=local_points(base.analysis.mesh.vertices,get_interface(base.analysis,base.interface_id))@basis+origin
+        geometry.append((points,base.analysis.mesh.triangles,'#7586bc',True))
     if revision.plan.parameters.get("up_axis") == "Y":
         geometry = [
             (points[:, [0, 2, 1]] * [1, -1, 1], faces, color, source)

@@ -54,6 +54,8 @@ def two_lanes(x0, x1, y0, y1, count, diameter, center_odd=False):
 
 
 def expected_count(requirements, plan):
+    if requirements.base_mount is not None:
+        return len(requirements.base_mount.hole_ids)
     if requirements.surroundings != "bolt":
         return 0
     if plan.version >= 5 and requirements.bench_hole_count is not None:

@@ -124,6 +124,19 @@ class AccessSelection(Record):
     reach: Annotated[float, Field(gt=0, le=500)] = 10
 
 
+class BaseMount(Record):
+    analysis: Analysis
+    interface_id: str
+    hole_ids: Annotated[tuple[str, ...], Field(min_length=1, max_length=128)]
+
+    @model_validator(mode='after')
+    def references(self):
+        face = next((i for i in self.analysis.interfaces if i.id == self.interface_id), None)
+        if face is None or len(set(self.hole_ids)) != len(self.hole_ids) or not set(self.hole_ids) <= set(face.hole_ids):
+            raise ValueError('Choose measured holes on the selected base face.')
+        return self
+
+
 class Requirements(Record):
     purpose: str | None = None
     quantity: Annotated[int, Field(ge=1, le=24)] | None = None
@@ -158,6 +171,10 @@ class Requirements(Record):
     surroundings: Literal["unknown", "clamp", "bolt"] = "unknown"
     bench_hole_diameter: Positive | None = None
     bench_hole_count: Annotated[int, Field(ge=1)] | None = None
+    base_mount: BaseMount | None = None
+    base_offset_x: Annotated[float, Field(ge=-1000, le=1000)] = 0
+    base_offset_y: Annotated[float, Field(ge=-1000, le=1000)] = 0
+    base_rotation: Annotated[float, Field(ge=-180, le=180)] = 0
     fabrication: str | None = None
     material: str | None = None
     print_settings: PrintSettings = Field(default_factory=PrintSettings)

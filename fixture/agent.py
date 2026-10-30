@@ -54,6 +54,9 @@ class Changes(Record):
     surroundings: Literal["unknown", "clamp", "bolt"] | None = None
     bench_hole_diameter: float | None = None
     bench_hole_count: int | None = None
+    base_offset_x: float | None = None
+    base_offset_y: float | None = None
+    base_rotation: float | None = None
     fabrication: str | None = None
     motion_loads: str | None = None
     access: str | None = None
@@ -105,6 +108,10 @@ retention. Reject/surface inverted or moving use requiring a hold-down rather th
 it is secured. The base may still have screw holes: ask bench_fastener if no size is supplied
 and no part mounting fastener exists. Never infer a base screw size from a hole-free part.
 Respect the selected contact surface and its fixture-side direction.
+When existing_base is supplied, preserve its measured pattern and selected holes.
+Use surroundings=bolt. Do not invent a replacement pattern or count. base_offset_x/y
+are translations in its contact plane; base_rotation is in-plane degrees. These can
+be revised, but the base is only installed from a real second STEP in the UI.
 Users can select openings and keep-clear faces in the 3D access picker. Preserve
 access_selections. Use only access_options feature IDs, intent=through or keep_clear,
 padding in mm and finite reach in mm. Through depth is derived from all fixture stock
@@ -231,7 +238,10 @@ def planner_context(analysis, requirements, current=None):
     return {
         "capabilities": CAPABILITIES,
         "access_options": access_choices,
-        "requirements": requirements.model_dump(exclude={"material", "print_settings"}),
+        "requirements": requirements.model_dump(exclude={"material", "print_settings", "base_mount"}),
+        "existing_base": ({'source_hash':requirements.base_mount.analysis.source_hash,
+                           'interface':next(i for i in requirements.base_mount.analysis.interfaces if i.id==requirements.base_mount.interface_id).model_dump(exclude={'boundary','exclusions','face_mesh'}),
+                           'selected_holes':requirements.base_mount.hole_ids} if requirements.base_mount else None),
         "interfaces": [
             i.model_dump(exclude={"boundary", "exclusions", "face_mesh"})
             for i in analysis.interfaces

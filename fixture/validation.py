@@ -282,6 +282,7 @@ def validate(a, r, plan, bodies, cuts):
             )
         if (
             plan.version >= 6
+            and r.base_mount is None
             and plan.composition == "l_bracket"
             and expected_base_count % 2
         ):
@@ -423,5 +424,7 @@ def validate(a, r, plan, bodies, cuts):
     )
     if plan.version >= 9:
         from .access import validate_access
+        from .existing_base import validate_base
         validate_access(a, r, plan, bodies, add)
+        validate_base(r, plan, bodies, add)
     return tuple(checks)

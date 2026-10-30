@@ -22,6 +22,7 @@ from fixture.controls import (
 from fixture.hole_picker import hole_picker_controls
 from fixture.face_picker import face_picker_controls
 from fixture.access_controls import access_controls
+from fixture.base_controls import base_controls
 from fixture.subscription import subscription_turn, subscription_review, executable
 from fixture.manufacturing import manufacturing_guidance
 from fixture.workflow import plan_design, generate_with_feedback
@@ -309,6 +310,7 @@ with left:
             st.warning(str(error))
     passage_controls(p)
     manufacturing_controls(p)
+    base_controls(p)
     with st.expander("Advanced — mounting evidence", expanded=False):
         options = [None] + [i.id for i in a.interfaces]
         selected = st.selectbox(
