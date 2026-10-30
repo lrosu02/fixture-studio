@@ -4,6 +4,45 @@ Build a conversational CAD tool that accepts an existing STEP part, learns what 
 
 This is a handoff specification for the implementation agent. The six brushless motors are a demonstration scenario, not a fixed product configuration. The application must derive its mounting interface, quantity, layout, and fixture construction from the uploaded geometry and conversation. No motor dimensions, mounting patterns, or six-position layouts belong in the general application logic.
 
+## Implementation checkpoint — October 30, 2026
+
+**Cumulative project time: 3 hours 30 minutes (3.5 hours), supplied by the user.**
+This records the working baseline before the next feature expansion. The original
+specification below remains the reference; this checkpoint records actual delivery
+and the deliberate extensions beyond its initial planar/circular input family.
+
+| Ordered stage | Status at this checkpoint |
+| --- | --- |
+| 1–2: Dependencies and measurement | Verified Windows/Python 3.12 environment. CadQuery/OpenCASCADE imports and measures STEP; NVIDIA SMLib constructs real fixture BReps. Planar faces with or without circular holes can be selected. |
+| 3–5: UI, executor and placement | Working upload, rotatable viewer, face/hole picking, manufacturing-method choice and row/grid placement. Bounded operations build plates, rails, ribbed L-brackets, bridges and rectangular locating/strap trays. |
+| 6–7: Agent, checks and revisions | Start design, relevant questions, executable proposals, real ChatGPT-subscription integration, native checks, one bounded AI correction, requirement locks, last-valid preservation and revision restore. |
+| 8: Generality and regression | Motor and IEC connector workflows exercised; synthetic six-part, unrelated-part, transformed-source and hole-free cases verified. Latest full run: 126 tests passed; final prompt change: 8 workflow tests passed. Ruff F checks passed. |
+| 9: Package and record | README, engineering notes, pinned setup, permitted samples, demo scripts/records, USD BRep/design bundles and verified STEP export delivered. Public repository published and fresh clone verified. Continuous 1–3 minute screen recording remains outstanding; cumulative hours now recorded. |
+
+Follow-up fixes already delivered include mixed-size hole selectors and screw-size
+suggestions, automatic standard clearance holes, configurable base-hole counts with
+a centered fifth L-bracket hole, full-depth cable passages, corrected mesh rendering,
+concise proposals, matching face/hole selection buttons and support-face selection
+without part screw holes. All fixture construction remains in SMLib; the STEP writer
+transfers its generated BRep through the bounded OpenCASCADE export bridge.
+
+The reusable workflow is working within these bounds, not unrestricted fixture
+synthesis. Exact source/fixture BRep collision, structural/thermal/vibration validation,
+conformal nests and articulated clamps remain outside the delivered scope. Trays do
+not establish hold-down strength. The API-key backend has test-double coverage but
+no live-key verification; the live integration uses ChatGPT subscription sign-in.
+
+**Next checkpoint candidates (discussed, not yet implemented or scheduled):**
+
+1. Select openings and keep-clear areas directly on the 3D part.
+2. Import an existing base as a second part and derive both attachment interfaces.
+3. Add split clamps, saddles, collars and contoured nests with matching validation.
+4. Add on-model dimension editing, fastener recesses/captive-nut pockets, stronger
+   manufacturing rules and fixtures containing different part types.
+
+Repository: [Fixture Studio](https://github.com/lrosu02/fixture-studio).
+Detailed verification and time provenance: [Notes.md](Notes.md#checkpoint-and-total-time--october-30-2026).
+
 **Product scope**
 
 The first version supports parts with recognizable planar attachment faces and circular mounting-hole patterns. It constructs fixtures from a small vocabulary of plates, rails, supports, holes, slots, openings, and repeated placements. This permits meaningfully different designs with predictable modeling behavior.
@@ -317,4 +356,5 @@ The final handoff should state which steps and acceptance tests were completed a
 
 A new user can upload a supported STEP, describe a fixture task, answer relevant questions, inspect a grounded mounting recommendation, generate real SMLib fixture geometry, request a meaningful change, and export a reproducible result. The six-motor scenario demonstrates that workflow, while a second input proves that it is a reusable tool.
 
-This document is the planning deliverable. Implementation begins only when the coding agent is instructed to start.
+The original plan required explicit authorization before coding. Implementation was
+subsequently authorized; the dated checkpoint above records the delivered baseline.

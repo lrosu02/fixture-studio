@@ -6,6 +6,35 @@ No dimensions, quantities, bolt circles or mounting conclusions from the sample
 are embedded in general application logic. Sample-specific values live in the
 sample generator, test fixtures and demo scripts only.
 
+## Checkpoint and total time — October 30, 2026
+
+**Cumulative project time reported by the user: 3 hours 30 minutes (3.5 hours).**
+This is the current total through the working, publicly published baseline. It
+supersedes earlier statements that a total had not been supplied. Historical timed
+intervals below describe subsets of the work; do not add them to this cumulative
+total. A breakdown between human effort, agent execution and waiting was not supplied.
+
+The delivered application imports/measures STEP, supports face and hole selection,
+captures manufacturing intent and conversational requirements, proposes supported
+fixtures, builds them in SMLib, checks and reviews them with AI, preserves revisions
+and exports verified STEP plus the native CAD/design record. Geometry includes
+plates, rails, L-brackets, bridges and hole-free rectangular locating/strap trays.
+Standard clearance sizing, configurable base-hole counts and through cable passages
+are implemented. Public source publication and a fresh clone have been verified.
+
+Verification at this checkpoint: **126 tests passed in 136.68 seconds**, followed
+by **8 workflow tests passed in 9.16 seconds** for the final Start design prompt
+change; these are overlapping runs, not 134 distinct tests. Ruff F checks passed.
+Live subscription workflows cover the earlier screw-mounted examples. Hole-free
+trays have native geometry, STEP and UI regression coverage, but no new live AI run
+is claimed for that extension.
+
+Remaining delivery gap: the continuous demo recording. Live API-key verification
+and broader geometry/physical analysis also remain unverified or unsupported as
+documented below. Click-to-select openings/keep-clear areas is the suggested next
+feature, not part of this checkpoint. See the [plan checkpoint](IMPLEMENTATION_PLAN.md#implementation-checkpoint--october-30-2026)
+for stage status and the candidate backlog.
+
 ## Hole-free support faces and locating trays (2026-10-30)
 
 Analysis version 2 retains every measured planar face, including faces without
@@ -314,7 +343,7 @@ preserved locks, API/schema/kernel failures, export/reopen and UI restore.
 Additional tests cover subscription login enforcement, removal of API keys,
 disabled execution and timeout behavior. Live calls are explicit opt-in scripts.
 
-The final clean-environment suite passed **25 tests in 22.04 seconds**. See
+The initial clean-environment suite passed **25 tests in 22.04 seconds**. See
 `demo/verification.txt` and `demo/test-results.xml` for the actual final output.
 Windows sandbox socket restrictions blocked AppTest until it ran with local
 loopback permitted; this was not a Streamlit application defect. A native mesh
@@ -327,20 +356,19 @@ The real subscription sequence generated a plate at 109014.515792 mm³ and four
 rails at 38358.615110 mm³, keeping six instances and 24 measured mounting holes.
 Its action record and export are in `demo/`.
 
-Stages 1–7 operate end to end on synthetic inputs, including live subscription
-planning. Stage 8's regression core is implemented. The supplied D3536 motor
-has since been imported through the UI and its conversation persisted; its
-L-bracket has not been generated or validated. Stage 9 includes setup, pinned packages, source samples,
-documentation, demo scripts and exports. The requested continuous screen recording
-and actual-motor live demo remain incomplete; no recording link is fabricated.
+Stages 1–7 operate end to end, including live subscription planning. Stage 8's
+regression core is implemented and has expanded to the supplied motor and IEC
+connector, L-brackets/bridges, STEP transfer and hole-free trays as recorded above
+and in the dated follow-ups. Stage 9 includes setup, pinned packages, source samples,
+documentation, demo scripts/exports, public GitHub publication and the user-reported
+cumulative hours. The continuous screen recording remains incomplete; no recording
+link is fabricated.
 
 ## Remaining work, in priority order
 
-1. Complete the supplied motor's mounting selection and fabrication/clearance
-   requirements, and implement a supported L-bracket composition before claiming
-   it can be generated. The current compiler still supports plates and rails;
-   the conversation's textual L-bracket proposal was ahead of its executable scope.
-   Obtain redistribution permission before including the private STEP in a submission.
+1. Add direct 3D selection of openings and keep-clear areas, with measured references
+   and native obstruction checks. This is the next suggested product improvement;
+   the motor L-bracket and its through cable passage are already implemented.
 2. Record the 2–3 minute real-motor workflow using the now-working subscription
    backend. The [demo guide](demo/DEMO.md) and live-call record support preparation.
 3. Expand chamfer/segmentation and curved-contact regressions; replace sampled
@@ -350,12 +378,13 @@ and actual-motor live demo remain incomplete; no recording link is fabricated.
 5. Add custom rail orientations and more layout/attachment choices, exact source
    collision bridging, and engineering analysis as explicitly separate capabilities.
 
-**Time accounting:** measured implementation and verification interval:
+**Historical partial time measurement:** implementation and verification interval:
 17:03:20–17:38:04 PDT on October 29, 2026, **34 minutes 44 seconds (0.579 hours)**
 of elapsed agent wall time, including dependency installation and waiting.
 This excludes the brief initial inspection before the first clock reading,
-earlier planning, final packaging and unrecorded human effort. Total project labor
-hours were not supplied and are not invented.
+earlier planning, final packaging and unrecorded human effort. The current
+user-reported cumulative total is **3 hours 30 minutes**, recorded at the top of
+this document; this partial interval is not an additional amount to add to it.
 
 ## Mouse selection follow-up
 

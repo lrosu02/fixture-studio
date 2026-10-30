@@ -12,6 +12,31 @@ the local Codex CLI's **ChatGPT subscription sign-in** generated and revised a
 six-part fixture without an API key. The separate OpenAI API backend is implemented
 and tested with test doubles; no API-key-backed live call has been made.
 
+## Checkpoint — October 30, 2026
+
+**Total project time so far: 3 hours 30 minutes (3.5 hours), reported by the user.**
+This is the cumulative checkpoint total, not an additional development interval.
+
+- Working flow: STEP upload and measurement, mouse selection of mounting faces/holes,
+  conversational requirements, Start design, proposals, SMLib generation, AI feedback,
+  revisions/restore and verified STEP export.
+- Supported fixtures: plates, rails, ribbed L-brackets, bridges, and rectangular
+  locating trays with optional external-strap slots for parts without mounting holes.
+- Design controls include manufacturing method, screw-size suggestions, automatic
+  standard clearances, configurable base-hole counts and real through passages.
+- Verified examples include the supplied motor and IEC connector, unrelated synthetic
+  parts, and hole-free tray geometry. Latest full suite: **126 passing tests**, plus
+  **8 passing workflow tests** after the final prompt adjustment; Ruff F checks passed.
+- Public source is available on [GitHub](https://github.com/lrosu02/fixture-studio).
+  Credentials, private uploads and local projects are excluded.
+
+Remaining: the continuous demo recording, a live API-key-backed test, and broader
+geometry/engineering capabilities. Contact remains sampled; operating strength and
+exact source-to-fixture BRep collision are not validated. The suggested next feature
+is selecting openings and keep-clear areas directly in 3D; it is not implemented yet.
+See the [plan checkpoint](IMPLEMENTATION_PLAN.md#implementation-checkpoint--october-30-2026)
+and [engineering record](Notes.md#checkpoint-and-total-time--october-30-2026).
+
 ## Supported inputs and behavior
 
 - One STEP imported automatically as one complete part (up to 16 source solids), with
