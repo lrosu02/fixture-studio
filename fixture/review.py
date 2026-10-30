@@ -9,6 +9,7 @@ from .intake import get_interface, local_points
 from .structures import STRUCTURES
 
 CAPABILITIES = {
+    "shaped_retention": "Convex-envelope planar nests, analytic cylindrical saddles, axial-installation collars and split clamps with separate caps. Cylindrical modes require measured cylinder interfaces, a bounded axial support length and source-envelope fit checks. Split clamp joining fastener must be supplied. All use common base plates; fit/clearance checks do not validate holding force.",
     "existing_base": "A second uploaded STEP can supply a confirmed planar base face and selected measured bolt pattern. The fixture copies those centers with explicit in-plane translation/rotation; unsupported foot/contact conflicts fail. The second part is a reference, excluded from fixture-only STEP export.",
     "selected_access": "Measured face/hole/rear profile IDs can become through openings or finite outward keep-clear boxes. Full-depth geometry is rederived on revisions; native independent obstruction checks and existing contact checks must pass.",
     "purpose": "Reusable fixture design across part types; no part-specific templates or mounting decisions.",

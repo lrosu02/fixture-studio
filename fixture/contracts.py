@@ -13,7 +13,7 @@ Vec2 = tuple[float, float]
 Positive = Annotated[float, Field(gt=0, le=MAX_DIM)]
 Origin = Literal["measured", "user", "ai", "assumed", "derived"]
 Composition = Literal["plate", "rails", "l_bracket", "bridge"]
-PartAttachment = Literal["screws", "unselected", "cradle", "strap"]
+PartAttachment = Literal["screws", "unselected", "cradle", "strap", "nest", "saddle", "collar", "split_clamp"]
 
 
 class Record(BaseModel):
@@ -54,10 +54,13 @@ class Interface(Record):
     source_to_local: tuple[tuple[float, ...], ...]
     face_mesh: Mesh | None = None  # Exact trimmed face tessellation for selection.
     area_mm2: Annotated[float, Field(gt=0)] | None = None
+    support_kind: Literal['plane','cylinder'] = 'plane'
+    support_radius: Positive | None = None
+    support_length: Positive | None = None
 
 
 class Analysis(Record):
-    version: Literal[1, 2] = 2
+    version: Literal[1, 2, 3] = 3
     source_name: str
     source_hash: str
     original_units: tuple[str, ...]
@@ -162,6 +165,9 @@ class Requirements(Record):
     locating_height: Positive | None = None
     strap_width: Positive | None = None
     strap_thickness: Positive | None = None
+    retention_length: Positive | None = None
+    retention_fastener: str | None = None
+    split_gap: Annotated[float, Field(ge=.5, le=5)] = 1
     clearance_diameter: Positive | None = None
     clearance_fit: Literal["fine", "medium", "coarse"] = "medium"
     nominal_fastener: str | None = None

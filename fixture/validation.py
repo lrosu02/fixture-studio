@@ -425,6 +425,8 @@ def validate(a, r, plan, bodies, cuts):
     if plan.version >= 9:
         from .access import validate_access
         from .existing_base import validate_base
+        from .shaped_retention import validate_retention
         validate_access(a, r, plan, bodies, add)
         validate_base(r, plan, bodies, add)
+        validate_retention(a, r, plan, bodies, add)
     return tuple(checks)

@@ -173,6 +173,6 @@ def test_plate_rear_relief_is_versioned(tmp_path):
 
     a, r, profile = shallow_source(tmp_path)
     plate = r.model_copy(update={"composition": "plate", "rear_passages": (profile,)})
-    assert compile_plan(a, plate).version == 8
+    assert compile_plan(a, plate).version == 9
     with pytest.raises(ValueError, match="version 7"):
         compile_plan(a, plate, compiler_version=6)

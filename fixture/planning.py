@@ -109,6 +109,8 @@ def missing_questions(a, r, automatic_clearance=True):
         questions.append(
             "What are the width and thickness of the retaining strap (mm), and may it cross over the part?"
         )
+    if r.part_attachment=='split_clamp' and not r.retention_fastener:
+        questions.append('Which screw size should join the split clamp halves?')
     if (
         r.part_attachment != "screws"
         and r.surroundings == "bolt"
@@ -246,7 +248,8 @@ def compile_plan(a, r, require_ready=True, compiler_version=9):
         raise ValueError('Unsupported compiler version.')
     from .access import add_access
     from .existing_base import add_base
-    plan = _compile_plan(a, r, require_ready, 8)
+    from .shaped_retention import compile_retention, MODES
+    plan = compile_retention(a,r,require_ready) if r.part_attachment in MODES else _compile_plan(a, r, require_ready, 8)
     plan = plan.model_copy(update={'version':9})
     plan = add_base(a, r, plan)
     return add_access(a, r, plan)

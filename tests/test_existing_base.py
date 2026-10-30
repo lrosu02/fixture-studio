@@ -1,11 +1,10 @@
 import io
 import zipfile
 import cadquery as cq
-import numpy as np
 import pytest
 from fixture.contracts import BaseMount
 from fixture.intake import analyze_file
-from fixture.existing_base import measured_positions, transform
+from fixture.existing_base import measured_positions
 from fixture.planning import patch_requirements
 from fixture.project import Project
 from fixture.step_export import prepare_step

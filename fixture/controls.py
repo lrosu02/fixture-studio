@@ -19,8 +19,12 @@ def retention_controls(p):
         "screws": "Screws through selected part holes",
         "cradle": "Locating tray — no hold-down",
         "strap": "Locating tray with an external strap",
+        "nest": "Contoured nest — convex envelope",
+        "saddle": "Cylindrical saddle — open above",
+        "collar": "Closed locating collar — axial installation",
+        "split_clamp": "Split clamp with removable cap",
     }
-    options = ["unselected", *(["screws"] if raw.hole_ids else []), "cradle", "strap"]
+    options = (["unselected", "saddle", "collar", "split_clamp"] if raw.support_kind=='cylinder' else ["unselected", *(["screws"] if raw.hole_ids else []), "cradle", "strap", "nest"])
     st.markdown("**Part retention**")
     key = p.id + str(hash(r.model_dump_json()))
     choice = st.selectbox(
@@ -30,9 +34,9 @@ def retention_controls(p):
         format_func=labels.get,
         key="retention-" + key,
     )
-    if choice in ("cradle", "strap"):
+    if choice in ("cradle", "strap", "nest", "saddle", "collar", "split_clamp"):
         st.caption(
-            "Rectangular walls follow the measured part envelope. An open tray has no hold-down; straps are separate hardware. Wall/fit values below are editable concept defaults."
+            "Support geometry follows measured source envelopes. Open trays/saddles have no hold-down. Nests use a convex footprint; collars need axial installation. Wall/fit dimensions are concept defaults, not strength validation."
         )
         clearance = st.number_input(
             "Part-to-wall clearance (mm)",
@@ -59,6 +63,12 @@ def retention_controls(p):
             or None
         )
         width, thickness = r.strap_width, r.strap_thickness
+        length=r.retention_length
+        fastener=r.retention_fastener
+        if choice in ('saddle','collar','split_clamp'):
+            length=st.number_input('Cylindrical support length (mm; 0 = derive)',0.,2000.,float(length or 0)) or None
+        if choice=='split_clamp':
+            fastener=st.text_input('Clamp joining screw size',fastener or '') or None
         if choice == "strap":
             width = (
                 st.number_input(
@@ -86,7 +96,7 @@ def retention_controls(p):
     if choice != "unselected" and st.button("Apply part retention"):
         try:
             changes = {"part_attachment": choice}
-            if choice in ("cradle", "strap"):
+            if choice in ("cradle", "strap", "nest", "saddle", "collar", "split_clamp"):
                 changes.update(
                     composition="plate",
                     locating_clearance=clearance,
@@ -94,6 +104,8 @@ def retention_controls(p):
                     locating_height=height,
                     strap_width=width,
                     strap_thickness=thickness,
+                    retention_length=length,
+                    retention_fastener=fastener,
                 )
             p.requirements = patch_requirements(r, changes)
             p.messages.append(
@@ -104,7 +116,7 @@ def retention_controls(p):
                     + ". "
                     + (
                         f"Wall clearance {clearance:g} mm, thickness {wall:g} mm, height {height or 'derived'}; strap width {width}, thickness {thickness} mm."
-                        if choice in ("cradle", "strap")
+                        if choice in ("cradle", "strap", "nest", "saddle", "collar", "split_clamp")
                         else ""
                     ),
                 )

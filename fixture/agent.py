@@ -45,6 +45,9 @@ class Changes(Record):
     locating_height: float | None = None
     strap_width: float | None = None
     strap_thickness: float | None = None
+    retention_length: float | None = None
+    retention_fastener: str | None = None
+    split_gap: float | None = None
     clearance_diameter: float | None = None
     clearance_fit: Literal["fine", "medium", "coarse"] | None = None
     nominal_fastener: str | None = None
@@ -108,6 +111,13 @@ retention. Reject/surface inverted or moving use requiring a hold-down rather th
 it is secured. The base may still have screw holes: ask bench_fastener if no size is supplied
 and no part mounting fastener exists. Never infer a base screw size from a hole-free part.
 Respect the selected contact surface and its fixture-side direction.
+New retention methods: nest is a convex-envelope contour nest on an outer plane;
+saddle, collar and split_clamp require a selected measured cylindrical interface.
+All use composition=plate. Cylindrical retention_length defaults to half the measured
+face length; select shorter support if other geometry interferes. split_clamp needs
+retention_fastener and creates a separate removable cap, two joining bores and split_gap.
+A saddle is open, a collar needs axial assembly, and the nest excludes concave details.
+Ask which surfaces can be contacted and how the part can be installed. None proves load capacity.
 When existing_base is supplied, preserve its measured pattern and selected holes.
 Use surroundings=bolt. Do not invent a replacement pattern or count. base_offset_x/y
 are translations in its contact plane; base_rotation is in-plane degrees. These can
