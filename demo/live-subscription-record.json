@@ -1,0 +1,175 @@
+{
+  "mode": "Real Codex CLI calls using ChatGPT sign-in; no API key",
+  "messages": [
+    {
+      "role": "user",
+      "content": "I want a fixture for six of these parts for continuous running. Keep it accessible and give it a clean appearance."
+    },
+    {
+      "role": "assistant",
+      "content": "Propose six parts using interface-4 as the geometric candidate: its four measured 4 mm circular features have valid sampled contact annuli. Stationary meaning and fastener use remain unconfirmed. Open rails are a candidate if rear access is needed; access clearance and continuous-running performance are not validated. ('Is interface-4 the stationary mounting face, and are f4-h0 through f4-h3 fastener holes? How should the parts attach?', 'What moves during continuous running, what loads occur, and what finite keepout box dimensions and positions apply to each part in its displayed attachment frame?', 'Should the fixture attach to the bench with clamps or bolts, and which areas need access?')"
+    },
+    {
+      "role": "user",
+      "content": "For this synthetic test specimen I confirm interface-4 is the stationary mounting face and all four highlighted holes are fastener holes. Use 3.5 mm fixture clearance holes. Hold six parts in a grid with three columns on a common plate. Clamp the fixture to the bench. Fabrication is machined solid stock, material unknown. Motion, loads, threads and engagement remain unknown; this is only a geometric concept, with no physical performance claim. Access needs are rear tool access, with finite tool dimensions unknown. I accept the visible concept defaults for thickness, margin and gap. Generate this plate now."
+    },
+    {
+      "role": "assistant",
+      "content": "6 source instances on 1 fixture bodies; 24 measured mounting holes. Concept geometry generated. Would you like to change the layout, spacing, mounting approach, access, or appearance?"
+    },
+    {
+      "role": "user",
+      "content": "Revise it to open parallel supports for more rear tool access and less material. Preserve all measured mounting holes, six instances and the three-column grid. Generate the revised fixture."
+    }
+  ],
+  "actions": [
+    {
+      "action": "propose",
+      "changes": {
+        "purpose": "Fixture for continuous running",
+        "quantity": 6,
+        "layout": null,
+        "columns": null,
+        "gap": null,
+        "thickness": null,
+        "margin": null,
+        "max_width": null,
+        "composition": null,
+        "interface_id": null,
+        "mounting_hole_ids": null,
+        "mounting_confirmed": null,
+        "clearance_diameter": null,
+        "nominal_fastener": null,
+        "engagement": null,
+        "surroundings": null,
+        "bench_hole_diameter": null,
+        "fabrication": null,
+        "material": null,
+        "motion_loads": null,
+        "access": "Keep parts accessible",
+        "appearance": "Clean appearance",
+        "envelopes": null,
+        "unknowns": [
+          "Stationary mounting face and fastener-hole function",
+          "Part-to-fixture attachment details",
+          "Fixture-to-surroundings attachment",
+          "Motion and loads during continuous running",
+          "Finite keepout dimensions per source instance"
+        ],
+        "assumptions_accepted": null
+      },
+      "questions": [
+        "Is interface-4 the stationary mounting face, and are f4-h0 through f4-h3 fastener holes? How should the parts attach?",
+        "What moves during continuous running, what loads occur, and what finite keepout box dimensions and positions apply to each part in its displayed attachment frame?",
+        "Should the fixture attach to the bench with clamps or bolts, and which areas need access?"
+      ],
+      "highlight_ids": [
+        "interface-4",
+        "f4-h0",
+        "f4-h1",
+        "f4-h2",
+        "f4-h3"
+      ],
+      "explanation": "Propose six parts using interface-4 as the geometric candidate: its four measured 4 mm circular features have valid sampled contact annuli. Stationary meaning and fastener use remain unconfirmed. Open rails are a candidate if rear access is needed; access clearance and continuous-running performance are not validated."
+    },
+    {
+      "action": "build",
+      "changes": {
+        "purpose": null,
+        "quantity": 6,
+        "layout": "grid",
+        "columns": 3,
+        "gap": null,
+        "thickness": null,
+        "margin": null,
+        "max_width": null,
+        "composition": "plate",
+        "interface_id": "interface-4",
+        "mounting_hole_ids": [
+          "f4-h0",
+          "f4-h1",
+          "f4-h2",
+          "f4-h3"
+        ],
+        "mounting_confirmed": true,
+        "clearance_diameter": 3.5,
+        "nominal_fastener": "unknown",
+        "engagement": "unknown",
+        "surroundings": "clamp",
+        "bench_hole_diameter": null,
+        "fabrication": "machined solid stock",
+        "material": "unknown",
+        "motion_loads": "unknown",
+        "access": "Rear tool access; finite tool dimensions unknown",
+        "appearance": null,
+        "envelopes": null,
+        "unknowns": [
+          "Motion and loads during continuous running",
+          "Nominal fastener threads and engagement",
+          "Material",
+          "Finite tool keepout dimensions and positions per source instance",
+          "Bench clamp locations and required clamp-land dimensions"
+        ],
+        "assumptions_accepted": true
+      },
+      "questions": [],
+      "highlight_ids": [
+        "interface-4",
+        "f4-h0",
+        "f4-h1",
+        "f4-h2",
+        "f4-h3"
+      ],
+      "explanation": "Generate the requested six-part, three-column grid on a common plate using the confirmed measured mounting pattern and 3.5 mm fixture clearance holes. Retain accepted defaults: 6 mm thickness, 8 mm margin and 12 mm gap. Use bench clamping. Rear tool clearance remains unverified without finite dimensions; this is a geometric concept with no physical performance claim. After generation, layout, spacing, mounting approach, access or appearance can be revised."
+    },
+    {
+      "action": "revise",
+      "changes": {
+        "purpose": null,
+        "quantity": null,
+        "layout": null,
+        "columns": null,
+        "gap": null,
+        "thickness": null,
+        "margin": null,
+        "max_width": null,
+        "composition": "rails",
+        "interface_id": null,
+        "mounting_hole_ids": null,
+        "mounting_confirmed": null,
+        "clearance_diameter": null,
+        "nominal_fastener": null,
+        "engagement": null,
+        "surroundings": null,
+        "bench_hole_diameter": null,
+        "fabrication": null,
+        "material": null,
+        "motion_loads": null,
+        "access": null,
+        "appearance": null,
+        "envelopes": null,
+        "unknowns": null,
+        "assumptions_accepted": null
+      },
+      "questions": [],
+      "highlight_ids": [
+        "interface-4",
+        "f4-h0",
+        "f4-h1",
+        "f4-h2",
+        "f4-h3"
+      ],
+      "explanation": "Generate connected open parallel supports using the measured interface-4 pattern, preserving all 24 mounting holes, six instances and the three-column grid. Retain the accepted spacing and bench-clamp approach. Finite rear tool clearance and clamp attachment remain unverified; no physical performance validation is claimed. After generation, layout, spacing, mounting approach, access or appearance can be revised."
+    }
+  ],
+  "first": {
+    "volume_mm3": 109014.51579238576,
+    "body_count": 1.0,
+    "hole_count": 24.0
+  },
+  "revision": {
+    "volume_mm3": 38358.6151101275,
+    "body_count": 4.0,
+    "hole_count": 24.0
+  }
+}

@@ -1,0 +1,31 @@
+# Sample provenance
+
+All STEP specimens in this directory are original synthetic geometry generated
+by `scripts/make_samples.py` and `scripts/make_hole_free_sample.py` for this project. They may be used, modified and
+redistributed with attribution to this project (CC BY 4.0). No manufacturer CAD,
+motor specification, screenshot-derived measurement or purchased asset is used.
+
+`synthetic_motor.step` is an illustrative flanged cylindrical specimen, not a
+model of the user's actual motor. Its flange is 48 x 36 x 6 mm with four 4 mm
+through holes at (+/-17, +/-11) mm. The cylindrical body is radius 13 x 22 mm;
+the shaft is radius 3 x 10 mm. All are synthetic reference dimensions.
+
+`sensor_bracket.step` has a 62 x 42 x 7 mm base and three 5 mm holes at
+(-21,-12), (19,-12), (4,13) mm, plus an asymmetric rectangular raised block.
+`transformed_motor.step` is the first specimen rotated 47 degrees about (1,2,3)
+and translated (123,-41,62) mm. `multi_body.step` adds a separate small coaxial
+body, retaining placement. `ambiguous.step` has two equally plausible planar
+interfaces. `unsupported_sphere.step` has no planar attachment interface.
+
+`mixed_hole_sizes.step` has a 60 x 40 x 6 mm base with two 3 mm bores at
+(+/-20,-12) mm and two 5 mm bores at (+/-20,+12) mm, plus a centered raised
+12 x 10 x 15 mm block. These are measured bore sizes, not nominal screw sizes.
+It demonstrates different hole sizes on the same mounting face.
+
+The user's actual motor STEP is stored privately outside this sample directory.
+Permission to redistribute it remains required for a bundled manufacturer-part demo.
+
+`hole_free_housing.step` is an original 46 x 28 x 18 mm rectangular specimen with
+an 18 x 12 x 4 mm top recess and no circular holes. It demonstrates selecting an
+outer support face and generating a locating tray or external-strap mounting tray.
+These dimensions are synthetic test inputs, not manufacturer data.

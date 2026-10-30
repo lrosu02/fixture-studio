@@ -1,0 +1,24 @@
+95 passed in 92.81s
+Ruff F checks passed.
+Native perpendicular-bore / triangular-sweep proof passed.
+Live subscription L-bracket planning, CAD, visual feedback and export reproduction passed.
+Legacy rails export reproduced unchanged.
+Native convex sweep / separated cylinder and polygon clearance tests passed.
+Legacy L-bracket and enhanced version-2 exports reproduced.
+Final viewer legend and native clearance/export regression: 1 passed in 7.17s.
+Actual motor generated through app; 1 body, 4 mounting bores, 2 base bores, 2 rear reliefs.
+Motor export reproduced at 35026.207949 mm3; live AI review requested missing propeller/cable dimensions.
+CAD save regressions cover header-only output, native export exceptions, invalid round trips, last-valid recovery and actual Windows rename locks.
+Failed motor input retried unchanged through the app: 3.2 mm holes, 1 connected body, 35063.606055 mm3; export reproduction passed.
+ISO 273 defaults, mixed-size native bores, overrides/locks and per-feature provenance passed.
+All four fixture families reopened as verified STEP solids, including rails and rear clearance prisms.
+Streamlit generation/revision test prepares STEP and exposes the download button.
+Current motor STEP: 1 solid, 69 faces, adaptive volume 35063.519627042 mm3; native reference 35063.519624853 mm3.
+Selected measured rear profiles can be through passages; independent native/STEP intersection checks pass and reject blind pockets.
+Thickness/quantity changes preserve passage intent; other reliefs retain their measured depth.
+Crease-aware preview tests preserve every triangle coordinate while separating wall/bore normals and keeping curved smoothing.
+Open/ribbed and raised proposals compile to distinct checked native geometry and honor locks.
+Per-hole metric/inch screw choices and readable compact UI passed; #4 normal clearance is 3.2639 mm from the pinned supplier chart.
+Live rear-profile highlight validation fix: 23 targeted tests passed in 31.98s; final passage/render/picking checks: 16 passed in 19.01s.
+Live AI revised motor bracket to cb916fffb510; only lower rear cut depth changed, all 3.2 mm bores and other geometry preserved.
+Reopened STEP passage obstruction 0 mm3; 1 solid, 68 faces, adaptive STEP volume 34730.904925182 mm3; reproduction passed.

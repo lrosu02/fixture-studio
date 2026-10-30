@@ -1,0 +1,191 @@
+{
+  "mode": "Offline deterministic demonstration, no live model call",
+  "source": "synthetic_motor.step",
+  "first": {
+    "volume_mm3": 109014.51579238576,
+    "body_count": 1.0,
+    "hole_count": 24.0
+  },
+  "revision": {
+    "volume_mm3": 38358.6151101275,
+    "body_count": 4.0,
+    "hole_count": 24.0
+  },
+  "checks": [
+    {
+      "name": "Source interpretation",
+      "features": [],
+      "method": "STEP unit declaration + OCCT normalization; explicit body and stationary-interface confirmation",
+      "units": "mm",
+      "tolerance": 0.01,
+      "measured": "('millimetre',); bodies (0,)",
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Mounting count",
+      "features": [],
+      "method": "All selected measured holes copied for every source instance",
+      "units": "holes",
+      "tolerance": 0.01,
+      "measured": 24.0,
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Interface alignment",
+      "features": [
+        "f4-h0",
+        "f4-h1",
+        "f4-h2",
+        "f4-h3"
+      ],
+      "method": "SMLib closest-point samples at 3 bore depths and 12 angles; measured source-to-instance transform",
+      "units": "mm",
+      "tolerance": 0.01,
+      "measured": 2.010208941128915e-14,
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Bore clearance",
+      "features": [],
+      "method": "SMLib distance from axis to nearest native surface at three depths",
+      "units": "mm",
+      "tolerance": 0.01,
+      "measured": 0.0,
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Contact footprint",
+      "features": [],
+      "method": "Source trimmed-face annulus samples and SMLib support ring samples (not full containment proof)",
+      "units": "mm",
+      "tolerance": 0.01,
+      "measured": 1.4210854715202004e-14,
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Kernel validity: stock-0",
+      "features": [],
+      "method": "SMLib manifold + material census + positive volume",
+      "units": "mm\u00b3",
+      "tolerance": 0.01,
+      "measured": 9589.653777531876,
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Kernel validity: stock-1",
+      "features": [],
+      "method": "SMLib manifold + material census + positive volume",
+      "units": "mm\u00b3",
+      "tolerance": 0.01,
+      "measured": 9589.653777531876,
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Kernel validity: stock-2",
+      "features": [],
+      "method": "SMLib manifold + material census + positive volume",
+      "units": "mm\u00b3",
+      "tolerance": 0.01,
+      "measured": 9589.653777531876,
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Kernel validity: stock-3",
+      "features": [],
+      "method": "SMLib manifold + material census + positive volume",
+      "units": "mm\u00b3",
+      "tolerance": 0.01,
+      "measured": 9589.653777531876,
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Dimensional constraints",
+      "features": [],
+      "method": "Compiled stock extent, explicit thickness, gap and maximum width",
+      "units": "mm",
+      "tolerance": 0.01,
+      "measured": 184.0,
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Hole edge distance",
+      "features": [],
+      "method": "Distance from bore wall to rectangular stock sides before access cuts",
+      "units": "mm",
+      "tolerance": 0.01,
+      "measured": 2.75,
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Repeated source envelopes",
+      "features": [],
+      "method": "Non-overlap of conservative local source bounding boxes",
+      "units": "overlaps",
+      "tolerance": 0.01,
+      "measured": 0.0,
+      "result": "passed",
+      "correction": ""
+    },
+    {
+      "name": "Finite access clearance",
+      "features": [],
+      "method": "No finite user-defined access volume supplied",
+      "units": "mm",
+      "tolerance": 0.01,
+      "measured": "Access text only",
+      "result": "not_evaluated",
+      "correction": ""
+    },
+    {
+      "name": "Surrounding attachment",
+      "features": [],
+      "method": "Clamp lands or drilled bench holes generated; surrounding equipment not imported",
+      "units": "relationship",
+      "tolerance": 0.01,
+      "measured": "clamp",
+      "result": "inconclusive",
+      "correction": ""
+    },
+    {
+      "name": "Exact source collision",
+      "features": [],
+      "method": "OCCT source and SMLib fixture remain separate BRep domains",
+      "units": "mm",
+      "tolerance": 0.01,
+      "measured": "Only interfaces and analytic envelopes evaluated",
+      "result": "not_evaluated",
+      "correction": ""
+    },
+    {
+      "name": "Operating performance",
+      "features": [],
+      "method": "No structural, thermal, fatigue, vibration or speed solver",
+      "units": "engineering",
+      "tolerance": 0.01,
+      "measured": "unknown; no physical performance claim",
+      "result": "not_evaluated",
+      "correction": ""
+    },
+    {
+      "name": "Export integrity",
+      "features": [],
+      "method": "Reopened SMLib USD BReps: manifold topology, body count, bounds \u00b10.01 mm and volume \u00b10.1%",
+      "units": "bodies",
+      "tolerance": 0.01,
+      "measured": 4.0,
+      "result": "passed",
+      "correction": ""
+    }
+  ]
+}

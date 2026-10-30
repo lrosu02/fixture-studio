@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.step -text
+*.stp -text
+*.zip binary
+*.jpg binary
+*.png binary

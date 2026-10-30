@@ -1,0 +1,819 @@
+{
+  "mode": "Real ChatGPT subscription planning and image-backed review; no Platform API key",
+  "project_id": "fa23d31b870142f88c0a85d36b029a90",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Design an inspection fixture for two copies of this synthetic sensor bracket. I confirm interface-4 is the stationary mounting face and all its three measured holes are fastener holes. Use a l_bracket, two parts in a row, 4.5 mm fixture clearance holes, and clamp it to a bench. The manufacturing method is 3D printing. Motion and loads are unknown; this is a geometric concept. Rear tool access is desired but finite access dimensions are unknown. Nominal threads and engagement are unknown. I accept the visible 6 mm thickness, 8 mm margin and 12 mm gap defaults. Prepare the proposal for review. Set mount_height to 70 mm and base_depth to 40 mm. For an L-bracket include triangular side ribs. These are explicit synthetic demo choices, not inferred load sizing."
+    },
+    {
+      "role": "user",
+      "content": "Start design using my brief, saved conversation, selected mounting holes and manufacturing method. Ask only the next relevant questions, or present a supported proposal for my review. Do not generate CAD yet."
+    },
+    {
+      "role": "assistant",
+      "content": "Proposal for review: two parts in a row on a connected L-bracket with triangular side ribs and bench clamp lands. Interface origin height is 70 mm above the base top; the foot extends 40 mm rearward. Uses your confirmed mounting holes, 4.5 mm fixture clearance holes, accepted defaults and 3D printing preference. Rear access remains a preference without a dimensioned opening. No CAD generated or thermal, structural or vibration validation performed."
+    },
+    {
+      "role": "user",
+      "content": "I choose the proposed l_bracket. Generate it and request AI feedback."
+    },
+    {
+      "role": "assistant",
+      "content": "2 source instances on 1 fixture bodies; 6 measured mounting holes. Concept geometry generated. Would you like to change the layout, spacing, mounting approach, access, or appearance?"
+    },
+    {
+      "role": "assistant",
+      "content": "AI review: Accepted as a geometric concept; no supported geometric correction identified.\n\nThe connected, ribbed L-bracket matches the confirmed mounting interface, two-part row, 70 mm mount height, 40 mm base depth, 6 mm thickness, 8 mm margin and 12 mm gap.\n\nAll six 4.5 mm fixture holes passed alignment and bore checks. Contact sampling, source-envelope separation, kernel validity and export integrity passed; exported geometry contains one body.\n\nThe concept is consistent with the requested 3D printing method; full manufacturability is not validated.\n\nFinite rear tool access, exact source collision and operating performance remain not_evaluated. Bench clamp compatibility remains inconclusive without surrounding equipment geometry.\n\nWould you like to request a supported change, such as a dimensioned rear access opening?"
+    },
+    {
+      "role": "assistant",
+      "content": "What would you like to change: layout, spacing, mounting approach, access, or appearance?"
+    }
+  ],
+  "feedback": [
+    {
+      "run_id": "ed1100a0e29d45e08dc281a64ec8fa0f",
+      "attempt": 1,
+      "provider": "ChatGPT subscription (Codex CLI)",
+      "build": {
+        "requirements": {
+          "purpose": "Inspection fixture for two copies of the synthetic sensor bracket; geometric concept.",
+          "quantity": 2,
+          "layout": "row",
+          "columns": 3,
+          "gap": 12.0,
+          "thickness": 6.0,
+          "margin": 8.0,
+          "max_width": null,
+          "composition": "l_bracket",
+          "mount_height": 70.0,
+          "base_depth": 40.0,
+          "reinforce": true,
+          "interface_id": "interface-4",
+          "mounting_hole_ids": [
+            "f4-h0",
+            "f4-h1",
+            "f4-h2"
+          ],
+          "mounting_confirmed": true,
+          "clearance_diameter": 4.5,
+          "nominal_fastener": "unknown",
+          "engagement": "unknown",
+          "surroundings": "clamp",
+          "bench_hole_diameter": null,
+          "fabrication": "3D printing",
+          "material": null,
+          "print_settings": {
+            "printer": null,
+            "material_grade": null,
+            "nozzle_diameter_mm": null,
+            "layer_height_mm": null,
+            "wall_count": null,
+            "infill_percent": null,
+            "orientation": null,
+            "supports": null,
+            "notes": null
+          },
+          "motion_loads": "unknown; geometric concept",
+          "access": "Rear tool access desired; finite access dimensions unknown.",
+          "appearance": null,
+          "envelopes": [],
+          "locks": [],
+          "unknowns": [
+            "Motion and loads",
+            "Nominal threads and engagement",
+            "Finite rear tool access dimensions"
+          ],
+          "assumptions": [
+            "Stock thickness, margin and gap are concept defaults until edited."
+          ],
+          "assumptions_accepted": true,
+          "provenance": {
+            "purpose": "user",
+            "quantity": "user",
+            "layout": "user",
+            "gap": "user",
+            "thickness": "user",
+            "margin": "user",
+            "composition": "user",
+            "mount_height": "user",
+            "base_depth": "user",
+            "reinforce": "user",
+            "interface_id": "user",
+            "mounting_hole_ids": "user",
+            "mounting_confirmed": "user",
+            "clearance_diameter": "user",
+            "nominal_fastener": "user",
+            "engagement": "user",
+            "surroundings": "user",
+            "fabrication": "user",
+            "motion_loads": "user",
+            "access": "user",
+            "unknowns": "user",
+            "assumptions_accepted": "user"
+          }
+        },
+        "plan": {
+          "version": 1,
+          "source_hash": "4694aac88fed0382566aff6a85246b168a3e1af52d82e527a0b42f25a93ece45",
+          "interface_id": "interface-4",
+          "composition": "l_bracket",
+          "placements": [
+            [
+              -37.0,
+              0.0,
+              0.0
+            ],
+            [
+              37.0,
+              0.0,
+              0.0
+            ]
+          ],
+          "operations": [
+            {
+              "id": "place",
+              "kind": "place",
+              "depends_on": [],
+              "frame": "interface",
+              "body": null,
+              "target": null,
+              "other": null,
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                0,
+                0,
+                0
+              ],
+              "size": [
+                1,
+                1,
+                1
+              ],
+              "interface_id": "interface-4",
+              "instance_ids": [
+                0,
+                1
+              ],
+              "hole_ids": [],
+              "diameter": null,
+              "mode": "union",
+              "purpose": "Measured interface placement",
+              "provenance": {
+                "positions": "derived",
+                "quantity": "user"
+              }
+            },
+            {
+              "id": "mounting-platform",
+              "kind": "stock",
+              "depends_on": [
+                "place"
+              ],
+              "frame": "interface",
+              "body": "mounting-platform",
+              "target": null,
+              "other": null,
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                -76.66666666666667,
+                -71.5,
+                -6.0
+              ],
+              "size": [
+                152.0,
+                104.16666666666667,
+                6.0
+              ],
+              "interface_id": null,
+              "instance_ids": [],
+              "hole_ids": [],
+              "diameter": null,
+              "mode": "union",
+              "purpose": "Measured mounting wall",
+              "provenance": {
+                "extent": "derived",
+                "thickness": "user"
+              }
+            },
+            {
+              "id": "base-foot",
+              "kind": "support",
+              "depends_on": [
+                "mounting-platform"
+              ],
+              "frame": "interface",
+              "body": "base-foot",
+              "target": "mounting-platform",
+              "other": null,
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                -76.66666666666667,
+                -76.0,
+                -40.0
+              ],
+              "size": [
+                152.0,
+                6.0,
+                40.0
+              ],
+              "interface_id": null,
+              "instance_ids": [],
+              "hole_ids": [],
+              "diameter": null,
+              "mode": "union",
+              "purpose": "base-foot",
+              "provenance": {
+                "position": "derived",
+                "size": "derived"
+              }
+            },
+            {
+              "id": "join-base-foot",
+              "kind": "combine",
+              "depends_on": [
+                "base-foot"
+              ],
+              "frame": "interface",
+              "body": null,
+              "target": "mounting-platform",
+              "other": "base-foot",
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                0,
+                0,
+                0
+              ],
+              "size": [
+                1,
+                1,
+                1
+              ],
+              "interface_id": null,
+              "instance_ids": [],
+              "hole_ids": [],
+              "diameter": null,
+              "mode": "union",
+              "purpose": "Connected structural union",
+              "provenance": {
+                "relationship": "derived"
+              }
+            },
+            {
+              "id": "corner-rib-0",
+              "kind": "support",
+              "depends_on": [
+                "join-base-foot"
+              ],
+              "frame": "interface",
+              "body": "corner-rib-0",
+              "target": "mounting-platform",
+              "other": null,
+              "shape": "wedge",
+              "axis": "z",
+              "origin": [
+                -76.66666666666667,
+                -71.5,
+                -40.0
+              ],
+              "size": [
+                6.0,
+                71.86666666666666,
+                37.0
+              ],
+              "interface_id": null,
+              "instance_ids": [],
+              "hole_ids": [],
+              "diameter": null,
+              "mode": "union",
+              "purpose": "corner-rib-0",
+              "provenance": {
+                "position": "derived",
+                "size": "derived"
+              }
+            },
+            {
+              "id": "join-corner-rib-0",
+              "kind": "combine",
+              "depends_on": [
+                "corner-rib-0"
+              ],
+              "frame": "interface",
+              "body": null,
+              "target": "mounting-platform",
+              "other": "corner-rib-0",
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                0,
+                0,
+                0
+              ],
+              "size": [
+                1,
+                1,
+                1
+              ],
+              "interface_id": null,
+              "instance_ids": [],
+              "hole_ids": [],
+              "diameter": null,
+              "mode": "union",
+              "purpose": "Connected structural union",
+              "provenance": {
+                "relationship": "derived"
+              }
+            },
+            {
+              "id": "corner-rib-1",
+              "kind": "support",
+              "depends_on": [
+                "join-corner-rib-0"
+              ],
+              "frame": "interface",
+              "body": "corner-rib-1",
+              "target": "mounting-platform",
+              "other": null,
+              "shape": "wedge",
+              "axis": "z",
+              "origin": [
+                69.33333333333333,
+                -71.5,
+                -40.0
+              ],
+              "size": [
+                6.0,
+                71.86666666666666,
+                37.0
+              ],
+              "interface_id": null,
+              "instance_ids": [],
+              "hole_ids": [],
+              "diameter": null,
+              "mode": "union",
+              "purpose": "corner-rib-1",
+              "provenance": {
+                "position": "derived",
+                "size": "derived"
+              }
+            },
+            {
+              "id": "join-corner-rib-1",
+              "kind": "combine",
+              "depends_on": [
+                "corner-rib-1"
+              ],
+              "frame": "interface",
+              "body": null,
+              "target": "mounting-platform",
+              "other": "corner-rib-1",
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                0,
+                0,
+                0
+              ],
+              "size": [
+                1,
+                1,
+                1
+              ],
+              "interface_id": null,
+              "instance_ids": [],
+              "hole_ids": [],
+              "diameter": null,
+              "mode": "union",
+              "purpose": "Connected structural union",
+              "provenance": {
+                "relationship": "derived"
+              }
+            },
+            {
+              "id": "mount-0-f4-h0",
+              "kind": "mount",
+              "depends_on": [
+                "join-corner-rib-1"
+              ],
+              "frame": "interface",
+              "body": null,
+              "target": "mounting-platform",
+              "other": null,
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                0.0,
+                0.0,
+                -7.0
+              ],
+              "size": [
+                1.0,
+                1.0,
+                8.0
+              ],
+              "interface_id": "interface-4",
+              "instance_ids": [
+                0
+              ],
+              "hole_ids": [
+                "f4-h0"
+              ],
+              "diameter": 4.5,
+              "mode": "union",
+              "purpose": "Measured part fastener clearance",
+              "provenance": {
+                "pattern": "measured",
+                "diameter": "user"
+              }
+            },
+            {
+              "id": "mount-0-f4-h1",
+              "kind": "mount",
+              "depends_on": [
+                "mount-0-f4-h0"
+              ],
+              "frame": "interface",
+              "body": null,
+              "target": "mounting-platform",
+              "other": null,
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                0.0,
+                0.0,
+                -7.0
+              ],
+              "size": [
+                1.0,
+                1.0,
+                8.0
+              ],
+              "interface_id": "interface-4",
+              "instance_ids": [
+                0
+              ],
+              "hole_ids": [
+                "f4-h1"
+              ],
+              "diameter": 4.5,
+              "mode": "union",
+              "purpose": "Measured part fastener clearance",
+              "provenance": {
+                "pattern": "measured",
+                "diameter": "user"
+              }
+            },
+            {
+              "id": "mount-0-f4-h2",
+              "kind": "mount",
+              "depends_on": [
+                "mount-0-f4-h1"
+              ],
+              "frame": "interface",
+              "body": null,
+              "target": "mounting-platform",
+              "other": null,
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                0.0,
+                0.0,
+                -7.0
+              ],
+              "size": [
+                1.0,
+                1.0,
+                8.0
+              ],
+              "interface_id": "interface-4",
+              "instance_ids": [
+                0
+              ],
+              "hole_ids": [
+                "f4-h2"
+              ],
+              "diameter": 4.5,
+              "mode": "union",
+              "purpose": "Measured part fastener clearance",
+              "provenance": {
+                "pattern": "measured",
+                "diameter": "user"
+              }
+            },
+            {
+              "id": "mount-1-f4-h0",
+              "kind": "mount",
+              "depends_on": [
+                "mount-0-f4-h2"
+              ],
+              "frame": "interface",
+              "body": null,
+              "target": "mounting-platform",
+              "other": null,
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                0.0,
+                0.0,
+                -7.0
+              ],
+              "size": [
+                1.0,
+                1.0,
+                8.0
+              ],
+              "interface_id": "interface-4",
+              "instance_ids": [
+                1
+              ],
+              "hole_ids": [
+                "f4-h0"
+              ],
+              "diameter": 4.5,
+              "mode": "union",
+              "purpose": "Measured part fastener clearance",
+              "provenance": {
+                "pattern": "measured",
+                "diameter": "user"
+              }
+            },
+            {
+              "id": "mount-1-f4-h1",
+              "kind": "mount",
+              "depends_on": [
+                "mount-1-f4-h0"
+              ],
+              "frame": "interface",
+              "body": null,
+              "target": "mounting-platform",
+              "other": null,
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                0.0,
+                0.0,
+                -7.0
+              ],
+              "size": [
+                1.0,
+                1.0,
+                8.0
+              ],
+              "interface_id": "interface-4",
+              "instance_ids": [
+                1
+              ],
+              "hole_ids": [
+                "f4-h1"
+              ],
+              "diameter": 4.5,
+              "mode": "union",
+              "purpose": "Measured part fastener clearance",
+              "provenance": {
+                "pattern": "measured",
+                "diameter": "user"
+              }
+            },
+            {
+              "id": "mount-1-f4-h2",
+              "kind": "mount",
+              "depends_on": [
+                "mount-1-f4-h1"
+              ],
+              "frame": "interface",
+              "body": null,
+              "target": "mounting-platform",
+              "other": null,
+              "shape": "box",
+              "axis": "z",
+              "origin": [
+                0.0,
+                0.0,
+                -7.0
+              ],
+              "size": [
+                1.0,
+                1.0,
+                8.0
+              ],
+              "interface_id": "interface-4",
+              "instance_ids": [
+                1
+              ],
+              "hole_ids": [
+                "f4-h2"
+              ],
+              "diameter": 4.5,
+              "mode": "union",
+              "purpose": "Measured part fastener clearance",
+              "provenance": {
+                "pattern": "measured",
+                "diameter": "user"
+              }
+            }
+          ],
+          "parameters": {
+            "width_mm": 152.0,
+            "depth_mm": 58.0,
+            "thickness_mm": 6.0,
+            "gap_mm": 12.0,
+            "clearance_diameter_mm": 4.5,
+            "quantity": 2.0,
+            "mount_height_mm": 70.0,
+            "base_depth_mm": 40.0,
+            "up_axis": "Y",
+            "rear_relief": "none"
+          }
+        },
+        "checks": [
+          {
+            "name": "Source interpretation",
+            "features": [],
+            "method": "STEP unit declaration + OCCT normalization; explicit body and stationary-interface confirmation",
+            "units": "mm",
+            "tolerance": 0.01,
+            "measured": "('millimetre',); bodies (0,)",
+            "result": "passed",
+            "correction": ""
+          },
+          {
+            "name": "Mounting count",
+            "features": [],
+            "method": "All selected measured holes copied for every source instance",
+            "units": "holes",
+            "tolerance": 0.01,
+            "measured": 6.0,
+            "result": "passed",
+            "correction": ""
+          },
+          {
+            "name": "Interface alignment",
+            "features": [
+              "f4-h0",
+              "f4-h1",
+              "f4-h2"
+            ],
+            "method": "SMLib closest-point samples at 3 bore depths and 12 angles; measured source-to-instance transform",
+            "units": "mm",
+            "tolerance": 0.01,
+            "measured": 1.5183695187629416e-14,
+            "result": "passed",
+            "correction": ""
+          },
+          {
+            "name": "Bore clearance",
+            "features": [],
+            "method": "SMLib distance from axis to nearest native surface at three depths",
+            "units": "mm",
+            "tolerance": 0.01,
+            "measured": 0.0,
+            "result": "passed",
+            "correction": ""
+          },
+          {
+            "name": "Contact footprint",
+            "features": [],
+            "method": "Source trimmed-face annulus samples and SMLib support ring samples (not full containment proof)",
+            "units": "mm",
+            "tolerance": 0.01,
+            "measured": 1.432144669219779e-14,
+            "result": "passed",
+            "correction": ""
+          },
+          {
+            "name": "Kernel validity: mounting-platform",
+            "features": [],
+            "method": "SMLib manifold + material census + positive volume",
+            "units": "mm\u00b3",
+            "tolerance": 0.01,
+            "measured": 142406.5914580145,
+            "result": "passed",
+            "correction": ""
+          },
+          {
+            "name": "Dimensional constraints",
+            "features": [],
+            "method": "Compiled stock extent, explicit thickness, gap and maximum width",
+            "units": "mm",
+            "tolerance": 0.01,
+            "measured": 152.0,
+            "result": "passed",
+            "correction": ""
+          },
+          {
+            "name": "Hole edge distance",
+            "features": [],
+            "method": "Distance from bore wall to rectangular stock sides before access cuts",
+            "units": "mm",
+            "tolerance": 0.01,
+            "measured": 13.750000000000004,
+            "result": "passed",
+            "correction": ""
+          },
+          {
+            "name": "Repeated source envelopes",
+            "features": [],
+            "method": "Non-overlap of conservative local source bounding boxes",
+            "units": "overlaps",
+            "tolerance": 0.01,
+            "measured": 0.0,
+            "result": "passed",
+            "correction": ""
+          },
+          {
+            "name": "Finite access clearance",
+            "features": [],
+            "method": "No finite user-defined access volume supplied",
+            "units": "mm",
+            "tolerance": 0.01,
+            "measured": "Access text only",
+            "result": "not_evaluated",
+            "correction": ""
+          },
+          {
+            "name": "Base fastener geometry",
+            "features": [],
+            "method": "Native bore wall/axis samples at three base depths; all base attachments present",
+            "units": "mm",
+            "tolerance": 0.01,
+            "measured": 0.0,
+            "result": "passed",
+            "correction": ""
+          },
+          {
+            "name": "Surrounding attachment",
+            "features": [],
+            "method": "Clamp lands or drilled bench holes generated; surrounding equipment not imported",
+            "units": "relationship",
+            "tolerance": 0.01,
+            "measured": "clamp",
+            "result": "inconclusive",
+            "correction": ""
+          },
+          {
+            "name": "Exact source collision",
+            "features": [],
+            "method": "OCCT source and SMLib fixture remain separate BRep domains",
+            "units": "mm",
+            "tolerance": 0.01,
+            "measured": "Only interfaces and analytic envelopes evaluated",
+            "result": "not_evaluated",
+            "correction": ""
+          },
+          {
+            "name": "Operating performance",
+            "features": [],
+            "method": "No structural, thermal, fatigue, vibration or speed solver",
+            "units": "engineering",
+            "tolerance": 0.01,
+            "measured": "unknown; geometric concept",
+            "result": "not_evaluated",
+            "correction": ""
+          },
+          {
+            "name": "Export integrity",
+            "features": [],
+            "method": "Reopened SMLib USD BReps: manifold topology, body count, bounds \u00b10.01 mm and volume \u00b10.1%",
+            "units": "bodies",
+            "tolerance": 0.01,
+            "measured": 1.0,
+            "result": "passed",
+            "correction": ""
+          }
+        ],
+        "metrics": {
+          "volume_mm3": 142406.5914580145,
+          "body_count": 1.0,
+          "hole_count": 6.0
+        },
+        "revision_id": "9a486298321a",
+        "error": null
+      },
+      "review": {
+        "verdict": "accept",
+        "summary": "Accepted as a geometric concept; no supported geometric correction identified.",
+        "findings": [
+          "The connected, ribbed L-bracket matches the confirmed mounting interface, two-part row, 70 mm mount height, 40 mm base depth, 6 mm thickness, 8 mm margin and 12 mm gap.",
+          "All six 4.5 mm fixture holes passed alignment and bore checks. Contact sampling, source-envelope separation, kernel validity and export integrity passed; exported geometry contains one body.",
+          "The concept is consistent with the requested 3D printing method; full manufacturability is not validated.",
+          "Finite rear tool access, exact source collision and operating performance remain not_evaluated. Bench clamp compatibility remains inconclusive without surrounding equipment geometry."
+        ],
+        "changes": {
+          "gap": null,
+          "thickness": null,
+          "margin": null
+        },
+        "questions": [
+          "Would you like to request a supported change, such as a dimensioned rear access opening?"
+        ]
+      },
+      "outcome": "accepted",
+      "note": ""
+    }
+  ]
+}
