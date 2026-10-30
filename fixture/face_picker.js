@@ -72,7 +72,7 @@ export default function({parentElement, data, setTriggerValue}) {
     }
     const draft = drafts.get(data.context);
     let disposed=false, ready=false, pressed=null, dragged=false;
-    const hint='Click a flat mounting surface. Orange arrow shows the fixture side. Drag to rotate.';
+    const hint=data.hint || 'Click a flat mounting surface. Orange arrow shows the fixture side. Drag to rotate.';
     function style(trace) {
         if (trace.meta?.pick_kind === 'face') trace.color = trace.meta.interface_id === draft.id ? '#ffb454' : '#74a9bc';
         if (trace.meta?.direction_for) trace.visible = trace.meta.direction_for === draft.id;
@@ -96,7 +96,7 @@ export default function({parentElement, data, setTriggerValue}) {
         });
         window.Plotly.restyle(plot,{color:colors},ids);
         window.Plotly.restyle(plot,{visible:visibility},directions);
-        status.textContent='Mounting face selected. Review its holes below, then apply. Drag to rotate.';
+        status.textContent=data.selected_hint || 'Mounting face selected. Review its holes below, then apply. Drag to rotate.';
         flush();
     }
     function hitAt(x,y) {

@@ -14,6 +14,7 @@ from .contracts import (
     Composition,
     HoleFastenerChoice,
     PartAttachment,
+    AccessSelection,
 )
 from .review import CAPABILITIES, REVIEW_SYSTEM
 from .planning import patch_requirements, missing_questions
@@ -58,6 +59,7 @@ class Changes(Record):
     access: str | None = None
     appearance: str | None = None
     envelopes: tuple[Envelope, ...] | None = None
+    access_selections: tuple[AccessSelection, ...] | None = None
     unknowns: tuple[str, ...] | None = None
     assumptions_accepted: bool | None = None
 
@@ -103,6 +105,11 @@ retention. Reject/surface inverted or moving use requiring a hold-down rather th
 it is secured. The base may still have screw holes: ask bench_fastener if no size is supplied
 and no part mounting fastener exists. Never infer a base screw size from a hole-free part.
 Respect the selected contact surface and its fixture-side direction.
+Users can select openings and keep-clear faces in the 3D access picker. Preserve
+access_selections. Use only access_options feature IDs, intent=through or keep_clear,
+padding in mm and finite reach in mm. Through depth is derived from all fixture stock
+on every build; it is not a blind pocket. Side-face keep-clear uses a conservative
+outward box. The controller rejects cuts that remove required mounting contacts.
 Respect that explicit face selection. Do not ask the user to type its coordinates.
 If rear_clearance_error is present, report that measurement error, not 'no profile'.
 An l_bracket has a perpendicular base foot and optional triangular side ribs (reinforce).
@@ -216,8 +223,14 @@ def planner_context(analysis, requirements, current=None):
     except ValueError as error:
         rear_profiles = []
         rear_error = str(error)
+    from .access import options as access_options
+    try:
+        access_choices = [dict(feature_id=k, label=v['label'], kind=v['kind']) for k,v in access_options(analysis, requirements).items()]
+    except ValueError:
+        access_choices = []
     return {
         "capabilities": CAPABILITIES,
+        "access_options": access_choices,
         "requirements": requirements.model_dump(exclude={"material", "print_settings"}),
         "interfaces": [
             i.model_dump(exclude={"boundary", "exclusions", "face_mesh"})

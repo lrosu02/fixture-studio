@@ -421,4 +421,7 @@ def validate(a, r, plan, bodies, cuts):
         len(bodies),
         units="bodies",
     )
+    if plan.version >= 9:
+        from .access import validate_access
+        validate_access(a, r, plan, bodies, add)
     return tuple(checks)

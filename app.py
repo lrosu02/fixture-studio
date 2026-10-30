@@ -21,6 +21,7 @@ from fixture.controls import (
 )
 from fixture.hole_picker import hole_picker_controls
 from fixture.face_picker import face_picker_controls
+from fixture.access_controls import access_controls
 from fixture.subscription import subscription_turn, subscription_review, executable
 from fixture.manufacturing import manufacturing_guidance
 from fixture.workflow import plan_design, generate_with_feedback
@@ -50,6 +51,7 @@ def load_part(data, name):
     st.session_state.source_data = data
     st.session_state.source_name = name
     st.session_state.face_mode = False
+    st.session_state.access_mode = False
 
 
 def build(project, requirements=None, change="Generate reviewed proposal"):
@@ -214,14 +216,21 @@ with left:
         st.session_state.face_mode = False
     face_button, hole_button = st.columns(2)
     if face_button.button("Select mounting face", width="stretch"):
+        st.session_state.access_mode = False
         st.session_state.face_mode = True
         st.session_state.pick_mode = False
     if hole_button.button("Select mounting holes", width="stretch"):
+        st.session_state.access_mode = False
         st.session_state.pick_mode = True
         st.session_state.face_mode = False
     face_mode = st.session_state.get("face_mode", False)
     pick_mode = st.session_state.get("pick_mode", False)
-    selecting = pick_mode or face_mode
+    if st.button('Select openings / keep-clear areas', width='stretch'):
+        st.session_state.access_mode = True
+        st.session_state.face_mode = st.session_state.pick_mode = False
+        st.rerun()
+    access_mode = st.session_state.get('access_mode',False)
+    selecting = pick_mode or face_mode or access_mode
     with st.expander("View options", expanded=False):
         toggles = st.columns(5)
         source = toggles[0].checkbox("Source", True, disabled=selecting)
@@ -239,7 +248,9 @@ with left:
         if compare
         else None
     )
-    if face_mode:
+    if access_mode:
+        access_controls(p)
+    elif face_mode:
         face_picker_controls(p)
     elif pick_mode:
         hole_picker_controls(p)

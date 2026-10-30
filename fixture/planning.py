@@ -26,6 +26,7 @@ def patch_requirements(current, changes, origin="user"):
     if changes.get("interface_id", current.interface_id) != current.interface_id:
         changes.setdefault("rear_passages", ())
         changes.setdefault("hole_fasteners", ())
+        changes.setdefault("access_selections", ())
     elif "mounting_hole_ids" in changes and "hole_fasteners" not in changes:
         selected = set(changes["mounting_hole_ids"])
         changes["hole_fasteners"] = tuple(
@@ -236,7 +237,20 @@ def proposal_requirements(requirements, proposal):
     return patch_requirements(requirements, changes)
 
 
-def compile_plan(a, r, require_ready=True, compiler_version=8):
+def compile_plan(a, r, require_ready=True, compiler_version=9):
+    if compiler_version < 9:
+        if r.access_selections:
+            raise ValueError('Selected access needs compiler version 9.')
+        return _compile_plan(a, r, require_ready, compiler_version)
+    if compiler_version != 9:
+        raise ValueError('Unsupported compiler version.')
+    from .access import add_access
+    plan = _compile_plan(a, r, require_ready, 8)
+    plan = plan.model_copy(update={'version':9})
+    return add_access(a, r, plan)
+
+
+def _compile_plan(a, r, require_ready=True, compiler_version=8):
     if compiler_version not in (1, 2, 3, 4, 5, 6, 7, 8):
         raise ValueError("Unsupported compiler version.")
     if r.bench_hole_count is not None and r.bench_hole_count > MAX_OPS:

@@ -117,6 +117,13 @@ class HoleFastenerChoice(Record):
     clearance_diameter: Positive | None = None
 
 
+class AccessSelection(Record):
+    feature_id: str
+    intent: Literal["through", "keep_clear"] = "through"
+    padding: Annotated[float, Field(ge=0.3, le=20)] = 0.5
+    reach: Annotated[float, Field(gt=0, le=500)] = 10
+
+
 class Requirements(Record):
     purpose: str | None = None
     quantity: Annotated[int, Field(ge=1, le=24)] | None = None
@@ -158,6 +165,7 @@ class Requirements(Record):
     access: str | None = None
     appearance: str | None = None
     envelopes: tuple[Envelope, ...] = ()
+    access_selections: Annotated[tuple[AccessSelection, ...], Field(max_length=32)] = ()
     locks: tuple[str, ...] = ()
     unknowns: tuple[str, ...] = ()
     assumptions: tuple[str, ...] = (
@@ -250,7 +258,7 @@ class FastenerClearance(Record):
 
 
 class Plan(Record):
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9] = 1
     source_hash: str
     interface_id: str
     composition: Composition

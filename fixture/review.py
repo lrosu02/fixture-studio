@@ -9,6 +9,7 @@ from .intake import get_interface, local_points
 from .structures import STRUCTURES
 
 CAPABILITIES = {
+    "selected_access": "Measured face/hole/rear profile IDs can become through openings or finite outward keep-clear boxes. Full-depth geometry is rederived on revisions; native independent obstruction checks and existing contact checks must pass.",
     "purpose": "Reusable fixture design across part types; no part-specific templates or mounting decisions.",
     "supported_input": "Planar attachment/support faces, with or without circular holes, with user-confirmed contact meaning.",
     "hole_free_retention": "part_attachment=cradle or strap with composition=plate. Measured outer support plane, rectangular walls around the whole part bounding envelope; not a conformal nest. Cradle has no hold-down. Strap mode requires user-supplied strap width/thickness, adds two through slots with 1 mm fit allowance and needs external hardware plus underside threading access. Retention strength is not evaluated. Base screw size must be supplied when no part fastener is known.",
