@@ -135,7 +135,9 @@ def missing_questions(a, r, automatic_clearance=True):
             "Will anything move or rotate, what is attached, and what space must remain clear? Unknown is accepted for a concept."
         )
     if r.surroundings == "unknown":
-        questions.append("Will the fixture be clamped or bolted to its surroundings?")
+        questions.append(
+            "Will the fixture be clamped, bolted, or left free floating with no external attachment?"
+        )
     if (
         not automatic_clearance
         and r.surroundings == "bolt"
@@ -206,7 +208,9 @@ def proposals(a, r):
                     }.get(r.part_attachment)
                     or STRUCTURES[composition][1]
                 ),
-                surroundings="Extended end lands for clamps."
+                surroundings="No attachment to surroundings; part mounting remains as selected."
+                if r.surroundings == "none"
+                else "Extended end lands for clamps."
                 if r.surroundings != "bolt"
                 else "Clearance holes in the base attachment lands; the mating base pattern must match these generated positions.",
                 unresolved=unresolved,

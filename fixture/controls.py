@@ -402,8 +402,11 @@ def requirement_controls(p):
             )
             changes["surroundings"] = st.selectbox(
                 "Attachment to surroundings",
-                ["unknown", "clamp", "bolt"],
-                index=["unknown", "clamp", "bolt"].index(r.surroundings),
+                ["unknown", "clamp", "bolt", "none"],
+                index=["unknown", "clamp", "bolt", "none"].index(r.surroundings),
+                format_func=lambda value: (
+                    "None — free floating" if value == "none" else value
+                ),
             )
             changes["bench_hole_diameter"] = (
                 st.number_input(

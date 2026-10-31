@@ -42,6 +42,16 @@ the local Codex CLI's **ChatGPT subscription sign-in** generated and revised a
 six-part fixture without an API key. The separate OpenAI API backend is implemented
 and tested with test doubles; no API-key-backed live call has been made.
 
+## Planner recovery follow-up — October 30, 2026
+
+Planner follow-up: measured opening selections now round-trip through AI planning
+without being mistaken for unknown features. Explicitly free-floating fixtures
+use **None — free floating** under attachment to surroundings; their selected part
+screws remain in place. Failed planning keeps saved choices/CAD and records the
+reason in the conversation, so it can be addressed on the next Start design attempt.
+The local project JSON also retains the latest validated decision and error for
+debugging. It is not included in the public source or fixture export.
+
 ## Baseline checkpoint — October 30, 2026
 
 **Total project time so far: 3 hours 30 minutes (3.5 hours), reported by the user.**

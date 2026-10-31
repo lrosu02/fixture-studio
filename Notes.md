@@ -8,6 +8,41 @@ sample generator, test fixtures and demo scripts only.
 
 ## Features 1–6 implementation and verification (2026-10-30)
 
+Planner follow-up (same date): `access_options` offered `hole:`, `face:` and
+`rear:` references, while response validation only accepted unprefixed source and
+rear-profile IDs. A valid highlighted access choice could therefore reject the
+whole decision. The reported original rejected reply was not retained, so its exact
+offending ID cannot be recovered. The mismatch was reproduced locally against the
+saved analysis without changing the project or contacting a model.
+
+The context and validator now share a measured-reference catalog. Both legacy IDs
+and offered namespaces are accepted; invented highlights and invalid access choices
+still fail before changing requirements. Display highlights normalize to source IDs.
+Lock errors are no longer swallowed during reference validation. Local project JSON
+retains the latest validated action, timestamp and rejection reason, and planning
+failures enter the conversation for follow-up. Raw provider output is not logged.
+Older snapshots without this optional diagnostic field still load.
+
+The same report requested no attachment to surrounding equipment. Requirements and
+the planner now represent this explicitly as `surroundings=none`, while retaining
+part mounting screws. Proposals and checks no longer describe it as a clamped
+fixture. The check remains inconclusive about operating stability. Planner context
+also lists the available pinned hardware sizes so unsupported countersinks can be
+clarified rather than given invented head dimensions.
+
+New local regression coverage includes all offered reference namespaces, invalid
+IDs, locks, atomic failure/retry, diagnostic persistence, legacy loading, Start
+design reruns, and a synthetic two-bolt free-floating fixture. The latter generates
+real SMLib countersinks plus a measured shaft passage and independently verifies
+that the opening is unobstructed in exported STEP. A live replay of the private
+project was blocked by automatic approval review; no successful live replay is
+claimed for this fix.
+
+Verification before the subsequent picker UI changes: the full local suite passed
+**178 tests in 222.52 s**, followed by **1 additional Start design UI test in 9.82 s**.
+Ruff F checks passed. The app restarted and its localhost health endpoint returned
+HTTP 200. The private project's file hash was unchanged by the read-only check.
+
 The expansion branch is `feature/fixture-tools-1-6`, based on `3a66d5c` (the
 rollback baseline). An independent remote `main` commit, `d50ad96`, updates only
 the README demo screenshot; this feature work does not overwrite it or merge into

@@ -190,7 +190,7 @@ class Requirements(Record):
     hole_fasteners: Annotated[tuple[HoleFastenerChoice, ...], Field(max_length=32)] = ()
     bench_fastener: str | None = None
     engagement: str | None = None
-    surroundings: Literal["unknown", "clamp", "bolt"] = "unknown"
+    surroundings: Literal["unknown", "clamp", "bolt", "none"] = "unknown"
     bench_hole_diameter: Positive | None = None
     bench_hole_count: Annotated[int, Field(ge=1)] | None = None
     part_hardware: HardwareChoice = Field(default_factory=HardwareChoice)

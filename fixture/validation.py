@@ -420,7 +420,9 @@ def validate(a, r, plan, bodies, cuts):
         validate_tray(a, r, plan, bodies, add)
     add(
         "Surrounding attachment",
-        "Measured base holes aligned; exact base/fixture collision not evaluated"
+        "No external attachment requested; operating stability not evaluated"
+        if r.surroundings == "none"
+        else "Measured base holes aligned; exact base/fixture collision not evaluated"
         if r.base_mount
         else "Clamp lands or drilled bench holes generated; surrounding equipment not imported",
         r.surroundings,

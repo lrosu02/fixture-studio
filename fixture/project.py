@@ -28,6 +28,7 @@ class Project:
     highlights: tuple = ()
     feedback: list = field(default_factory=list)
     last_attempt: BuildFeedback | None = None
+    last_planner_attempt: dict | None = None
 
     @classmethod
     def new(cls, analysis):
@@ -63,6 +64,7 @@ class Project:
         obj.feedback = [
             FeedbackRecord.model_validate(x) for x in data.get("feedback", [])
         ]
+        obj.last_planner_attempt = data.get("last_planner_attempt")
         obj.stage = "presented" if obj.current else "analyzed"
         return obj
 
@@ -180,6 +182,7 @@ class Project:
             "revisions": [r.model_dump() for r in self.revisions],
             "messages": self.messages,
             "feedback": [f.model_dump() for f in self.feedback],
+            "last_planner_attempt": self.last_planner_attempt,
         }
         temp = folder / "project.tmp"
         temp.write_text(json.dumps(snapshot, indent=2), encoding="utf-8")

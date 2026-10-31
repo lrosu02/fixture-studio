@@ -1,6 +1,7 @@
 """User-triggered planning and bounded generate/check/review/correct workflow."""
 
 from uuid import uuid4
+from datetime import datetime, timezone
 from .agent import Action, apply_action, requests_geometry
 from .contracts import DesignReview, FeedbackRecord
 from .planning import missing_questions
@@ -13,6 +14,16 @@ def plan_design(
     project, planner, text="", start=False, progress=lambda s: None, origin="user"
 ):
     """Start prepares a proposal; generation follows an explicit subsequent request."""
+    original_requirements, original_highlights = (
+        project.requirements,
+        project.highlights,
+    )
+    project.last_planner_attempt = {
+        "at": datetime.now(timezone.utc).isoformat(),
+        "source_hash": project.analysis.source_hash,
+        "action": None,
+        "error": None,
+    }
     if text.strip():
         project.messages.append({"role": "user", "content": text})
     if start:
@@ -32,19 +43,23 @@ def plan_design(
                 project.current,
             )
         )
+        # Store only the validated decision, never raw provider output/credentials.
+        project.last_planner_attempt["action"] = action.model_dump(mode="json")
         if action.action == "unsupported":
             # A limitation response may not smuggle a substitute design into requirements.
             project.stage = "clarifying"
         else:
-            project.requirements = apply_action(
+            candidate = apply_action(
                 project.analysis, project.requirements, action, origin=origin
             )
-            project.highlights = action.highlight_ids
-            project.stage = (
-                "clarifying"
-                if missing_questions(project.analysis, project.requirements)
-                else "proposing"
+            questions = missing_questions(project.analysis, candidate)
+            project.requirements = candidate
+            # The viewer uses source IDs; the planner also offers access namespaces.
+            project.highlights = tuple(
+                h.split(":", 1)[1] if h.startswith(("face:", "hole:", "rear:")) else h
+                for h in action.highlight_ids
             )
+            project.stage = "clarifying" if questions else "proposing"
         project.messages.append(
             {
                 "role": "assistant",
@@ -67,7 +82,20 @@ def plan_design(
             return False
         return not start and requests_geometry(action)
     except Exception as error:
+        project.requirements, project.highlights = (
+            original_requirements,
+            original_highlights,
+        )
         project.error = f"{type(error).__name__}: {error}"
+        project.last_planner_attempt["error"] = project.error
+        project.messages.append(
+            {
+                "role": "assistant",
+                "content": "Planning failed: "
+                + project.error[:1000]
+                + "\n\nNo design changes were applied. Your saved choices and CAD are retained. Retry Start design.",
+            }
+        )
         project.stage = "presented" if project.current else "clarifying"
         return False
     finally:
