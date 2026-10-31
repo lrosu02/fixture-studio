@@ -2,7 +2,6 @@ from pathlib import Path
 import os
 import streamlit as st
 from fixture.intake import analyze_bytes
-from fixture.viewer import assembly_figure
 from fixture.project import Project
 from fixture.planning import (
     patch_requirements,
@@ -12,23 +11,10 @@ from fixture.planning import (
     proposal_requirements,
 )
 from fixture.agent import plan_turn, offline_turn, review_turn
-from fixture.controls import (
-    requirement_controls,
-    manufacturing_controls,
-    passage_controls,
-    screw_size_controls,
-    retention_controls,
-)
-from fixture.hole_picker import hole_picker_controls
-from fixture.face_picker import face_picker_controls
-from fixture.access_controls import access_controls
-from fixture.base_controls import base_controls
-from fixture.dimensions import dimension_controls
-from fixture.hardware_controls import hardware_controls
+from fixture.workspace import workspace
 from fixture.subscription import subscription_turn, subscription_review, executable
 from fixture.manufacturing import manufacturing_guidance
 from fixture.workflow import plan_design, generate_with_feedback
-from fixture.fasteners import resolve_clearances, clearance_summary, SOURCE
 from fixture.step_export import prepare_step, prepared_step
 from fixture.ui_theme import (
     apply_theme,
@@ -36,7 +22,6 @@ from fixture.ui_theme import (
     workflow_strip,
     welcome_panel,
     project_overview,
-    workspace_intro,
     conversation_intro,
 )
 
@@ -57,6 +42,7 @@ def load_part(data, name):
     st.session_state.project.save()
     st.session_state.source_data = data
     st.session_state.source_name = name
+    st.session_state.pick_mode = False
     st.session_state.face_mode = False
     st.session_state.access_mode = False
 
@@ -85,24 +71,25 @@ with st.sidebar:
         st.rerun()
     st.caption("01 / IMPORT YOUR PART")
     upload = st.file_uploader("STEP part", type=["step", "stp"])
-    sample = st.selectbox(
-        "Bundled specimen",
-        [
-            "synthetic_motor.step",
-            "sensor_bracket.step",
-            "mixed_hole_sizes.step",
-            "hole_free_housing.step",
-            "cylindrical_housing.step",
-            "convex_housing.step",
-            "flanged_connector.step",
-            "ambiguous.step",
-            "multi_body.step",
-            "transformed_motor.step",
-            "unsupported_sphere.step",
-        ],
-    )
-    load = st.button("Load example", width="stretch")
-    st.caption("Examples are synthetic geometry, not manufacturer specifications.")
+    with st.expander("Try an example", expanded=False):
+        sample = st.selectbox(
+            "Bundled specimen",
+            [
+                "synthetic_motor.step",
+                "sensor_bracket.step",
+                "mixed_hole_sizes.step",
+                "hole_free_housing.step",
+                "cylindrical_housing.step",
+                "convex_housing.step",
+                "flanged_connector.step",
+                "ambiguous.step",
+                "multi_body.step",
+                "transformed_motor.step",
+                "unsupported_sphere.step",
+            ],
+        )
+        load = st.button("Load example", width="stretch")
+        st.caption("Examples are synthetic geometry, not manufacturer specifications.")
     if load or (upload and st.session_state.get("upload_id") != upload.file_id):
         try:
             load_part(
@@ -226,183 +213,8 @@ with st.sidebar:
     )
 left, right = st.columns([1.6, 1], gap="medium")
 with left, st.container(key="studio-workspace"):
-    st.subheader("Design choices")
-    workspace_intro()
-    if st.session_state.pop("close_hole_picker", False):
-        st.session_state.pick_mode = False
-    if st.session_state.pop("close_face_picker", False):
-        st.session_state.face_mode = False
-    face_button, hole_button = st.columns(2)
-    if face_button.button("Select mounting face", width="stretch"):
-        st.session_state.access_mode = False
-        st.session_state.face_mode = True
-        st.session_state.pick_mode = False
-    if hole_button.button("Select mounting holes", width="stretch"):
-        st.session_state.access_mode = False
-        st.session_state.pick_mode = True
-        st.session_state.face_mode = False
-    face_mode = st.session_state.get("face_mode", False)
-    pick_mode = st.session_state.get("pick_mode", False)
-    if st.button("Select openings / keep-clear areas", width="stretch"):
-        st.session_state.access_mode = True
-        st.session_state.face_mode = st.session_state.pick_mode = False
-        st.rerun()
-    access_mode = st.session_state.get("access_mode", False)
-    selecting = pick_mode or face_mode or access_mode
-    with st.expander("View options", expanded=False):
-        toggles = st.columns(5)
-        source = toggles[0].checkbox("Source", True, disabled=selecting)
-        fixture = toggles[1].checkbox("Fixture", True, disabled=selecting)
-        evidence = toggles[2].checkbox("Mounting holes", True, disabled=selecting)
-        dimensions = toggles[3].checkbox("Dimensions", False, disabled=selecting)
-        envelopes = toggles[4].checkbox("Access volumes", False, disabled=selecting)
-        compare = st.checkbox(
-            "Overlay previous revision",
-            False,
-            disabled=selecting or not (p.current and p.current.parent),
-        )
-    previous = (
-        next((v for v in p.revisions if p.current and v.id == p.current.parent), None)
-        if compare
-        else None
-    )
-    if access_mode:
-        access_controls(p)
-    elif face_mode:
-        face_picker_controls(p)
-    elif pick_mode:
-        hole_picker_controls(p)
-    else:
-        editing_dimensions = st.checkbox(
-            "Edit dimensions on model", False, disabled=p.current is None
-        )
-        if editing_dimensions:
-            dimension_controls(p, build)
-        else:
-            st.plotly_chart(
-                assembly_figure(
-                    a,
-                    r.interface_id,
-                    p.current,
-                    source,
-                    fixture,
-                    evidence,
-                    dimensions,
-                    envelopes,
-                    previous,
-                    highlight_ids=p.highlights
-                    or (
-                        p.current.requirements.mounting_hole_ids
-                        if p.current
-                        else r.mounting_hole_ids
-                    ),
-                ),
-                width="stretch",
-                config={"displaylogo": False},
-            )
-    if p.current and not pick_mode:
-        c = st.columns(3)
-        c[0].metric("Source instances", len(p.current.plan.placements))
-        c[1].metric(
-            "Fixture volume",
-            f"{p.current.metrics['volume_mm3']:,.0f} mm³",
-            f"{p.current.metrics['volume_mm3'] - previous.metrics['volume_mm3']:+,.0f} mm³"
-            if previous
-            else None,
-        )
-        c[2].metric("Revision", p.current.id[:6])
-        if p.current.requirements != r:
-            st.info(
-                "The viewer shows the last valid revision. Generate to apply edited requirements."
-            )
-    retention_controls(p)
-    screw_size_controls(p)
-    if r.part_attachment == "screws" or r.surroundings == "bolt":
-        st.caption(
-            f"Clearance holes default to [ISO 273 medium]({SOURCE}). No clearance entry is required."
-        )
-    if r.interface_id:
-        try:
-            clearances = resolve_clearances(a, r)
-            st.caption(clearance_summary(clearances))
-            if any(c.basis.startswith("Assumed") for c in clearances):
-                st.caption(
-                    "Unspecified screw sizes are assumed from the measured openings. Threads are not identified; size and fit can be overridden in Advanced."
-                )
-        except ValueError as error:
-            st.warning(str(error))
-    passage_controls(p)
-    manufacturing_controls(p)
-    if r.manufacturing_features and r.fabrication in ("3D printing", "Machined stock"):
-        st.caption(
-            "Printing chamfers exposed base corners; machining rounds corners and adds "
-            "cutter relief to rectangular openings. These dimensions are editable concept assumptions."
-        )
-    hardware_controls(p)
-    base_controls(p)
-    with st.expander("Advanced — mounting evidence", expanded=False):
-        options = [None] + [i.id for i in a.interfaces]
-        selected = st.selectbox(
-            "Attachment interface",
-            options,
-            index=options.index(r.interface_id),
-            format_func=lambda x: x or "Select a candidate",
-        )
-        if selected != r.interface_id:
-            try:
-                p.requirements = patch_requirements(
-                    r,
-                    dict(
-                        interface_id=selected,
-                        mounting_hole_ids=(),
-                        mounting_confirmed=False,
-                        part_attachment="unselected",
-                        envelopes=(),
-                    ),
-                )
-                st.rerun()
-            except ValueError as error:
-                st.error(str(error))
-        if selected:
-            i = next(i for i in a.interfaces if i.id == selected)
-            st.write(i.confidence)
-            st.dataframe(
-                [
-                    dict(feature=h, diameter_mm=d, x_mm=c[0], y_mm=c[1])
-                    for h, d, c in zip(i.hole_ids, i.diameters, i.centers)
-                ],
-                hide_index=True,
-            )
-            chosen_holes = st.multiselect(
-                "Fastener holes (exclude ports or central openings)",
-                list(i.hole_ids),
-                default=list(r.mounting_hole_ids or i.hole_ids),
-                format_func=lambda h: (
-                    f"{h} · Ø {i.diameters[i.hole_ids.index(h)]:.3f} mm measured"
-                ),
-            )
-            if st.button("Use selected measured holes"):
-                if not chosen_holes:
-                    st.error("Select at least one measured hole.")
-                else:
-                    p.requirements = patch_requirements(
-                        r,
-                        dict(
-                            mounting_hole_ids=tuple(chosen_holes),
-                            mounting_confirmed=False,
-                            part_attachment="screws",
-                        ),
-                    )
-                    st.rerun()
-            st.caption(
-                "Outline colors identify measured bore sizes, not screw threads. Frame Z points into the part; fixture Z ≤ 0."
-            )
-        else:
-            st.caption(
-                "Select a mounting face above, with or without holes. This list is an optional alternative."
-            )
-        st.caption(" · ".join(a.limitations))
-    requirement_controls(p)
+    workspace(p, build)
+    r = p.requirements
     if p.current:
         feedback = next(
             (f for f in reversed(p.feedback) if f.build.revision_id == p.current.id),
@@ -567,13 +379,15 @@ with right, st.container(border=True, key="studio-conversation"):
                 if st.button(
                     "Generate " + prop.title,
                     key="generate-" + prop.id,
-                    disabled=bool(questions),
                 ):
-                    try:
-                        build(
-                            p,
-                            proposal_requirements(r, prop),
-                            "Generate " + prop.title,
-                        )
-                    except ValueError as error:
-                        st.error(str(error))
+                    if questions:
+                        st.warning("Before generating: " + " ".join(questions))
+                    else:
+                        try:
+                            build(
+                                p,
+                                proposal_requirements(r, prop),
+                                "Generate " + prop.title,
+                            )
+                        except ValueError as error:
+                            st.error(str(error))

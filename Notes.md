@@ -8,6 +8,46 @@ sample generator, test fixtures and demo scripts only.
 
 ## Features 1–6 implementation and verification (2026-10-30)
 
+Subsequent selection UX update: direct face/hole choices save immediately; no second
+confirmation checkbox or Apply action is needed. Explicit selections persist across
+category switches. A new face starts without screw holes, and clearing every hole
+sets retention to unselected rather than invoking the legacy empty-pattern fallback.
+Old saved screw projects remain loadable. Locks and failed saves preserve accepted
+requirements; changing the actual face clears old-frame regions, including when
+that change comes from selecting holes. Previous CAD revisions remain immutable.
+
+The viewer/mode controls and explicit design-choice settings now live in a
+workspace fragment. Category switches leave the surrounding app alone; proposals
+and conversation refresh on the next relevant full-app interaction. Selection
+does not invoke AI or native construction. Selected face outlines and hole markers
+remain visible in the other picker. Examples remain available in a collapsed
+Try an example section. A mixed-hole regression also exposed and fixed a Python
+closure that could format one hole group's automatic size using another group's
+suggestion.
+
+Integration checking reproduced a first-edit loss in manufacturing controls outside
+the fragment: their requirement-dependent widget keys were stale after local picks.
+Moving the remaining design settings into the same fragment fixes that transition.
+Generate buttons now recheck current requirements on click and stop before CAD/AI
+when information is missing, so an earlier disabled button cannot trap a now-ready
+selection. The app rereads requirements after rendering the workspace to account
+for picker events processed during that same run.
+
+Verification: full suite **184 passed in 239.98 s**, then the final affected
+integration set **48 passed in 117.51 s** after the display/settings/Generate
+fixes. These are overlapping runs. The final face-outline/access display set also
+passed 11 cases. Real-browser instrumentation showed one outer app, proposal and
+STEP-intake run throughout face/hole/access switching, consecutive clicks, repeated
+clicks, removal and clearing. Only explicit edits saved requirements; no AI or
+native generation ran during those selection operations.
+
+Final browser integration also verified that incomplete Generate requests stop
+before CAD/AI, the first manufacturing edit persists, and a subsequent explicit
+Generate produces a real SMLib revision using the one selected synthetic-sample
+hole and saved printing method with no failed checks. Switching face/hole/assembly
+views afterwards left all app/proposal/build/export counters unchanged. Two focused
+freshness/manufacturing cases passed again after this final integration adjustment.
+
 Planner follow-up (same date): `access_options` offered `hole:`, `face:` and
 `rear:` references, while response validation only accepted unprefixed source and
 rear-profile IDs. A valid highlighted access choice could therefore reject the

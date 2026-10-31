@@ -2,9 +2,12 @@
 
 from pathlib import Path
 import streamlit as st
+import numpy as np
+import plotly.graph_objects as go
 from plotly.offline import get_plotlyjs
 from .picking import HolePicks, add_picked_holes, retain_picked_holes, use_picked_holes
-from .planning import missing_questions
+from .face_picking import FacePicks, use_picked_face, face_surface
+from .selection_ui import selection_signature, save_selection, rerun_selection
 from .viewer import hole_picker_figure, hole_size_colors, hole_size_key
 
 
@@ -28,25 +31,133 @@ def _registered_picker(source):
 
 
 @st.cache_data(max_entries=8, show_spinner=False)
-def picker_geometry(source_hash, _analysis):
+def picker_geometry(source_hash, _analysis, face_id=None):
     """Serialize the immutable STEP mesh once, not once per picked hole."""
-    return hole_picker_figure(_analysis, HolePicks()).to_json()
+    figure = hole_picker_figure(_analysis, HolePicks())
+    if face_id:
+        face = next(i for i in _analysis.interfaces if i.id == face_id)
+        points = outer_boundary_points(face_surface(_analysis, face))
+        if len(points):
+            points = points - np.asarray(face.z) * 0.05
+            figure.add_trace(
+                go.Scatter3d(
+                    x=points[:, 0],
+                    y=points[:, 1],
+                    z=points[:, 2],
+                    mode="lines",
+                    line=dict(color="#ffb454", width=6),
+                    name="Selected mounting face",
+                    hoverinfo="skip",
+                    showlegend=False,
+                )
+            )
+    return figure.to_json()
+
+
+def outer_boundary_points(mesh):
+    """Measured outer trim segments; triangle diagonals and bore rims are excluded."""
+    if not mesh.triangles:
+        return np.empty((0, 3))
+    vertices, mapping = np.unique(
+        np.asarray(mesh.vertices), axis=0, return_inverse=True
+    )
+    triangles = mapping[np.asarray(mesh.triangles)]
+    edges = np.sort(
+        np.concatenate(
+            [triangles[:, [0, 1]], triangles[:, [1, 2]], triangles[:, [2, 0]]]
+        ),
+        axis=1,
+    )
+    edges, counts = np.unique(edges, axis=0, return_counts=True)
+    edges = edges[counts == 1]
+    adjacent = {}
+    for a, b in edges:
+        adjacent.setdefault(a, set()).add(b)
+        adjacent.setdefault(b, set()).add(a)
+    remaining = set(adjacent)
+    loops = []
+    while remaining:
+        pending = [next(iter(remaining))]
+        connected = set()
+        while pending:
+            vertex = pending.pop()
+            if vertex in connected:
+                continue
+            connected.add(vertex)
+            pending.extend(adjacent[vertex] - connected)
+        remaining -= connected
+        loop = [edge for edge in edges if edge[0] in connected]
+        loops.append(loop)
+    if not loops:
+        return np.empty((0, 3))
+    outer = max(
+        loops,
+        key=lambda loop: sum(
+            np.linalg.norm(vertices[a] - vertices[b]) for a, b in loop
+        ),
+    )
+    return np.asarray(
+        [
+            point
+            for a, b in outer
+            for point in (vertices[a], vertices[b], (np.nan, np.nan, np.nan))
+        ]
+    )
+
+
+def begin_hole_selection(project):
+    r = project.requirements
+    st.session_state.hole_picks = HolePicks(
+        interface_id=r.interface_id if r.mounting_hole_ids else None,
+        hole_ids=r.mounting_hole_ids,
+    )
+    st.session_state.hole_pick_signature = selection_signature(project)
+    st.session_state.pop("hole_pick_error", None)
+
+
+def _commit_holes(project, picks):
+    r = project.requirements
+    if picks.hole_ids:
+        updated = use_picked_holes(project.analysis, r, picks, True)
+    elif r.mounting_hole_ids:
+        updated = use_picked_face(
+            project.analysis, r, FacePicks(interface_id=r.interface_id), (), True
+        )
+    else:
+        return False
+    changed = save_selection(
+        project,
+        updated,
+        (updated.interface_id, *picks.hole_ids),
+        f"3D mounting selection: {', '.join(picks.hole_ids) or 'no part screw holes'} on {picks.interface_id or r.interface_id}.",
+    )
+    st.session_state.hole_picks = picks
+    st.session_state.hole_pick_signature = selection_signature(project)
+    return changed
+
+
+def _replace_holes(project, list_key=None):
+    previous = st.session_state.hole_picks
+    try:
+        kept = st.session_state[list_key] if list_key else ()
+        picks = retain_picked_holes(previous, kept)
+        _commit_holes(project, picks)
+        st.session_state.hole_picks = picks
+        st.session_state.pop("hole_pick_error", None)
+    except (ValueError, OSError) as error:
+        begin_hole_selection(project)
+        st.session_state.hole_pick_error = str(error)
 
 
 @st.fragment
 def hole_picker_controls(project):
+    render_hole_picker(project)
+
+
+def render_hole_picker(project):
     a, r = project.analysis, project.requirements
-    # A fresh source, restored revision or edited requirements invalidates old clicks.
-    signature = (project.id, r.interface_id, r.mounting_hole_ids, r.mounting_confirmed)
-    if st.session_state.get("hole_pick_signature") != signature:
-        holes = r.mounting_hole_ids
-        if not holes and r.mounting_confirmed and r.interface_id:
-            holes = next(i.hole_ids for i in a.interfaces if i.id == r.interface_id)
-        st.session_state.hole_picks = HolePicks(
-            interface_id=r.interface_id if holes else None, hole_ids=holes
-        )
-        st.session_state.hole_pick_signature = signature
-        st.session_state.pop("hole_pick_error", None)
+    if st.session_state.get("hole_pick_signature") != selection_signature(project):
+        begin_hole_selection(project)
     picks = st.session_state.hole_picks
     # Additions stay in the browser's draft. Only explicit removal/reset changes
     # this seed, keeping component data identical across click-triggered reruns.
@@ -81,7 +192,9 @@ def hole_picker_controls(project):
     )
     result = picker_component()(
         data={
-            "figure": picker_geometry(a.source_hash, a),
+            "figure": picker_geometry(
+                a.source_hash, a, r.interface_id if r.mounting_confirmed else None
+            ),
             "context": seed.context,
             "view_key": project.id,
             "interface_id": seed.interface_id,
@@ -93,10 +206,15 @@ def hole_picker_controls(project):
     )
     if result.picked:
         try:
-            picks = add_picked_holes(a, picks, result.picked)
-            st.session_state.hole_picks = picks
+            chosen = add_picked_holes(a, picks, result.picked)
+            _commit_holes(project, chosen)
+            picks = st.session_state.hole_picks = chosen
             st.session_state.pop("hole_pick_error", None)
-        except ValueError as error:
+        except (ValueError, OSError) as error:
+            if result.picked.get("context") == picks.context:
+                begin_hole_selection(project)
+                st.session_state.hole_pick_error = str(error)
+                rerun_selection()
             st.session_state.hole_pick_error = str(error)
     if st.session_state.get("hole_pick_error"):
         st.warning(st.session_state.hole_pick_error)
@@ -106,19 +224,18 @@ def hole_picker_controls(project):
     )
     if picks.hole_ids:
         interface = next(i for i in a.interfaces if i.id == picks.interface_id)
-        kept = st.multiselect(
+        list_key = "picked-list-" + picks.context + str(picks.hole_ids)
+        st.multiselect(
             "Selected holes — remove with ×",
             options=list(picks.hole_ids),
             default=list(picks.hole_ids),
             format_func=lambda h: (
                 f"{h} · Ø {interface.diameters[interface.hole_ids.index(h)]:.3f} mm"
             ),
-            key="picked-list-" + picks.context + str(picks.hole_ids),
+            key=list_key,
+            on_change=_replace_holes,
+            args=(project, list_key),
         )
-        if tuple(kept) != picks.hole_ids:
-            st.session_state.hole_picks = retain_picked_holes(picks, kept)
-            st.session_state.pop("hole_pick_error", None)
-            st.rerun()
         st.caption(
             " · ".join(
                 f"{h}: {d:.3f} mm measured bore"
@@ -135,37 +252,12 @@ def hole_picker_controls(project):
             st.info(
                 "Different measured hole sizes are selected. Automatic clearance is resolved separately for each hole. A specified nominal screw size or custom diameter applies to the whole selected pattern."
             )
-    c1, c2 = st.columns(2)
-    if c1.button("Clear hole selection"):
-        st.session_state.hole_picks = HolePicks()
-        st.session_state.pop("hole_pick_error", None)
-        st.rerun()
-    stationary = st.checkbox(
-        "These holes are on the stationary mounting face",
-        key="pick-stationary-" + picks.context + str(picks.interface_id),
+    st.button(
+        "Clear hole selection",
+        on_click=_replace_holes,
+        args=(project,),
+        disabled=not picks.hole_ids,
     )
-    if c2.button(
-        "Use these mounting holes", disabled=not picks.hole_ids or not stationary
-    ):
-        try:
-            updated = use_picked_holes(a, r, picks, stationary)
-            project.requirements = updated
-            project.highlights = picks.hole_ids
-            project.error = None
-            project.stage = (
-                "clarifying" if missing_questions(a, updated) else "proposing"
-            )
-            project.messages.append(
-                dict(
-                    role="user",
-                    content=f"Selected {', '.join(picks.hole_ids)} on {picks.interface_id} in the 3D viewer and confirmed this is the stationary mounting face.",
-                )
-            )
-            project.save()
-            st.session_state.close_hole_picker = True
-            st.rerun()
-        except ValueError as error:
-            st.error(str(error))
-    if st.button("Cancel hole selection"):
-        st.session_state.close_hole_picker = True
-        st.rerun()
+    st.caption(
+        "Choices save immediately. Existing CAD changes only when you generate a revision."
+    )

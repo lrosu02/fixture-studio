@@ -44,6 +44,48 @@ def test_additions_are_idempotent_and_removal_invalidates_old_events():
     assert add_picked_holes(a, picks, click(picks, other)).interface_id == other.id
 
 
+def test_holes_on_a_new_face_clear_old_frame_regions_and_respect_locks():
+    from fixture.contracts import AccessSelection, Envelope
+
+    a, r = ready()
+    old = next(i for i in a.interfaces if i.id == r.interface_id)
+    other = next(i for i in a.interfaces if i.id != old.id and i.hole_ids)
+    r = r.model_copy(
+        update={
+            "mounting_hole_ids": old.hole_ids[:1],
+            "envelopes": (
+                Envelope(
+                    id="old-frame",
+                    minimum=(-2, -2, -4),
+                    maximum=(2, 2, 1),
+                    purpose="Old-frame access",
+                ),
+            ),
+            "rear_passages": ("rear-profile-0",),
+            "access_selections": (AccessSelection(feature_id="face:" + old.id),),
+        }
+    )
+    same = use_picked_holes(
+        a, r, HolePicks(interface_id=old.id, hole_ids=old.hole_ids[:1]), True
+    )
+    assert (
+        same.envelopes == r.envelopes and same.access_selections == r.access_selections
+    )
+    picks = HolePicks(interface_id=other.id, hole_ids=other.hole_ids[:1])
+    changed = use_picked_holes(a, r, picks, True)
+    assert (
+        changed.interface_id == other.id and changed.mounting_hole_ids == picks.hole_ids
+    )
+    assert (
+        not changed.envelopes
+        and not changed.rear_passages
+        and not changed.access_selections
+    )
+    with pytest.raises(ValueError, match="envelopes is locked"):
+        use_picked_holes(a, r.model_copy(update={"locks": ("envelopes",)}), picks, True)
+    assert r.envelopes and r.interface_id == old.id
+
+
 @pytest.mark.parametrize(
     "name",
     [

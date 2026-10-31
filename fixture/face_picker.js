@@ -96,7 +96,7 @@ export default function({parentElement, data, setTriggerValue}) {
         });
         window.Plotly.restyle(plot,{color:colors},ids);
         window.Plotly.restyle(plot,{visible:visibility},directions);
-        status.textContent=data.selected_hint || 'Mounting face selected. Review its holes below, then apply. Drag to rotate.';
+        status.textContent=data.selected_hint || 'Mounting face selected. Drag to rotate or choose another feature.';
         flush();
     }
     function hitAt(x,y) {

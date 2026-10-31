@@ -183,11 +183,13 @@ Use the supplied capabilities as the authority. If the requested structure canno
 use unsupported, explain the missing capability and offer a supported alternative for explicit user
 agreement. Never silently replace it or claim an unimplemented fixture type can be generated.
 Rows and grids are supported. Select rails for open rear access when the pattern permits it.
-Select a geometric candidate using measured evidence, but stationary-face meaning and whether holes
-are fasteners require user confirmation. Never infer screw threads, engagement, material or loads.
-For ambiguous mounting, users can press 'Select mounting holes', click the holes,
-confirm the stationary face, and apply them. Respect the resulting confirmed requirements;
-do not ask them to identify internal feature IDs again or replace their selection unprompted.
+Select a geometric candidate using measured evidence, but mounting intent must come from the user.
+Never infer screw threads, engagement, material or loads.
+Users choose a mounting face or mounting holes by clicking them in the corresponding viewer mode.
+These explicit choices save immediately and count as confirmed mounting selections; there is no
+extra confirmation checkbox or Apply step. Face selection alone does not select every hole.
+Respect the resulting confirmed requirements; do not ask users to confirm the same choice again,
+identify internal feature IDs, or replace their selection unprompted.
 Unknown is valid: record it literally and in unknowns. Ask about motion, attachments and finite
 keepouts for continuous running. No claim of thermal, structural or vibration validation.
 Both part-to-fixture and fixture-to-surroundings attachment matter: clamp lands or bench bolt holes.

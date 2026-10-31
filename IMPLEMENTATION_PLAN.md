@@ -81,6 +81,23 @@ load/preload/thermal/vibration analysis remain outside scope. Mixed different
 workpieces in one fixture was not part of the approved six additions. The continuous
 demo recording remains outstanding; executable demos and live records are available.
 
+## Selection and planner reliability follow-up — October 30, 2026
+
+Measured access references now share a catalog between AI context and validation;
+rejected decisions retain diagnostics and preserve existing requirements/CAD.
+Explicit free-floating attachment is supported. Face/hole choices save directly,
+without a second confirmation, and persist across selection categories. A face
+does not implicitly select its holes. Workspace-only mode changes avoid rerunning
+the surrounding app; dependent design controls update together and Generate checks
+the latest saved requirements before any build. Synthetic examples are collapsed.
+
+Verification: **184 tests passed in the full run**, followed by **48 passing
+affected integration cases** after final UI fixes, with real-browser selection
+and rerun-counter checks. The private planner case was checked locally; its live
+AI replay was blocked and is not claimed. Details and remaining limits are in
+Notes.md. The user-reported 3h30m checkpoint remains historical; no new cumulative
+duration is asserted.
+
 **Product scope**
 
 The first version supports parts with recognizable planar attachment faces and circular mounting-hole patterns. It constructs fixtures from a small vocabulary of plates, rails, supports, holes, slots, openings, and repeated placements. This permits meaningfully different designs with predictable modeling behavior.

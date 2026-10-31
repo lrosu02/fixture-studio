@@ -164,7 +164,7 @@ def test_transformed_hole_free_frame(tmp_path):
     )
 
 
-def test_ui_can_confirm_a_face_without_holes(monkeypatch):
+def test_ui_selects_a_face_without_holes_immediately(monkeypatch):
     from streamlit.testing.v1 import AppTest
 
     monkeypatch.setattr(
@@ -183,14 +183,10 @@ def test_ui_can_confirm_a_face_without_holes(monkeypatch):
     next(s for s in app.selectbox if s.label == "Mounting face").select(
         r.interface_id
     ).run()
-    next(
-        c
-        for c in app.checkbox
-        if c.label == "This is the surface that should contact the fixture"
-    ).check().run()
-    next(b for b in app.button if b.label == "Use this mounting face").click().run()
     assert not app.exception
     assert app.session_state["project"].requirements.mounting_confirmed
+    assert not app.session_state["project"].requirements.mounting_hole_ids
+    assert app.session_state["project"].requirements.part_attachment == "unselected"
     next(s for s in app.selectbox if s.label == "How should the part be held?").select(
         "cradle"
     ).run()

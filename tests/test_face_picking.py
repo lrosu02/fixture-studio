@@ -90,7 +90,7 @@ def test_face_ids_confirmation_frame_reset_and_locks():
             )
 
 
-def test_face_button_select_confirm_and_cancel(monkeypatch):
+def test_face_button_immediate_selection_and_mode_switch(monkeypatch):
     from streamlit.testing.v1 import AppTest
 
     events = []
@@ -113,19 +113,14 @@ def test_face_button_select_confirm_and_cancel(monkeypatch):
     )
     events.append(dict(context=picks.context, interface_id=interface.id))
     app.run()
-    assert next(b for b in app.button if b.label == "Use this mounting face").disabled
-    next(
-        c
-        for c in app.checkbox
-        if c.label
-        == "This is the mounting surface and the selected holes are for fasteners"
-    ).check().run()
-    next(b for b in app.button if b.label == "Use this mounting face").click().run()
-    assert not app.exception and not app.session_state["face_mode"]
+    assert not app.exception
     saved = app.session_state["project"].requirements
-    assert saved.mounting_confirmed and saved.mounting_hole_ids == interface.hole_ids
-    next(b for b in app.button if b.label == "Select mounting face").click().run()
-    next(b for b in app.button if b.label == "Cancel face selection").click().run()
+    assert saved.mounting_confirmed and saved.mounting_hole_ids == ()
+    assert saved.part_attachment == "unselected"
+    assert not any(b.label == "Use this mounting face" for b in app.button)
+    next(b for b in app.button if b.label == "Select mounting holes").click().run()
+    assert not app.session_state["hole_picks"].hole_ids
+    next(b for b in app.button if b.label == "View assembly").click().run()
     assert not app.exception and app.session_state["project"].requirements == saved
 
 

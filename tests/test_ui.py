@@ -150,9 +150,10 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
     )
     app.run()
     assert app.session_state["hole_picks"].hole_ids == chosen
-    assert (
-        payloads[-1] == payloads[-2] == payloads[-3]
-    )  # No mesh/component reset on additions.
+    assert payloads[-1] == payloads[-2]
+    assert payloads[-1]["context"] == payloads[-3]["context"]
+    # The first accepted click also highlights its face. Later additions and
+    # repeated events preserve the immutable figure, draft context and camera.
     next(
         x for x in app.multiselect if x.label == "Selected holes — remove with ×"
     ).unselect(another_size).run()
@@ -162,23 +163,15 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
     assert (
         payloads[-1]["context"] != picks.context
     )  # Explicit removal does reset the draft.
-    assert next(b for b in app.button if b.label == "Use these mounting holes").disabled
-    next(
-        c
-        for c in app.checkbox
-        if c.label == "These holes are on the stationary mounting face"
-    ).check().run()
-    next(b for b in app.button if b.label == "Use these mounting holes").click().run()
     assert not app.exception
     r = app.session_state["project"].requirements
     assert r.mounting_hole_ids == chosen and r.mounting_confirmed
-    assert not app.session_state["pick_mode"]
+    assert app.session_state["pick_mode"]
     next(b for b in app.button if b.label == "Select mounting holes").click().run()
     next(b for b in app.button if b.label == "Clear hole selection").click().run()
     assert not app.session_state["hole_picks"].hole_ids
-    assert (
-        app.session_state["project"].requirements == r
-    )  # Clearing draft does not change accepted mounting.
+    assert not app.session_state["project"].requirements.mounting_hole_ids
+    assert app.session_state["project"].requirements.part_attachment == "unselected"
 
 
 def test_start_design_questions_generate_feedback_and_no_repeat(monkeypatch):

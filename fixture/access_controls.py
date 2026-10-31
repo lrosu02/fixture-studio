@@ -7,8 +7,11 @@ import streamlit as st
 from .contracts import AccessSelection
 from .access import options
 from .intake import get_interface
-from .face_picking import face_picker_figure
+from .face_picking import face_picker_figure, face_surface
 from .face_picker import picker_component
+from .hole_picker import outer_boundary_points
+from .picking import HolePicks
+from .viewer import hole_picker_figure
 from .planning import patch_requirements
 
 
@@ -21,6 +24,29 @@ def access_figure(key, _a, _r):
         if t.meta and t.meta.get("direction_for"):
             t.meta = {**t.meta, "direction_for": "face:" + t.meta["direction_for"]}
     i = get_interface(_a, _r.interface_id)
+    if _r.mounting_confirmed:
+        outline = outer_boundary_points(face_surface(_a, i))
+        if len(outline):
+            outline = outline - np.asarray(i.z) * 0.05
+            fig.add_trace(
+                go.Scatter3d(
+                    x=outline[:, 0],
+                    y=outline[:, 1],
+                    z=outline[:, 2],
+                    mode="lines",
+                    line=dict(color="#ffb454", width=6),
+                    name="Selected mounting face",
+                    showlegend=False,
+                    hoverinfo="skip",
+                )
+            )
+    if _r.mounting_hole_ids:
+        holes = hole_picker_figure(
+            _a, HolePicks(interface_id=i.id, hole_ids=_r.mounting_hole_ids)
+        )
+        for trace in holes.data:
+            if trace.meta and trace.meta.get("hole_id") in _r.mounting_hole_ids:
+                fig.add_trace(trace)
     basis = np.array([i.x, i.y, i.z])
     for id, c in options(_a, _r).items():
         if c["kind"] == "face":
@@ -83,6 +109,15 @@ def access_figure(key, _a, _r):
 
 @st.fragment
 def access_controls(p):
+    render_access_controls(p)
+
+
+def _finish_access():
+    st.session_state.access_mode = False
+    st.rerun(scope="app")
+
+
+def render_access_controls(p, on_done=None):
     if not p.requirements.interface_id:
         st.info("Select a mounting face first so access has a defined direction.")
         return
@@ -95,13 +130,16 @@ def access_controls(p):
     st.caption(
         "Click a face, opening disk or measured recess. Through openings follow the mounting normal; keep-clear faces create a finite outward box. Selected material/contact conflicts are checked before saving a revision."
     )
+    st.caption(
+        "Your mounting face outline and selected screw-hole markers remain visible."
+    )
     event = picker_component()(
         data=dict(
             figure=access_figure(
                 a.source_hash
                 + str(a.version)
                 + str(r.interface_id)
-                + str(r.rear_clearance),
+                + str((r.rear_clearance, r.mounting_confirmed, r.mounting_hole_ids)),
                 a,
                 r,
             ),
@@ -187,6 +225,4 @@ def access_controls(p):
                 st.rerun()
             except ValueError as error:
                 st.error(str(error))
-    if st.button("Done selecting access"):
-        st.session_state.access_mode = False
-        st.rerun(scope="app")
+    st.button("Done selecting access", on_click=on_done or _finish_access)

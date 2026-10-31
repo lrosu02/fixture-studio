@@ -52,6 +52,13 @@ reason in the conversation, so it can be addressed on the next Start design atte
 The local project JSON also retains the latest validated decision and error for
 debugging. It is not included in the public source or fixture export.
 
+Face and hole picks now save immediately and remain highlighted when switching
+selection categories. Picking a face does not preselect its holes. Mode changes
+update the workspace without rerunning the conversation or proposals. Examples
+are collapsed under **Try an example**. Verification: **184 tests passed** in the
+full run, followed by **48 passing affected integration checks** after the final
+UI fixes, plus real-browser selection checks.
+
 ## Baseline checkpoint — October 30, 2026
 
 **Total project time so far: 3 hours 30 minutes (3.5 hours), reported by the user.**
@@ -189,12 +196,13 @@ Original STEP bytes and mesh arrays are not sent.
 
 ## Start a design and receive AI feedback
 
-1. Upload a part, choose the manufacturing method and select/confirm mounting holes
+1. Upload a part, choose the manufacturing method and select mounting holes
    when necessary. Choose **ChatGPT subscription (Codex CLI)** or **OpenAI API**.
    For a flange or ambiguous mounting side, use **Select mounting face**, click the
-   contacting surface, review the orange fixture-side arrow and holes, and choose
-   **Use this mounting face**. Face changes clear old face-relative passage and
-   access-box choices; locked requirements remain protected.
+   contacting surface and review the orange fixture-side arrow. Choices save on
+   selection, without another confirmation. Selecting a face does not select its
+   holes; use **Select mounting holes** for those. Changing the face clears incompatible
+   hole, passage and access-box choices; locked requirements remain protected.
 2. Enter the task in **Design brief** and click **Start design**. Leave the brief
    blank to continue the saved conversation. The AI extracts stated facts and asks
    up to three relevant questions at a time. Answer in the chat box.
@@ -241,13 +249,14 @@ and its CAD, checks, feedback and views are in [live-feedback-export.zip](demo/l
 
 ## Reproduce the example
 
-1. Load `synthetic_motor.step`. It is original synthetic geometry, **not the
-   user's actual brushless motor**. The tool automatically selects the supported
-   outer face; inspect its four measured 4 mm bores and 34 x 22 mm pattern.
+1. Expand **Try an example** in the sidebar and load `synthetic_motor.step`.
+   It is original synthetic geometry, **not the
+   user's actual brushless motor**. The tool identifies a candidate outer mounting
+   face; inspect its four measured 4 mm bores and 34 x 22 mm pattern.
 2. In subscription mode, enter in **Design brief**: “I want a fixture for six of
    these parts so they can run continuously. Keep it accessible and give it a clean
    appearance.” Click **Start design**, then answer in chat.
-3. For this synthetic example only, confirm the stationary interface and four
+3. For this synthetic example only, select the stationary face and its four
    holes; specify **3.5 mm fixture clearance**, **six instances**, **grid / three
    columns**, **clamps**, and **machined solid stock concept**. Set operating
    loads, nominal thread and engagement to **unknown**. State that rear
@@ -292,8 +301,7 @@ The check concerns fixture obstruction; source-part obstruction remains unevalua
 ## Parts without mounting holes
 
 Load `hole_free_housing.step`, press **Select mounting face**, and select its flat
-bottom surface. Confirm **This is the surface that should contact the fixture**
-and press **Use this mounting face**. No hole selection is required.
+bottom surface. The surface choice saves immediately. No hole selection is required.
 
 Under **Part retention**, choose **Locating tray — no hold-down** or
 **Locating tray with an external strap**, then **Apply part retention**.
@@ -431,13 +439,14 @@ sent as current manufacturing fields to the planner.
 3. Select the remaining holes on that face. Other faces' selectors are hidden.
    Use **×** in **Selected holes — remove with ×** to remove a hole explicitly;
    **Clear hole selection** lets you start again on another face.
-4. Check **These holes are on the stationary mounting face**, then click
-   **Use these mounting holes**. The app records the measured IDs and your
-   confirmation, updates the conversation, and returns to the assembly view.
+4. Each choice saves immediately. Switch between face and hole selection to review
+   them together; explicit selections remain visible. There is no confirmation or
+   Apply step, and entering a selection category does not select additional holes.
 
-Picks are a draft until applied. Clearing the draft leaves the accepted pattern
-and previous CAD revision intact. Applying a new pattern changes requirements;
-generate a revision to change existing CAD. Locked requirements remain enforced.
+Adding, removing or clearing holes changes the saved requirements; generate a
+revision to change existing CAD. Clearing all holes preserves the selected support
+face and asks for a retention approach; it never substitutes all detected holes.
+The previous CAD revision remains intact. Locked requirements remain enforced.
 The measured-hole list remains in collapsed **Advanced — mounting evidence** as
 an alternative to mouse picking. The optional **Clearance volumes** control is
 inside Advanced for space that wires, tools or moving parts need. The conversation

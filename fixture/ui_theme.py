@@ -62,8 +62,8 @@ def welcome_panel():
         "around its measured geometry. Inspect, refine, and export each design revision.</p>"
         '<div class="studio-welcome-cards">'
         "<article><span>01 / BRING YOUR PART</span><h3>Start with a STEP file</h3>"
-        "<p>Use <b>STEP part</b> in the sidebar. Exploring first? Choose a bundled specimen "
-        "and select <b>Load example</b>.</p></article>"
+        "<p>Use <b>STEP part</b> in the sidebar. Exploring first? Open <b>Try an example</b>, "
+        "choose a specimen, and select <b>Load example</b>.</p></article>"
         "<article><span>02 / DEFINE THE SETUP</span><h3>Describe the job</h3>"
         "<p>Choose the mounting face or holes, then explain what the fixture should do "
         "in <b>Design conversation</b>.</p></article>"

@@ -29,13 +29,20 @@ def retention_controls(p):
         if raw.support_kind == "cylinder"
         else [
             "unselected",
-            *(["screws"] if raw.hole_ids else []),
+            *(
+                ["screws"]
+                if raw.hole_ids
+                and (r.mounting_hole_ids or r.part_attachment == "screws")
+                else []
+            ),
             "cradle",
             "strap",
             "nest",
         ]
     )
     st.markdown("**Part retention**")
+    if raw.hole_ids and "screws" not in options:
+        st.caption("Select mounting holes in the 3D view to use screw mounting.")
     key = p.id + str(hash(r.model_dump_json()))
     choice = st.selectbox(
         "How should the part be held?",
@@ -181,7 +188,7 @@ def screw_size_controls(p):
             f"Screw size · Ø{size} mm ({len(holes)} holes)",
             options,
             index=options.index(default),
-            format_func=lambda v: (
+            format_func=lambda v, choices=tuple(choices): (
                 v
                 if v
                 else "Automatic / blank"
