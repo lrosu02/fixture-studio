@@ -6,6 +6,21 @@ import {readFile} from 'node:fs/promises';
 const source = await readFile(new URL('../fixture/hole_picker.js', import.meta.url), 'utf8');
 const faceSource = await readFile(new URL('../fixture/face_picker.js', import.meta.url), 'utf8');
 const pause = () => new Promise(resolve => setTimeout(resolve, 140));
+test('dimension labels require a deliberate click, ignore rotation and unknown fields', async()=>{
+    const source=await readFile(new URL('../fixture/dimension_picker.js',import.meta.url),'utf8');
+    const module=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+    const h=await harness(module,{fields:['thickness']});
+    const event=field=>({points:[{data:{meta:{dimension:field}}}]});
+    h.plot.fire('plotly_click',event('thickness'));assert.equal(h.sent.length,0);
+    h.click();h.plot.fire('plotly_click',event('thickness'));assert.deepEqual(h.sent.at(-1),{context:'draft',field:'thickness'});
+    h.pointer('pointerdown');h.pointer('pointermove',50,50);h.pointer('pointerup',50,50);h.plot.fire('plotly_click',event('thickness'));
+    h.click();h.plot.fire('plotly_click',event('hole_ids'));assert.equal(h.sent.length,1);
+    h.pointer('pointerdown');h.plot.fire('plotly_click',event('thickness'));assert.equal(h.sent.length,1);
+    h.pointer('pointerup');assert.equal(h.sent.length,2);
+    h.pointer('pointerdown');h.plot.fire('plotly_click',event('thickness'));h.pointer('pointermove',50,50);h.pointer('pointerup',50,50);assert.equal(h.sent.length,2);
+    h.pointer('pointermove',20,20);h.plot.fire('plotly_hover',event('thickness'));h.click();assert.equal(h.sent.length,3);
+    h.cleanup();assert.equal(h.win.listeners.size,0);
+});
 class Surface {
     listeners = new Map();
     addEventListener(name, fn) { this.listeners.set(name, fn); }

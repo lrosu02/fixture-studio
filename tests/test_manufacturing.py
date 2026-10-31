@@ -31,7 +31,9 @@ def test_method_persists_in_revisions_and_legacy_records_still_load():
         assert "print_settings" not in record and "material" not in record
         assert "single printed part" in record["design_guidance"]
     second = p.generate()
-    assert first.plan == second.plan
+    assert first.plan != second.plan
+    assert first.plan.parameters["manufacturing_geometry"].startswith("45 degree")
+    assert second.plan.parameters["manufacturing_geometry"].startswith("Rounded")
     p.restore(first.id)
     restored = Project.load(ROOT / "artifacts" / p.id / "project.json")
     assert restored.requirements.fabrication == FDM

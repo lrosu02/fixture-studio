@@ -43,6 +43,44 @@ no live-key verification; the live integration uses ChatGPT subscription sign-in
 Repository: [Fixture Studio](https://github.com/lrosu02/fixture-studio).
 Detailed verification and time provenance: [Notes.md](Notes.md#checkpoint-and-total-time--october-30-2026).
 
+## Features 1–6 delivery checkpoint — October 30, 2026
+
+The user subsequently authorized these six additions and a rollback branch.
+Work is on `feature/fixture-tools-1-6`, created from the `3a66d5c`
+3h30m baseline. This feature work has not been merged into `main`. No newer cumulative time estimate is asserted. The candidate list
+above is historical; the table below is the current delivered scope.
+
+| Order | Delivered behavior | Acceptance evidence |
+| --- | --- | --- |
+| 1 | Mouse-selected measured openings and finite keep-clear areas | Through cuts survive thickness revisions; missing cuts and damaged contacts are rejected. Stale/pointer-drag events do not alter picks. |
+| 2 | Second STEP base and measured attachment pattern | Rotated/offset base patterns align in real STEP; base reference is shown but excluded from fixture CAD; ZIP reproduction and restore tested. |
+| 3 | Convex contour nests, cylindrical saddles/collars, split clamps | Native cavity and required material checks; separate caps; transformed/repeated cylinder test and analytic STEP export. |
+| 4 | On-model parameter labels and lock-aware rebuilds | Click-event test, actual Streamlit thickness revision, source-measurement preservation and lock/invalid-edit rejection. |
+| 5 | Counterbores, 90° countersinks, nut pockets and finite tool access | Manufacturer profiles or explicit dimensions; native void/sidewall/floor checks; conical STEP topology verified. Base stock accounts for head recesses. |
+| 6 | Geometry rules for printing and machining | Chamfered or rounded exposed base corners and rectangular-opening cutter relief; all four structure families tested; method/geometry preserved in revision exports. |
+
+Validation: final complete suite **165 passed in 220.87 s**, plus **4 dimension/
+pointer cases passed in 16.68 s** after the live click-selection fix. Earlier native
+targeted verification passed 34 cases; these are overlapping runs.
+The combined connector, clamp and nest demos all exported STEP and reproduced from
+their ZIPs. A live ChatGPT-subscription revision changed connector part seats to
+countersinks, preserved selected base/access data and received an accepted concept
+review. The API-key provider still has no live-key verification.
+
+Compiler version 9 and analysis version 3 extend the bounded contracts. Old
+compiler versions keep their implementations; new fields default to inactive for
+old records. STEP adapter version 2 transfers analytic cones in addition to the
+existing planes/cylinders, without rebuilding fixture geometry in OpenCASCADE.
+The 256-operation, 64-body and 24-instance limits still apply.
+
+Limits: nests use a conservative convex envelope, cylindrical retention requires
+complete analytic outer cylinders, and nut pockets require an assembled cover for
+axial capture. Manufacturing rules do not prove build orientation, cutter access
+everywhere or physical performance. Exact source/base-to-fixture collision and
+load/preload/thermal/vibration analysis remain outside scope. Mixed different
+workpieces in one fixture was not part of the approved six additions. The continuous
+demo recording remains outstanding; executable demos and live records are available.
+
 **Product scope**
 
 The first version supports parts with recognizable planar attachment faces and circular mounting-hole patterns. It constructs fixtures from a small vocabulary of plates, rails, supports, holes, slots, openings, and repeated placements. This permits meaningfully different designs with predictable modeling behavior.

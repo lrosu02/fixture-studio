@@ -24,16 +24,21 @@ def manufacturing_guidance(fabrication, composition):
 
 
 def manufacturing_record(r):
+    from .process_geometry import policy
+
     return {
         "fabrication": r.fabrication,
         "design_guidance": manufacturing_guidance(r.fabrication, r.composition),
         "status": "Manufacturing method for concept design; detailed manufacturability is not evaluated.",
+        "geometry_policy": policy(r),
     }
 
 
 def save_manufacturing(p, fabrication):
     old = p.requirements
     changes = {"fabrication": fabrication} if old.fabrication != fabrication else {}
+    if not old.manufacturing_features:
+        changes["manufacturing_features"] = True
     updated = patch_requirements(old, changes)
     unknowns = [k for k in updated.unknowns if k != "fabrication"]
     if fabrication is None or fabrication.strip().lower() == "unknown":

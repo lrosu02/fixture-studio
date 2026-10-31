@@ -1,6 +1,6 @@
 """Translate generated SMLib BRep topology to STEP; never replay modeling operations.
 
-The supported fixture vocabulary emits planes/cylinders with rational NURBS edges.
+The supported fixture vocabulary emits planes/cylinders/cones with rational NURBS edges.
 The topology convention follows NVIDIA's documented BrepArray converter:
 https://github.com/NVIDIA-Omniverse/usd-brep/tree/main/source/OCCT_BREP_EXPORT
 No tessellated faces, sampled replacement curves, or second USD runtime are used.
@@ -17,7 +17,7 @@ import threading
 
 import numpy as np
 
-ADAPTER_VERSION = 1
+ADAPTER_VERSION = 2
 _LOCK = threading.RLock()
 
 
@@ -31,7 +31,12 @@ def _array(cls, values):
 def _body(block):
     import cadquery as cq
     from OCP.gp import gp_Pnt, gp_Dir, gp_Ax3
-    from OCP.Geom import Geom_BSplineCurve, Geom_Plane, Geom_CylindricalSurface
+    from OCP.Geom import (
+        Geom_BSplineCurve,
+        Geom_Plane,
+        Geom_CylindricalSurface,
+        Geom_ConicalSurface,
+    )
     from OCP.TColgp import TColgp_Array1OfPnt
     from OCP.TColStd import TColStd_Array1OfReal, TColStd_Array1OfInteger
     from OCP.BRep import BRep_Builder
@@ -59,6 +64,7 @@ def _body(block):
     if not set(data["face:surfaceType"]) <= {
         "BrepSurfacePlaneAPI",
         "BrepSurfaceCylinderAPI",
+        "BrepSurfaceConeAPI",
     }:
         raise ValueError(
             "STEP export supports generated planar/cylindrical fixtures; this surface type needs an adapter extension."
@@ -118,9 +124,11 @@ def _body(block):
         knot_start += count + order
     faces, loop_index, edgeuse_index, surface_index = [], 0, 0, Counter()
     for kind, loop_count in zip(data["face:surfaceType"], data["face:loopCount"]):
-        kind = {"BrepSurfacePlaneAPI": "plane", "BrepSurfaceCylinderAPI": "cylinder"}[
-            kind
-        ]
+        kind = {
+            "BrepSurfacePlaneAPI": "plane",
+            "BrepSurfaceCylinderAPI": "cylinder",
+            "BrepSurfaceConeAPI": "cone",
+        }[kind]
         index = surface_index[kind]
         surface_index[kind] += 1
         key = "brep:surface:" + kind + ":"
@@ -132,7 +140,13 @@ def _body(block):
         surface = (
             Geom_Plane(axes)
             if kind == "plane"
-            else Geom_CylindricalSurface(axes, data[key + "radius"][index])
+            else (
+                Geom_CylindricalSurface(axes, data[key + "radius"][index])
+                if kind == "cylinder"
+                else Geom_ConicalSurface(
+                    axes, data[key + "semiAngle"][index], data[key + "radius"][index]
+                )
+            )
         )
         face = TopoDS_Face()
         builder.MakeFace(face, surface, tolerance)

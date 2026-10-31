@@ -5,6 +5,36 @@ OpenCASCADE measures the part; NVIDIA SMLib constructs the fixture's actual CAD.
 Review mounting evidence, clarify requirements, choose a plate, rails, L-bracket or bridge,
 generate geometry, revise it, and export a reproducible design record.
 
+## Feature expansion — October 30, 2026
+
+Features **1–6** are implemented on `feature/fixture-tools-1-6`. The rollback
+baseline is commit `3a66d5c`; the feature work has not been merged into `main`.
+
+| Feature | What is available |
+| --- | --- |
+| 1. Selected access | Click measured faces, holes or rear profiles for full-through openings and finite keep-clear areas. Cuts follow thickness revisions and are checked against final native geometry. |
+| 2. Existing base | Upload a second STEP, select its contact face and holes, and position it using in-plane offsets/rotation. The fixture copies the measured base pattern. |
+| 3. Retention | Convex-envelope contour nests, open cylindrical saddles, closed collars and split clamps with separate caps, alongside existing screw mounts and trays. |
+| 4. Dimensions | Enable **Edit dimensions on model**, click an amber label, edit/lock its value and rebuild through the normal revision and AI-review workflow. |
+| 5. Hardware | Optional part/base counterbores, 90° countersinks, hex nut pockets and finite screwdriver access. Native checks cover voids, sidewalls and seat floors. |
+| 6. Manufacturing geometry | Printing chamfers exposed base corners; machining rounds them and adds cutter relief to rectangular openings. Method selection needs no material, printer or slicer settings. |
+
+UI Man supplied the coordinated presentation refresh and hardware controls, with
+existing widget callbacks and backend contracts preserved. Manufacturing corner
+size defaults to `min(2 mm, thickness / 3)` and is editable on the model. This is a
+concept assumption. New projects enable the rules; old projects keep their original
+geometry until the manufacturing method is saved or changed.
+
+The final complete suite passed **165 tests**, followed by **4 passing dimension/
+pointer tests** for the live click-selection fix (overlapping runs). The new connector,
+split-clamp and contour-nest demos generated real SMLib solids, exported STEP and
+reproduced from their ZIP records. A real subscription-model revision changed the
+connector's part counterbores to countersinks, preserved its base and through-opening
+selections, generated CAD and received an **accepted** AI concept review.
+
+The earlier **3 hours 30 minutes** below is the user-reported baseline. No new
+cumulative duration has been supplied.
+
 **Implemented and verified on Windows x64 / Python 3.12.10.** Both native kernels,
 the Streamlit workflow, revisions, native checks, USD BRep round trips and clean
 lockfile installation have been exercised. A real three-turn conversation using
@@ -12,7 +42,7 @@ the local Codex CLI's **ChatGPT subscription sign-in** generated and revised a
 six-part fixture without an API key. The separate OpenAI API backend is implemented
 and tested with test doubles; no API-key-backed live call has been made.
 
-## Checkpoint — October 30, 2026
+## Baseline checkpoint — October 30, 2026
 
 **Total project time so far: 3 hours 30 minutes (3.5 hours), reported by the user.**
 This is the cumulative checkpoint total, not an additional development interval.
@@ -33,14 +63,16 @@ This is the cumulative checkpoint total, not an additional development interval.
 Remaining: the continuous demo recording, a live API-key-backed test, and broader
 geometry/engineering capabilities. Contact remains sampled; operating strength and
 exact source-to-fixture BRep collision are not validated. The suggested next feature
-is selecting openings and keep-clear areas directly in 3D; it is not implemented yet.
+was selecting openings and keep-clear areas directly in 3D; that is now implemented
+in the feature expansion above.
 See the [plan checkpoint](IMPLEMENTATION_PLAN.md#implementation-checkpoint--october-30-2026)
 and [engineering record](Notes.md#checkpoint-and-total-time--october-30-2026).
 
 ## Supported inputs and behavior
 
 - One STEP imported automatically as one complete part (up to 16 source solids), with
-  analytic planar mounting/support faces. Circular mounting holes are optional.
+  analytic planar mounting/support faces or complete outside cylindrical support
+  faces. Circular mounting holes are optional.
 - STEP units normalized to millimeters, relative body placements preserved,
   source preview cached, stable measured feature IDs and candidate selection.
 - Coaxial inward cylindrical faces grouped to measure bores; selectable hole
@@ -182,8 +214,8 @@ trigger AI changes to dimensions or consume an AI review call.
 
 The product is intended for different fixture tasks and part types. Current CAD
 composition support includes plates, parallel rails, L-brackets and bridges around
-recognized planar/circular interfaces, plus locating trays on outer planar faces.
-Conformal nests, articulated clamps and
+recognized planar/circular interfaces, plus locating trays, convex contour nests
+and measured cylindrical retention. Freeform conformal nests, articulated clamps and
 arbitrary angled structures still require compiler extensions; the motor example does not define the product.
 AI feedback is a concept review, not structural or manufacturing certification.
 
@@ -270,8 +302,8 @@ increase part-to-wall clearance to 1 mm, then **Prepare STEP download**.
 The fixture has locating walls and base holes, with no invented part screw holes.
 
 The support face must be an outer plane with the whole part on its inward side.
-Rectangular trays do not follow arbitrary contours; clamps and conformal nests
-remain unsupported. Checks cover sampled face support, measured-envelope clearance,
+Rectangular trays do not follow arbitrary contours; use the convex contour nest
+or measured cylindrical retention described below where appropriate. Checks cover sampled face support, measured-envelope clearance,
 wall material and unobstructed strap slots. Holding force is not evaluated.
 Older saved analyses retain their original candidates; re-upload the original STEP
 to expose additional hole-free faces. Existing saved revisions remain available.
@@ -365,7 +397,8 @@ asks only for the method. Material, printer and slicer controls are removed.
 The conversation uses that method when comparing supported concepts. Printing
 guidance distinguishes a connected plate from separate rails that each need base
 attachment; machining guidance calls out straight cuts and workholding. Method
-selection does not automatically change thickness or verify strength, supports,
+selection now also enables the bounded corner/cutter rules above on the next build.
+It does not automatically change thickness or verify strength, supports,
 build orientation or detailed manufacturability. The executor uses four bounded
 structure families; dimensions are concept choices, not a strength calculation.
 
@@ -459,7 +492,8 @@ and adds a hole in their center. Other odd L-bracket counts use symmetric outer
 pairs plus a center hole, with a spacing check. Rails, plates and bridge feet keep
 their attachment lands; a hole is never placed in an unsupported central gap. Each
 separate foot/rail needs at least one hole. Generated positions are for a mating
-base drilled to match; arbitrary pre-existing base patterns are not yet supported.
+base drilled to match. For an existing measured pattern, use **Mount to an existing
+base**, upload its STEP and confirm its contact face and selected holes.
 Explicit depth/width constraints are preserved. Infeasible spacing or the
 256-operation CAD budget produces an error instead of reducing the requested count.
 Results and validation distinguish **part holes** from **base holes**.
@@ -489,7 +523,7 @@ millimeters, without the uploaded part. A connected bracket is one solid; separa
 rails remain separate solids in the same STEP file. Unsaved requirements do not
 change an existing revision's export. Restore an older revision to export that geometry.
 
-The STEP contains analytic plane/cylinder surfaces, rational NURBS edges and solid
+The STEP contains analytic plane/cylinder/cone surfaces, rational NURBS edges and solid
 topology transferred from the actual SMLib USD BRep. It is not the viewer mesh or a
 second construction of the operation plan. OpenCASCADE writes the STEP and reopens
 it; validity, face/solid counts, bounds, adaptive volume and area are compared with
@@ -497,7 +531,7 @@ SMLib before the download is offered. Conversion is bounded to the currently gen
 surface families; an unsupported representation fails explicitly and retains native CAD.
 
 **Export CAD + design record** downloads a ZIP. It includes `fixture.usda` (real SMLib USD BRep, millimeter stage units),
-`plan.json`, `requirements.json`, `manufacturing.json`, `validation.json`, `revision.json`,
+`plan.json`, `requirements.json`, `manufacturing.json`, `hardware.json` (new plans), `validation.json`, `revision.json`,
 `source-analysis.json` (hash, measured evidence and preview mesh), and `README.txt`.
 It also contains `ai-feedback.json` for that revision, plus `review.png` when views
 were rendered. Old revisions without reviews export an empty feedback list.
@@ -509,7 +543,7 @@ sizes or overrides (empty for historical plans). File hashes are checked before 
 prepared STEP is reused or offered in a download.
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m pytest tests -q
 ```
 
 Tests cover unrelated STEP patterns, transform invariance, whole-file multi-body
@@ -518,7 +552,8 @@ cuts, composition changes, locks, failure recovery, export and the full UI flow.
 Subscription calls are opt-in via the proof script, not part of the regression
 suite. Tests use explicit test doubles for malformed AI output and API timeouts.
 The original clean-environment run passed **25 tests**. The latest full run passed
-**126 tests in 136.68 seconds**. Coverage includes arbitrary base counts, centered
+**165 tests in 220.87 seconds**, followed by the final UI checks recorded in Notes.md.
+Coverage includes the six extensions, arbitrary base counts, centered
 odd-hole layouts, face selection with and without holes, missing-hole rejection,
 locating trays and strap slots, through passages, independent STEP probes,
 revision/restore and legacy reproduction.
@@ -551,8 +586,65 @@ the delivered artifacts are an executable demo, real live-call record, and
 interactive assembly. No live API-key integration was claimed.
 
 No arbitrary NURBS recognition, thread recognition, automatic imported-topology repair,
-conformal nests, full assembly browser, sheet-metal unfolding, casting analysis,
+freeform/concave conformal nests, articulated clamps, full assembly browser, sheet-metal unfolding, casting analysis,
 structural/thermal/vibration verification or exact source-to-fixture BRep collision.
 Rails require separated support rows; otherwise use the plate. Native modeling
 runs in-process, so native process crashes have no isolation/recovery guarantee.
 See [Notes.md](Notes.md) for check methods, architecture, provenance and next work.
+
+## Try the six new features
+
+Run the deterministic combined demo from the project folder:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\demo_extensions.py
+```
+
+It creates three examples under `artifacts/features-demo`: a flanged connector on
+an L-bracket with a selected through-opening, a measured four-hole existing base,
+head recesses and a thickness revision; a cylindrical split clamp; and a contour
+nest. Each has a fixture-only STEP and a ZIP that is rebuilt and validated. No AI
+credits or subscription calls are used by this script. Its sample dimensions are
+demonstration inputs, not general design rules.
+
+For a real AI revision and visual review using the existing ChatGPT subscription:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\prove_extensions_feedback.py
+```
+
+This opt-in script consumes subscription allowance, requires the preceding demo,
+and writes `live-feedback.json` and `live-export.zip` into that same artifact folder.
+It does not fall back to an API key.
+
+In the app, load `flanged_connector.step`, select its rear flange face and two
+mounting holes, then select its measured rear profile in **Select openings /
+keep-clear areas** with **through** intent. **Mount to an existing base** can load
+`mounting_base.step`. Confirm its upper face/four holes and adjust the two in-plane
+offsets to place the pattern behind the L-bracket upright. Incompatible positions
+produce a correction message. The base stays visible but is excluded from exported
+fixture STEP geometry.
+
+For hole-free retention, load `cylindrical_housing.step`, select its curved outer
+surface, choose a saddle, collar or split clamp under **Part retention**, and apply.
+A split clamp needs the joining screw size. Load `convex_housing.step` and select
+its flat bottom to try **Contoured nest — convex envelope**. Nests enclose the
+whole-part convex footprint; they do not reconstruct concave pockets. Closed
+collars need axial installation. All fits remain concept clearances, not proven grip.
+
+In **Fastener accommodations**, choose part/base recesses and optionally provide
+custom dimensions or a screwdriver diameter/reach. Defaults use pinned manufacturer
+profiles: ISO 4762 cap heads, legacy DIN 7991 countersunk heads and legacy DIN 934
+nuts. Available sizes are shown in the panel; other sizes require explicit dimensions.
+DIN 7991 heads are not silently treated as interchangeable with ISO 10642. Head
+diameters receive 0.5 mm allowance, nut flats 0.3 mm and cylindrical/nut seat depths
+0.2 mm unless overridden. Sources and assumptions are included in `hardware.json`.
+Hex pockets resist rotation; a mating base/cover must close their opening for axial
+capture. Screwdriver checks concern fixture obstruction only, not the source part.
+
+No extension adds a strength, thermal, vibration or preload solver. Existing-base
+contact still lacks an exact cross-kernel collision proof. Mixed different workpieces
+in one fixture remain a future feature; the second STEP here is a mounting base.
+An imported base currently uses one chosen base screw size for its selected holes;
+per-hole mixed base hardware is not exposed. When no nominal size is supplied,
+the automatic base size comes from its measured openings, not the part's inferred size.

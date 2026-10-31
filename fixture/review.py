@@ -9,9 +9,12 @@ from .intake import get_interface, local_points
 from .structures import STRUCTURES
 
 CAPABILITIES = {
+    "extended_retention": "Convex-envelope nest on an outer plane; saddle, closed collar or split clamp on a complete measured outside cylindrical face. Split clamps have a separate cap and joining bores. No friction/preload solver; cannot certify grip. Concave/freeform nests unsupported.",
+    "selected_access": "Measured plane/hole/rear-profile selection, full fixture depth through cuts or finite outward keep-clear regions; rederived and natively validated on every revision.",
+    "existing_base": "Second measured STEP base, selected face/holes, in-plane offset/rotation, matching fixture holes. Base is a preview/reference, excluded from fixture STEP. Exact base collision is not evaluated.",
+    "hardware": "part_hardware/base_hardware: counterbore, 90 degree DIN7991 legacy countersink, DIN934 legacy hex nut pockets or explicit dimensions, finite driver access. Native void and 1 mm web checks. Nut pockets require mating cover for axial capture. No screw/thread/load solver.",
+    "manufacturing_geometry": "Opt-in for legacy projects; enabled for new projects. Printing: exterior base-corner chamfers. Machining: rounded base corners plus circular cutter relief on rectangular access cuts. process_radius is an editable concept assumption. No material/slicer inputs or global manufacturability proof.",
     "shaped_retention": "Convex-envelope planar nests, analytic cylindrical saddles, axial-installation collars and split clamps with separate caps. Cylindrical modes require measured cylinder interfaces, a bounded axial support length and source-envelope fit checks. Split clamp joining fastener must be supplied. All use common base plates; fit/clearance checks do not validate holding force.",
-    "existing_base": "A second uploaded STEP can supply a confirmed planar base face and selected measured bolt pattern. The fixture copies those centers with explicit in-plane translation/rotation; unsupported foot/contact conflicts fail. The second part is a reference, excluded from fixture-only STEP export.",
-    "selected_access": "Measured face/hole/rear profile IDs can become through openings or finite outward keep-clear boxes. Full-depth geometry is rederived on revisions; native independent obstruction checks and existing contact checks must pass.",
     "purpose": "Reusable fixture design across part types; no part-specific templates or mounting decisions.",
     "supported_input": "Planar attachment/support faces, with or without circular holes, with user-confirmed contact meaning.",
     "hole_free_retention": "part_attachment=cradle or strap with composition=plate. Measured outer support plane, rectangular walls around the whole part bounding envelope; not a conformal nest. Cradle has no hold-down. Strap mode requires user-supplied strap width/thickness, adds two through slots with 1 mm fit allowance and needs external hardware plus underside threading access. Retention strength is not evaluated. Base screw size must be supplied when no part fastener is known.",
@@ -88,8 +91,13 @@ def review_context(analysis, build, repairs_remaining):
     for key in ("material", "print_settings"):
         data["requirements"].pop(key, None)
     if build.requirements.base_mount:
-        base=build.requirements.base_mount
-        data['requirements']['base_mount']={'source_name':base.analysis.source_name,'source_hash':base.analysis.source_hash,'interface_id':base.interface_id,'hole_ids':base.hole_ids}
+        base = build.requirements.base_mount
+        data["requirements"]["base_mount"] = {
+            "source_name": base.analysis.source_name,
+            "source_hash": base.analysis.source_hash,
+            "interface_id": base.interface_id,
+            "hole_ids": base.hole_ids,
+        }
     return {
         "capabilities": CAPABILITIES,
         "source_hash": analysis.source_hash,
@@ -131,10 +139,19 @@ def render_review(analysis, revision):
     )
     if revision.requirements.base_mount:
         from .existing_base import transform
-        r=revision.requirements; base=r.base_mount
-        origin,basis=transform(r,revision.plan)
-        points=local_points(base.analysis.mesh.vertices,get_interface(base.analysis,base.interface_id))@basis+origin
-        geometry.append((points,base.analysis.mesh.triangles,'#7586bc',True))
+
+        r = revision.requirements
+        base = r.base_mount
+        origin, basis = transform(r, revision.plan)
+        points = (
+            local_points(
+                base.analysis.mesh.vertices,
+                get_interface(base.analysis, base.interface_id),
+            )
+            @ basis
+            + origin
+        )
+        geometry.append((points, base.analysis.mesh.triangles, "#7586bc", True))
     if revision.plan.parameters.get("up_axis") == "Y":
         geometry = [
             (points[:, [0, 2, 1]] * [1, -1, 1], faces, color, source)

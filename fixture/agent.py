@@ -15,6 +15,7 @@ from .contracts import (
     HoleFastenerChoice,
     PartAttachment,
     AccessSelection,
+    HardwareChoice,
 )
 from .review import CAPABILITIES, REVIEW_SYSTEM
 from .planning import patch_requirements, missing_questions
@@ -57,10 +58,14 @@ class Changes(Record):
     surroundings: Literal["unknown", "clamp", "bolt"] | None = None
     bench_hole_diameter: float | None = None
     bench_hole_count: int | None = None
+    part_hardware: HardwareChoice | None = None
+    base_hardware: HardwareChoice | None = None
     base_offset_x: float | None = None
     base_offset_y: float | None = None
     base_rotation: float | None = None
     fabrication: str | None = None
+    manufacturing_features: bool | None = None
+    process_radius: float | None = None
     motion_loads: str | None = None
     access: str | None = None
     appearance: str | None = None
@@ -97,8 +102,9 @@ the source, including faces with NO holes. Confirm contact meaning, not nonexist
 part_attachment distinguishes screws from cradle (rectangular locating tray, no hold-down)
 and strap (same tray plus two through slots for an external strap). Both tray modes use
 composition=plate. They require an outer support plane with the whole source above it;
-curved-only support and conformal nests are unsupported. Never invent part screw holes.
-If retention is unselected, ask whether the part will rest in a tray or be strapped down.
+Other retention methods below use measured cylindrical faces or convex footprints.
+Freeform conformal nests remain unsupported. Never invent part screw holes.
+If retention is unselected, ask which supported method fits its measured contact surface.
 Do not silently choose a method. Ask about orientation, loads and surfaces that may be touched.
 Trays derive walls from the whole-part bounding envelope with locating_clearance (default
 0.5 mm), locating_wall (default 3 mm), and locating_height (default half part height, at
@@ -118,6 +124,16 @@ face length; select shorter support if other geometry interferes. split_clamp ne
 retention_fastener and creates a separate removable cap, two joining bores and split_gap.
 A saddle is open, a collar needs axial assembly, and the nest excludes concave details.
 Ask which surfaces can be contacted and how the part can be installed. None proves load capacity.
+part_hardware and base_hardware choose none, counterbore, countersink, or nut_pocket.
+Use nominal manufacturer profiles where supported; do not guess unsupported head dimensions.
+Countersinks use a 90 degree DIN 7991 legacy profile, not automatic ISO 10642 substitution.
+Nut pockets prevent rotation; base pockets need the mating base to cover their opening,
+and part pockets need an external cover for axial capture. A driver_diameter is an explicit
+finite tool envelope, with driver_reach in mm; it checks fixture obstruction, not source/tool collision.
+Manufacturing features follow the method: printing chamfers exterior base corners; machining
+rounds them and adds cutter relief to rectangular access cuts. process_radius is an editable
+concept default min(2 mm, thickness/3), not a proven tool or print tolerance. New projects
+enable these rules; legacy records retain original geometry until the method is saved/changed.
 When existing_base is supplied, preserve its measured pattern and selected holes.
 Use surroundings=bolt. Do not invent a replacement pattern or count. base_offset_x/y
 are translations in its contact plane; base_rotation is in-plane degrees. These can
@@ -154,7 +170,8 @@ For highlight_ids use the rear-profile ID, not a generated rear-relief operation
 An empty rear_passages list restores all selected profiles to measured-depth relief.
 For every explicit through wire/tool passage request, set through_access_required=true,
 even when profile selection still needs clarification. Do not leave this intent only in
-access text. The controller blocks generation until a measured rear_passages choice exists.
+access text. The controller blocks generation until rear_passages or a through-intent
+access_selections entry identifies a measured opening. Preserve a confirmed choice from either UI.
 Use earlier user descriptions/images of the opening to resolve its location; do not ask again
 when the user already identified it. Set through_access_required=false only if they cancel it.
 This creates an exit path for that profile, not a bend-radius or moving-cable check.
@@ -241,17 +258,33 @@ def planner_context(analysis, requirements, current=None):
         rear_profiles = []
         rear_error = str(error)
     from .access import options as access_options
+
     try:
-        access_choices = [dict(feature_id=k, label=v['label'], kind=v['kind']) for k,v in access_options(analysis, requirements).items()]
+        access_choices = [
+            dict(feature_id=k, label=v["label"], kind=v["kind"])
+            for k, v in access_options(analysis, requirements).items()
+        ]
     except ValueError:
         access_choices = []
     return {
         "capabilities": CAPABILITIES,
         "access_options": access_choices,
-        "requirements": requirements.model_dump(exclude={"material", "print_settings", "base_mount"}),
-        "existing_base": ({'source_hash':requirements.base_mount.analysis.source_hash,
-                           'interface':next(i for i in requirements.base_mount.analysis.interfaces if i.id==requirements.base_mount.interface_id).model_dump(exclude={'boundary','exclusions','face_mesh'}),
-                           'selected_holes':requirements.base_mount.hole_ids} if requirements.base_mount else None),
+        "requirements": requirements.model_dump(
+            exclude={"material", "print_settings", "base_mount"}
+        ),
+        "existing_base": (
+            {
+                "source_hash": requirements.base_mount.analysis.source_hash,
+                "interface": next(
+                    i
+                    for i in requirements.base_mount.analysis.interfaces
+                    if i.id == requirements.base_mount.interface_id
+                ).model_dump(exclude={"boundary", "exclusions", "face_mesh"}),
+                "selected_holes": requirements.base_mount.hole_ids,
+            }
+            if requirements.base_mount
+            else None
+        ),
         "interfaces": [
             i.model_dump(exclude={"boundary", "exclusions", "face_mesh"})
             for i in analysis.interfaces

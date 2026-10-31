@@ -16,8 +16,54 @@ def primitive(op):
     a, b, c = op.size
     if op.shape == "box":
         return sm.primitives.create_box((x, y, z), a, b, c)
-    if op.shape == "cylinder":
-        body = sm.primitives.create_cylinder((x, y, z), a / 2, c)
+    if op.shape in ("rounded_box", "chamfer_box"):
+        radius = op.corner_radius
+        width, depth, height = (a, c, b) if op.axis == "y" else (a, b, c)
+        if op.axis not in ("y", "z"):
+            raise ValueError("Finished stock needs a Y or Z normal.")
+        if op.shape == "rounded_box":
+            body = sm.primitives.create_box(
+                (radius, 0, 0), width - 2 * radius, depth, height
+            )
+            body = sm.booleans.boolean_union(
+                body,
+                sm.primitives.create_box(
+                    (0, radius, 0), width, depth - 2 * radius, height
+                ),
+            )
+            for cx in (radius, width - radius):
+                for cy in (radius, depth - radius):
+                    body = sm.booleans.boolean_union(
+                        body, sm.primitives.create_cylinder((cx, cy, 0), radius, height)
+                    )
+        else:
+            points = [
+                (radius, 0, 0),
+                (width - radius, 0, 0),
+                (width, radius, 0),
+                (width, depth - radius, 0),
+                (width - radius, depth, 0),
+                (radius, depth, 0),
+                (0, depth - radius, 0),
+                (0, radius, 0),
+            ]
+            curves = [
+                sm.curves.create_line_segment(points[n], points[(n + 1) % 8])
+                for n in range(8)
+            ]
+            body = sm.sweeps.linear_sweep(
+                curves, (0.0, 0.0, 1.0), height, cap_ends=True
+            )
+        if op.axis == "y":
+            body = sm.transforms.rotate(body, (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), -90.0)
+            z += depth
+        return sm.transforms.translate(body, (x, y, z))
+    if op.shape in ("cylinder", "cone"):
+        body = (
+            sm.primitives.create_cylinder((x, y, z), a / 2, c)
+            if op.shape == "cylinder"
+            else sm.primitives.create_cone((x, y, z), a / 2, b / 2, c)
+        )
         if op.axis != "z":
             body = sm.transforms.rotate(
                 body,
@@ -39,7 +85,15 @@ def primitive(op):
             sm.curves.create_line_segment(points[n], points[(n + 1) % len(points)])
             for n in range(len(points))
         ]
-        return sm.sweeps.linear_sweep(curves, (0.0, 0.0, 1.0), c, cap_ends=True)
+        body = sm.sweeps.linear_sweep(curves, (0.0, 0.0, 1.0), c, cap_ends=True)
+        if op.axis != "z":
+            body = sm.transforms.rotate(
+                body,
+                (x, y, z),
+                (1.0, 0.0, 0.0) if op.axis == "y" else (0.0, 1.0, 0.0),
+                -90.0 if op.axis == "y" else 90.0,
+            )
+        return body
     if a <= b:
         raise ValueError("Slot length must exceed its diameter.")
     box = sm.primitives.create_box((x + b / 2, y, z), a - b, b, c)

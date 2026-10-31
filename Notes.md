@@ -6,10 +6,142 @@ No dimensions, quantities, bolt circles or mounting conclusions from the sample
 are embedded in general application logic. Sample-specific values live in the
 sample generator, test fixtures and demo scripts only.
 
+## Features 1–6 implementation and verification (2026-10-30)
+
+The expansion branch is `feature/fixture-tools-1-6`, based on `3a66d5c` (the
+rollback baseline). An independent remote `main` commit, `d50ad96`, updates only
+the README demo screenshot; this feature work does not overwrite it or merge into
+`main`. The user authorized the six additions and continued
+implementation without intermediate permission requests. No new cumulative hours
+were supplied; the 3h30m checkpoint below remains a historical baseline.
+
+Compiler version 9 adds measured access references, an immutable second-base
+analysis/pattern, shaped retention, hardware seats and manufacturing rules.
+Analysis version 3 exposes complete outside cylindrical faces with measured
+radius/length and an attachment frame. The existing planar path and historical
+compiler versions 1–8 remain available. Bounded operations still enforce positive
+finite dimensions, provenance, references, dependency order, 256 operations,
+64 bodies and at most 24 repeated source parts.
+
+Selected access geometry is rederived from measured references on every revision.
+Through extents cover all final stock, including axis-oriented cylindrical stock.
+Side-face keep-clear volumes are finite conservative boxes. Cylindrical surfaces
+are retention candidates, not falsely treated as planar through-opening picks.
+Independent native intersection probes reject blind/obstructed passages and existing
+contact/material checks reject destructive openings. Exact source collision remains
+unevaluated; these are mesh-derived or analytic envelopes with explicit tolerances.
+
+Existing bases retain original analysis and selected face/holes in requirements and
+revisions. A rigid in-plane rotation/translation maps those holes to fixture base
+lands. Single stock/foot extents can grow when dimensions are not constrained, and
+now include both bore edge distance and hardware head/nut sidewall allowance.
+The combined demo caught the earlier bore-only allowance: a valid countersink
+needed more land than its through hole. The corrected rule preserves the measured
+pattern and rejects explicit width/depth or upright conflicts. Base meshes appear
+in assembly/review views; fixture-only STEP excludes both source and base.
+Absent an explicit nominal fastener, base clearance defaults now use the selected
+base openings instead of the part's inferred screw size. The base still uses one
+common screw size; individual mixed base hardware is a remaining limitation.
+
+Contour nests use a conservative convex whole-part footprint with fit allowance,
+not arbitrary concave reconstruction. Saddles/collars/split clamps use a complete
+measured outside cylinder and a finite axial support length, rejecting other source
+geometry that protrudes into that region. Split clamps add separate caps and two
+joining bores per part. Native cavity and independent expected-material coverage
+checks catch missing cavities, walls and caps. Adaptive SMLib volume integration
+(`relative_accuracy=1e-8`) avoids false collar-coverage failures from quadrature.
+These checks do not establish grip, friction, preload, seating or load capacity.
+
+On-model dimension labels expose allowed design parameters, not pixel-derived
+measurements. The browser distinguishes a deliberate click from orbiting; stale
+contexts and unknown fields are rejected. Edits and locks use the existing patch
+and generate/check/review workflow. A Windows cp1252 failure uncovered by the UI
+test prevented saving a Unicode revision title; project/revision JSON now explicitly
+uses UTF-8. Failed builds retain the last valid CAD.
+UI Man's final real-browser test caught a second interaction bug: a prior dropdown
+choice could override a model click, and Plotly 3D can report click before pointer
+release. The editor now applies validated clicks to one context-keyed widget state
+and captures hover/click candidates until a verified no-drag pointer release.
+Regression tests cover choosing margin then clicking thickness, both click event
+orders, hover selection and drag rejection. Labels were shortened; hover retains
+the full parameter names.
+The component registration cache now takes the JavaScript source as an explicit
+key, so a changed browser handler is actually loaded without a server-wide restart.
+Final live 8501 check passed: after selecting margin, one click on the amber Stock
+marker selected stock thickness and its 10 mm value. The saved project hash did not
+change. Loading the cylindrical specimen and saved hardware controls also passed.
+Final conversation integration also accepts a new measured through-access selection
+as satisfying `through_access_required`; users do not need to select the same opening
+again in the older rear-passage list. Keep-clear-only selections do not satisfy it.
+
+Hardware profiles are pinned manufacturer data, verified on 2026-10-30:
+
+- Counterbores: [Bossard BN 3 / ISO 4762](https://www.tme.eu/Document/03d4301a0ba62459eae87221acaaf1ae/BN3.pdf), with the [BN 7 profile](https://www.tme.eu/Document/67ebf699b890027d3f20c4b656db275b/BN7-FR.pdf) and [Würth M6 data](https://eshop.wuerth.si/00976-55) cross-checking cap-head sizes. Built-in sizes M3/M4/M5/M6.
+- Countersinks: [Bossard BN 616 / DIN 7991](https://www.tme.eu/Document/8d07529a1413d6e53f44b64cc7bb02f5/BN616-IT.pdf), a legacy 90° profile, M3/M4/M5/M6/M8. The manufacturer's warning against generic ISO 10642 substitution is preserved.
+- Hex nuts: [Bossard BN 629 / DIN 934](https://media.distrelec.com/Web/Downloads/_t/ds/1241613_eng_tds.pdf), legacy M3/M4/M5/M6/M8 dimensions. These are not mislabeled as modern ISO 4032 dimensions.
+
+Fit allowances are project assumptions, not standard values: head diameter +0.5 mm,
+nut flats +0.3 mm and cylindrical/nut depth +0.2 mm. Explicit dimensions override
+them. Unknown profiles require dimensions. Part seats enter from the back; base
+heads from above and base nut pockets from below. Native probes verify the seat
+void, 1 mm sidewall and 1 mm floor independently. Nut pockets resist rotation;
+axial capture requires the mating base or an external cover. The tool does not
+design an unrequested cover or validate thread engagement. Optional driver access
+uses a user diameter and finite reach, clears fixture obstructions, and is checked
+without claiming exact source/tool collision.
+
+The SMLib cone primitive was proved with exported analytic cone origin/axis/reference
+direction/radius/semi-angle data. STEP adapter version 2 transfers that exact conical
+surface and existing rational edges/topology into OpenCASCADE. Native/STEP solid and
+face counts, bounds, adaptive volume and area must match before publication. This
+extends serialization only: no fixture construction moved into CadQuery/OCP.
+
+Manufacturing geometry is enabled for new projects and when an old project's method
+is saved/changed; absent fields in old records default to disabled. Printing uses
+45° exterior base-footprint chamfers. Machining uses SMLib box/cylinder unions for
+rounded exterior corners plus circular run-out at rectangular access-cut corners.
+The default corner size is min(2 mm, thickness/3), visible/editable as a concept
+parameter. Existing contact, retention and hardware checks remain active, plus
+independent native corner/cutter and screw-web checks. Required adjacent uprights
+and ribs may cover a base corner. No material/printer/slicer settings were added.
+No universal machining or printing feasibility claim is made.
+
+UI Man worked in the same checkout under an agreed presentation boundary: theme,
+workflow/empty-state guidance, read-only summaries, layout and hardware controls.
+Widget labels/keys/handlers and backend priority were preserved. Desktop and 390px
+narrow layouts were checked in a separate preview process; only the main coding
+chat restarted the production 8501 app after schema updates. No merge into main.
+
+Verification performed:
+
+- Final complete suite after through-selection/base-default integration:
+  **165 passed in 220.87 s**. Final dimension/UI/pointer regression after the live
+  click fix: **4 passed in 16.68 s**. These runs overlap; no count is summed.
+- `python -m pytest tests -q --disable-warnings`: **161 passed in 213.96 s**.
+- Final targeted native checks after head-web/floor refinements, including new
+  transformed/repeated-cylinder and cylinder-bound tests: **34 passed in 71.53 s**.
+  These overlap the full run; they are not 195 distinct tests.
+- UI Man's focused UI/pointer run: 8 passed; UI/dimensions/access/base/pointer:
+  18 passed; hardware controls plus existing UI: 9 passed. These are overlapping.
+- `scripts/demo_extensions.py`: connector L-bracket, split clamp and contour nest
+  generated with zero failed native checks, exported analytic STEP and deterministically
+  rebuilt from ZIP. Connector thickness revision preserved the measured base and
+  full-depth opening. Outputs are under ignored `artifacts/features-demo`.
+- `scripts/prove_extensions_feedback.py`: real existing ChatGPT subscription, no
+  API-key fallback. Model revised connector part counterbores to countersinks;
+  generation and image-backed review completed with outcome **accepted**. The saved
+  measured base/access selections were asserted unchanged. Live records/ZIP are in
+  the same ignored artifact directory; no new live-key API test is claimed.
+
+Remaining: exact source/base collision, arbitrary/concave conformal nests, articulated
+clamps, mixed workpieces, general fabrication analysis, physical performance and the
+continuous video recording. No dependency change or additional runtime package was
+needed for these six features. New source specimens are original and redistributable.
+
 ## Checkpoint and total time — October 30, 2026
 
 **Cumulative project time reported by the user: 3 hours 30 minutes (3.5 hours).**
-This is the current total through the working, publicly published baseline. It
+This is the supplied total at the working, publicly published baseline. It
 supersedes earlier statements that a total had not been supplied. Historical timed
 intervals below describe subsets of the work; do not add them to this cumulative
 total. A breakdown between human effort, agent execution and waiting was not supplied.

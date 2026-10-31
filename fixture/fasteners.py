@@ -159,7 +159,23 @@ def resolve_clearances(analysis, requirements):
             nominal = fastener_size(r.bench_fastener or r.nominal_fastener)
             supplied = nominal is not None
             if nominal is None:
-                if not assumed_sizes:
+                if r.base_mount:
+                    from .intake import get_interface
+
+                    base_face = get_interface(
+                        r.base_mount.analysis, r.base_mount.interface_id
+                    )
+                    measured = min(
+                        base_face.diameters[base_face.hole_ids.index(h)]
+                        for h in r.base_mount.hole_ids
+                    )
+                    candidates = [n for n in SIZES if n <= measured + 0.05]
+                    if not candidates:
+                        raise ValueError(
+                            "Selected base holes need an explicit custom fastener clearance."
+                        )
+                    nominal = max(candidates)
+                elif not assumed_sizes:
                     if not interface.diameters:
                         raise ValueError(
                             "Specify the base screw size for this hole-free fixture; no part fastener size can be inferred."
@@ -187,6 +203,8 @@ def resolve_clearances(analysis, requirements):
                     origin="derived",
                     basis="Specified base/mounting nominal"
                     if supplied
+                    else "Assumed metric nominal from selected measured base openings; threads are not identified"
+                    if r.base_mount
                     else "Assumed base fastener from the smallest selected mounting size",
                 )
             )

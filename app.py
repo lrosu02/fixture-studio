@@ -23,21 +23,27 @@ from fixture.hole_picker import hole_picker_controls
 from fixture.face_picker import face_picker_controls
 from fixture.access_controls import access_controls
 from fixture.base_controls import base_controls
+from fixture.dimensions import dimension_controls
+from fixture.hardware_controls import hardware_controls
 from fixture.subscription import subscription_turn, subscription_review, executable
 from fixture.manufacturing import manufacturing_guidance
 from fixture.workflow import plan_design, generate_with_feedback
 from fixture.fasteners import resolve_clearances, clearance_summary, SOURCE
 from fixture.step_export import prepare_step, prepared_step
+from fixture.ui_theme import (
+    apply_theme,
+    studio_header,
+    workflow_strip,
+    welcome_panel,
+    project_overview,
+    workspace_intro,
+    conversation_intro,
+)
 
 ROOT = Path(__file__).resolve().parent
 st.set_page_config(page_title="Fixture Studio", page_icon="◈", layout="wide")
-st.markdown(
-    "<style>.block-container{padding-top:1.4rem;padding-bottom:1rem} h1{font-size:2.2rem!important}"
-    "[data-testid='stAppDeployButton']{display:none!important}</style>",
-    unsafe_allow_html=True,
-)
-st.title("Fixture Studio")
-st.caption("A measured part. A considered mounting approach. Real CAD.")
+apply_theme()
+studio_header()
 
 
 def short_text(text, limit=300):
@@ -74,9 +80,10 @@ def build(project, requirements=None, change="Generate reviewed proposal"):
 
 with st.sidebar:
     st.header("Project")
-    if st.button("New project"):
+    if st.button("New project", width="stretch"):
         st.session_state.clear()
         st.rerun()
+    st.caption("01 / IMPORT YOUR PART")
     upload = st.file_uploader("STEP part", type=["step", "stp"])
     sample = st.selectbox(
         "Bundled specimen",
@@ -85,13 +92,16 @@ with st.sidebar:
             "sensor_bracket.step",
             "mixed_hole_sizes.step",
             "hole_free_housing.step",
+            "cylindrical_housing.step",
+            "convex_housing.step",
+            "flanged_connector.step",
             "ambiguous.step",
             "multi_body.step",
             "transformed_motor.step",
             "unsupported_sphere.step",
         ],
     )
-    load = st.button("Load example")
+    load = st.button("Load example", width="stretch")
     st.caption("Examples are synthetic geometry, not manufacturer specifications.")
     if load or (upload and st.session_state.get("upload_id") != upload.file_id):
         try:
@@ -102,6 +112,8 @@ with st.sidebar:
             st.session_state.upload_id = upload.file_id if upload and not load else None
         except Exception as error:
             st.error(f"STEP intake failed: {error}")
+    st.divider()
+    st.caption("02 / DESIGN ASSISTANCE")
     modes = ["ChatGPT subscription (Codex CLI)", "OpenAI API", "Offline commands"]
     mode = st.selectbox(
         "Conversation mode",
@@ -142,11 +154,14 @@ with st.sidebar:
                 except Exception as error:
                     st.error(str(error))
 if "project" not in st.session_state:
-    st.info("Upload a STEP or load a bundled specimen to start.")
+    workflow_strip()
+    welcome_panel()
     st.stop()
 p = st.session_state.project
 a = p.analysis
 r = p.requirements
+workflow_strip(p, missing_questions(a, r))
+project_overview(p, missing_questions(a, r))
 planner = (
     subscription_turn
     if mode == modes[0]
@@ -162,6 +177,8 @@ reviewer = (
     else None
 )
 with st.sidebar:
+    st.divider()
+    st.caption("03 / REVISIONS & DOWNLOADS")
     st.caption("Stage: " + p.stage)
     st.caption("STEP imported as one complete part.")
     if p.current:
@@ -207,10 +224,10 @@ with st.sidebar:
     st.caption(
         "All distances in millimeters. Geometry checks do not establish operating performance."
     )
-left, right = st.columns([2.2, 1], gap="large")
-with left:
-    st.subheader(a.source_name)
+left, right = st.columns([1.6, 1], gap="medium")
+with left, st.container(key="studio-workspace"):
     st.subheader("Design choices")
+    workspace_intro()
     if st.session_state.pop("close_hole_picker", False):
         st.session_state.pick_mode = False
     if st.session_state.pop("close_face_picker", False):
@@ -226,11 +243,11 @@ with left:
         st.session_state.face_mode = False
     face_mode = st.session_state.get("face_mode", False)
     pick_mode = st.session_state.get("pick_mode", False)
-    if st.button('Select openings / keep-clear areas', width='stretch'):
+    if st.button("Select openings / keep-clear areas", width="stretch"):
         st.session_state.access_mode = True
         st.session_state.face_mode = st.session_state.pick_mode = False
         st.rerun()
-    access_mode = st.session_state.get('access_mode',False)
+    access_mode = st.session_state.get("access_mode", False)
     selecting = pick_mode or face_mode or access_mode
     with st.expander("View options", expanded=False):
         toggles = st.columns(5)
@@ -256,27 +273,33 @@ with left:
     elif pick_mode:
         hole_picker_controls(p)
     else:
-        st.plotly_chart(
-            assembly_figure(
-                a,
-                r.interface_id,
-                p.current,
-                source,
-                fixture,
-                evidence,
-                dimensions,
-                envelopes,
-                previous,
-                highlight_ids=p.highlights
-                or (
-                    p.current.requirements.mounting_hole_ids
-                    if p.current
-                    else r.mounting_hole_ids
-                ),
-            ),
-            width="stretch",
-            config={"displaylogo": False},
+        editing_dimensions = st.checkbox(
+            "Edit dimensions on model", False, disabled=p.current is None
         )
+        if editing_dimensions:
+            dimension_controls(p, build)
+        else:
+            st.plotly_chart(
+                assembly_figure(
+                    a,
+                    r.interface_id,
+                    p.current,
+                    source,
+                    fixture,
+                    evidence,
+                    dimensions,
+                    envelopes,
+                    previous,
+                    highlight_ids=p.highlights
+                    or (
+                        p.current.requirements.mounting_hole_ids
+                        if p.current
+                        else r.mounting_hole_ids
+                    ),
+                ),
+                width="stretch",
+                config={"displaylogo": False},
+            )
     if p.current and not pick_mode:
         c = st.columns(3)
         c[0].metric("Source instances", len(p.current.plan.placements))
@@ -310,6 +333,12 @@ with left:
             st.warning(str(error))
     passage_controls(p)
     manufacturing_controls(p)
+    if r.manufacturing_features and r.fabrication in ("3D printing", "Machined stock"):
+        st.caption(
+            "Printing chamfers exposed base corners; machining rounds corners and adds "
+            "cutter relief to rectangular openings. These dimensions are editable concept assumptions."
+        )
+    hardware_controls(p)
     base_controls(p)
     with st.expander("Advanced — mounting evidence", expanded=False):
         options = [None] + [i.id for i in a.interfaces]
@@ -420,8 +449,9 @@ with left:
             )
         with st.expander("Operation plan and provenance"):
             st.json(p.current.plan.model_dump())
-with right:
+with right, st.container(border=True, key="studio-conversation"):
     st.subheader("Design conversation")
+    conversation_intro()
     brief = st.text_area(
         "Design brief",
         placeholder="What should this fixture do? Describe the task and any preferences.",

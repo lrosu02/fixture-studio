@@ -31,14 +31,20 @@ class Project:
 
     @classmethod
     def new(cls, analysis):
-        return cls(analysis, Requirements(interface_id=recommended_interface(analysis)))
+        return cls(
+            analysis,
+            Requirements(
+                interface_id=recommended_interface(analysis),
+                manufacturing_features=True,
+            ),
+        )
 
     @classmethod
     def load(cls, path):
         path = Path(path).resolve()
         if not path.is_relative_to((ROOT / "artifacts").resolve()):
             raise ValueError("Project must be in local artifacts.")
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         obj = cls(
             Analysis.model_validate(data["analysis"]),
             Requirements.model_validate(data["requirements"]),
@@ -126,9 +132,11 @@ class Project:
                 metrics=metrics,
                 summary=summary,
             )
-            (folder / "revision.json").write_text(revision.model_dump_json(indent=2))
+            (folder / "revision.json").write_text(
+                revision.model_dump_json(indent=2), encoding="utf-8"
+            )
             (folder / "analysis.json").write_text(
-                self.analysis.model_dump_json(indent=2)
+                self.analysis.model_dump_json(indent=2), encoding="utf-8"
             )
             self.revisions.append(revision)
             self.active_id = rid
@@ -174,7 +182,7 @@ class Project:
             "feedback": [f.model_dump() for f in self.feedback],
         }
         temp = folder / "project.tmp"
-        temp.write_text(json.dumps(snapshot, indent=2))
+        temp.write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
         temp.replace(folder / "project.json")
 
     def export(self, mark_exported=True):
@@ -201,8 +209,20 @@ class Project:
                 json.dumps([c.model_dump() for c in r.plan.clearances], indent=2),
             )
             z.writestr("requirements.json", r.requirements.model_dump_json(indent=2))
+            if r.plan.version >= 9:
+                from .hardware import hardware_record
+
+                z.writestr(
+                    "hardware.json",
+                    json.dumps(
+                        hardware_record(self.analysis, r.requirements, r.plan), indent=2
+                    ),
+                )
             if r.requirements.base_mount:
-                z.writestr('base-analysis.json',r.requirements.base_mount.analysis.model_dump_json(indent=2))
+                z.writestr(
+                    "base-analysis.json",
+                    r.requirements.base_mount.analysis.model_dump_json(indent=2),
+                )
             # Each export describes this revision's review, never a newer attempt.
             z.writestr(
                 "ai-feedback.json",

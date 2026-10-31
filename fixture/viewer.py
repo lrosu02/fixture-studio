@@ -92,12 +92,13 @@ def assembly_figure(
             add_mesh(fig, mesh, "#25afa3", name)
     if source and revision and revision.requirements.base_mount:
         from .existing_base import transform
-        r=revision.requirements
-        base=r.base_mount
-        frame=get_interface(base.analysis,base.interface_id)
-        origin,basis=transform(r,revision.plan)
-        points=local_points(base.analysis.mesh.vertices,frame)@basis+origin
-        add_mesh(fig,base.analysis.mesh,'#7586bc','Existing base',points)
+
+        r = revision.requirements
+        base = r.base_mount
+        frame = get_interface(base.analysis, base.interface_id)
+        origin, basis = transform(r, revision.plan)
+        points = local_points(base.analysis.mesh.vertices, frame) @ basis + origin
+        add_mesh(fig, base.analysis.mesh, "#7586bc", "Existing base", points)
     if previous:
         for name, mesh in previous.meshes.items():
             add_mesh(fig, mesh, "#f6a94b", "Previous " + name, opacity=0.18)

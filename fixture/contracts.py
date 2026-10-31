@@ -13,7 +13,9 @@ Vec2 = tuple[float, float]
 Positive = Annotated[float, Field(gt=0, le=MAX_DIM)]
 Origin = Literal["measured", "user", "ai", "assumed", "derived"]
 Composition = Literal["plate", "rails", "l_bracket", "bridge"]
-PartAttachment = Literal["screws", "unselected", "cradle", "strap", "nest", "saddle", "collar", "split_clamp"]
+PartAttachment = Literal[
+    "screws", "unselected", "cradle", "strap", "nest", "saddle", "collar", "split_clamp"
+]
 
 
 class Record(BaseModel):
@@ -54,7 +56,7 @@ class Interface(Record):
     source_to_local: tuple[tuple[float, ...], ...]
     face_mesh: Mesh | None = None  # Exact trimmed face tessellation for selection.
     area_mm2: Annotated[float, Field(gt=0)] | None = None
-    support_kind: Literal['plane','cylinder'] = 'plane'
+    support_kind: Literal["plane", "cylinder"] = "plane"
     support_radius: Positive | None = None
     support_length: Positive | None = None
 
@@ -132,12 +134,26 @@ class BaseMount(Record):
     interface_id: str
     hole_ids: Annotated[tuple[str, ...], Field(min_length=1, max_length=128)]
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def references(self):
-        face = next((i for i in self.analysis.interfaces if i.id == self.interface_id), None)
-        if face is None or len(set(self.hole_ids)) != len(self.hole_ids) or not set(self.hole_ids) <= set(face.hole_ids):
-            raise ValueError('Choose measured holes on the selected base face.')
+        face = next(
+            (i for i in self.analysis.interfaces if i.id == self.interface_id), None
+        )
+        if (
+            face is None
+            or len(set(self.hole_ids)) != len(self.hole_ids)
+            or not set(self.hole_ids) <= set(face.hole_ids)
+        ):
+            raise ValueError("Choose measured holes on the selected base face.")
         return self
+
+
+class HardwareChoice(Record):
+    style: Literal["none", "counterbore", "countersink", "nut_pocket"] = "none"
+    diameter: Positive | None = None  # Head diameter or nut width across flats.
+    depth: Positive | None = None
+    driver_diameter: Positive | None = None
+    driver_reach: Annotated[float, Field(gt=0, le=500)] = 20
 
 
 class Requirements(Record):
@@ -167,7 +183,7 @@ class Requirements(Record):
     strap_thickness: Positive | None = None
     retention_length: Positive | None = None
     retention_fastener: str | None = None
-    split_gap: Annotated[float, Field(ge=.5, le=5)] = 1
+    split_gap: Annotated[float, Field(ge=0.5, le=5)] = 1
     clearance_diameter: Positive | None = None
     clearance_fit: Literal["fine", "medium", "coarse"] = "medium"
     nominal_fastener: str | None = None
@@ -177,11 +193,15 @@ class Requirements(Record):
     surroundings: Literal["unknown", "clamp", "bolt"] = "unknown"
     bench_hole_diameter: Positive | None = None
     bench_hole_count: Annotated[int, Field(ge=1)] | None = None
+    part_hardware: HardwareChoice = Field(default_factory=HardwareChoice)
+    base_hardware: HardwareChoice = Field(default_factory=HardwareChoice)
     base_mount: BaseMount | None = None
     base_offset_x: Annotated[float, Field(ge=-1000, le=1000)] = 0
     base_offset_y: Annotated[float, Field(ge=-1000, le=1000)] = 0
     base_rotation: Annotated[float, Field(ge=-180, le=180)] = 0
     fabrication: str | None = None
+    manufacturing_features: bool = False  # Legacy records keep their original geometry.
+    process_radius: Positive | None = None
     material: str | None = None
     print_settings: PrintSettings = Field(default_factory=PrintSettings)
     motion_loads: str | None = None
@@ -220,7 +240,17 @@ class Operation(Record):
     body: str | None = None
     target: str | None = None
     other: str | None = None
-    shape: Literal["box", "cylinder", "slot", "wedge", "prism"] = "box"
+    shape: Literal[
+        "box",
+        "rounded_box",
+        "chamfer_box",
+        "cylinder",
+        "cone",
+        "slot",
+        "wedge",
+        "prism",
+    ] = "box"
+    corner_radius: Positive | None = None
     profile: Annotated[tuple[Vec2, ...], Field(max_length=48)] = ()
     axis: Literal["x", "y", "z"] = "z"
     origin: Vec = (0, 0, 0)
@@ -241,11 +271,17 @@ class Operation(Record):
             raise ValueError("Operation origin exceeds workspace.")
         if not self.provenance:
             raise ValueError("Parameter provenance is required.")
-        if self.shape == "prism":
-            if self.axis != "z" or len(self.profile) < 3:
+        if self.shape in ("rounded_box", "chamfer_box"):
+            radial = [k for k in range(3) if k != "xyz".index(self.axis)]
+            if self.corner_radius is None or 2 * self.corner_radius >= min(
+                self.size[k] for k in radial
+            ):
                 raise ValueError(
-                    "A prism needs a bounded convex XY profile and Z axis."
+                    "Corner radius/chamfer must fit inside the stock footprint."
                 )
+        if self.shape == "prism":
+            if len(self.profile) < 3:
+                raise ValueError("A prism needs a bounded convex local XY profile.")
             # Require a strictly convex, counter-clockwise, non-self-crossing loop.
             # Every vertex must lie on the left of every directed boundary edge.
             for n, p in enumerate(self.profile):

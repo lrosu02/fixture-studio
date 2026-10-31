@@ -8,6 +8,7 @@ from .contracts import (
     Requirements,
     PrintSettings,
     HoleFastenerChoice,
+    HardwareChoice,
     MM_TOL,
     MAX_OPS,
 )
@@ -20,6 +21,11 @@ from .clearance import fixture_regions, footprint_distance
 
 def patch_requirements(current, changes, origin="user"):
     changes = dict(changes)
+    for key in ("part_hardware", "base_hardware"):
+        if key in changes:
+            changes[key] = HardwareChoice.model_validate(changes[key])
+    if "fabrication" in changes and changes["fabrication"] != current.fabrication:
+        changes.setdefault("manufacturing_features", True)
     if changes.get("part_attachment", current.part_attachment) != "screws":
         changes.setdefault("mounting_hole_ids", ())
         changes.setdefault("hole_fasteners", ())
@@ -103,17 +109,20 @@ def missing_questions(a, r, automatic_clearance=True):
         interface and not interface.hole_ids and r.part_attachment == "screws"
     ):
         questions.append(
-            "How should the part be retained: resting in a locating tray, or held with an external strap through tray slots?"
+            "How should the part be retained: an open saddle, axial collar, or split clamp?"
+            if interface and interface.support_kind == "cylinder"
+            else "How should the part be retained: a locating tray, convex contour nest, or an external strap?"
         )
     if r.part_attachment == "strap" and (not r.strap_width or not r.strap_thickness):
         questions.append(
             "What are the width and thickness of the retaining strap (mm), and may it cross over the part?"
         )
-    if r.part_attachment=='split_clamp' and not r.retention_fastener:
-        questions.append('Which screw size should join the split clamp halves?')
+    if r.part_attachment == "split_clamp" and not r.retention_fastener:
+        questions.append("Which screw size should join the split clamp halves?")
     if (
         r.part_attachment != "screws"
         and r.surroundings == "bolt"
+        and r.base_mount is None
         and not (r.bench_fastener or r.bench_hole_diameter)
     ):
         questions.append("What screw size should attach the tray to its base?")
@@ -143,9 +152,11 @@ def missing_questions(a, r, automatic_clearance=True):
         questions.append(
             "Which ports, cables, tools or surfaces need access? Give finite clearance dimensions when known."
         )
-    if r.through_access_required and not r.rear_passages:
+    if r.through_access_required and not (
+        r.rear_passages or any(s.intent == "through" for s in r.access_selections)
+    ):
         questions.append(
-            "Choose the measured rear recess for the requested through wire/tool opening; a blind relief does not satisfy through access."
+            "Select the opening or measured rear recess for the requested through wire/tool path; a blind relief does not satisfy through access."
         )
     if not r.assumptions_accepted:
         questions.append(
@@ -173,9 +184,14 @@ def proposals(a, r):
                 composition=composition,
                 title=title
                 or (
-                    {"cradle": "Locating tray", "strap": "Strap-retained tray"}.get(
-                        r.part_attachment
-                    )
+                    {
+                        "cradle": "Locating tray",
+                        "strap": "Strap-retained tray",
+                        "nest": "Contoured nest",
+                        "saddle": "Cylindrical saddle",
+                        "collar": "Locating collar",
+                        "split_clamp": "Split clamp",
+                    }.get(r.part_attachment)
                     or STRUCTURES[composition][0]
                 ),
                 rationale=rationale
@@ -183,6 +199,10 @@ def proposals(a, r):
                     {
                         "cradle": "Measured rectangular locating walls; open above, with no hold-down.",
                         "strap": "Measured locating walls and through slots for your external strap.",
+                        "nest": "Convex footprint follows the measured part outline.",
+                        "saddle": "Measured cylindrical seat, open above.",
+                        "collar": "Closed cylindrical seat for axial installation.",
+                        "split_clamp": "Measured cylindrical seat with a removable cap and joining holes.",
                     }.get(r.part_attachment)
                     or STRUCTURES[composition][1]
                 ),
@@ -241,18 +261,37 @@ def proposal_requirements(requirements, proposal):
 
 def compile_plan(a, r, require_ready=True, compiler_version=9):
     if compiler_version < 9:
-        if r.access_selections or r.base_mount:
-            raise ValueError('Selected access / existing bases need compiler version 9.')
+        if (
+            r.access_selections
+            or r.base_mount
+            or r.manufacturing_features
+            or r.part_hardware.style != "none"
+            or r.base_hardware.style != "none"
+            or r.part_hardware.driver_diameter
+            or r.base_hardware.driver_diameter
+        ):
+            raise ValueError(
+                "Extended access, base, hardware and manufacturing choices need compiler version 9."
+            )
         return _compile_plan(a, r, require_ready, compiler_version)
     if compiler_version != 9:
-        raise ValueError('Unsupported compiler version.')
+        raise ValueError("Unsupported compiler version.")
     from .access import add_access
     from .existing_base import add_base
+    from .hardware import add_hardware
+    from .process_geometry import add_process
     from .shaped_retention import compile_retention, MODES
-    plan = compile_retention(a,r,require_ready) if r.part_attachment in MODES else _compile_plan(a, r, require_ready, 8)
-    plan = plan.model_copy(update={'version':9})
+
+    plan = (
+        compile_retention(a, r, require_ready)
+        if r.part_attachment in MODES
+        else _compile_plan(a, r, require_ready, 8)
+    )
+    plan = plan.model_copy(update={"version": 9})
     plan = add_base(a, r, plan)
-    return add_access(a, r, plan)
+    plan = add_hardware(a, r, plan)
+    plan = add_access(a, r, plan)
+    return add_process(a, r, plan)
 
 
 def _compile_plan(a, r, require_ready=True, compiler_version=8):
@@ -268,9 +307,11 @@ def _compile_plan(a, r, require_ready=True, compiler_version=8):
         raise ValueError(
             "A base hole count requires bolted attachment to surroundings."
         )
-    if r.through_access_required and not r.rear_passages:
+    if r.through_access_required and not (
+        r.rear_passages or any(s.intent == "through" for s in r.access_selections)
+    ):
         raise ValueError(
-            "Select the measured rear recess for the required through wire/tool opening before generating."
+            "Select the opening or measured rear recess for the required through wire/tool path before generating."
         )
     if r.rear_passages and (
         compiler_version < 4

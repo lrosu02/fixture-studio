@@ -24,7 +24,17 @@ def retention_controls(p):
         "collar": "Closed locating collar — axial installation",
         "split_clamp": "Split clamp with removable cap",
     }
-    options = (["unselected", "saddle", "collar", "split_clamp"] if raw.support_kind=='cylinder' else ["unselected", *(["screws"] if raw.hole_ids else []), "cradle", "strap", "nest"])
+    options = (
+        ["unselected", "saddle", "collar", "split_clamp"]
+        if raw.support_kind == "cylinder"
+        else [
+            "unselected",
+            *(["screws"] if raw.hole_ids else []),
+            "cradle",
+            "strap",
+            "nest",
+        ]
+    )
     st.markdown("**Part retention**")
     key = p.id + str(hash(r.model_dump_json()))
     choice = st.selectbox(
@@ -63,12 +73,20 @@ def retention_controls(p):
             or None
         )
         width, thickness = r.strap_width, r.strap_thickness
-        length=r.retention_length
-        fastener=r.retention_fastener
-        if choice in ('saddle','collar','split_clamp'):
-            length=st.number_input('Cylindrical support length (mm; 0 = derive)',0.,2000.,float(length or 0)) or None
-        if choice=='split_clamp':
-            fastener=st.text_input('Clamp joining screw size',fastener or '') or None
+        length = r.retention_length
+        fastener = r.retention_fastener
+        if choice in ("saddle", "collar", "split_clamp"):
+            length = (
+                st.number_input(
+                    "Cylindrical support length (mm; 0 = derive)",
+                    0.0,
+                    2000.0,
+                    float(length or 0),
+                )
+                or None
+            )
+        if choice == "split_clamp":
+            fastener = st.text_input("Clamp joining screw size", fastener or "") or None
         if choice == "strap":
             width = (
                 st.number_input(
@@ -116,7 +134,15 @@ def retention_controls(p):
                     + ". "
                     + (
                         f"Wall clearance {clearance:g} mm, thickness {wall:g} mm, height {height or 'derived'}; strap width {width}, thickness {thickness} mm."
-                        if choice in ("cradle", "strap", "nest", "saddle", "collar", "split_clamp")
+                        if choice
+                        in (
+                            "cradle",
+                            "strap",
+                            "nest",
+                            "saddle",
+                            "collar",
+                            "split_clamp",
+                        )
                         else ""
                     ),
                 )
