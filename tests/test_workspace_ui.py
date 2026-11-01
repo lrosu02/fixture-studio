@@ -13,8 +13,8 @@ def button(ui, label):
 def picker_ui(monkeypatch, **updates):
     a, r = ready("mixed_hole_sizes.step", **updates)
     p = Project(a, r)
-    events = {"face": [], "holes": []}
-    payloads = {"face": [], "holes": []}
+    events = {"face": [], "holes": [], "access": []}
+    payloads = {"face": [], "holes": [], "access": []}
 
     def component(**kwargs):
         data = kwargs["data"]
@@ -28,13 +28,60 @@ def picker_ui(monkeypatch, **updates):
                 event["hole_ids"] = tuple(
                     dict.fromkeys((*data["hole_ids"], *event["hole_ids"]))
                 )
-        return SimpleNamespace(picked=event)
+        return SimpleNamespace(
+            picked=event if kind != "access" else None,
+            access_picked=event if kind == "access" else None,
+        )
 
     monkeypatch.setattr("fixture.mounting_picker.picker_component", lambda: component)
     ui = AppTest.from_file(str(ROOT / "app.py"), default_timeout=45)
     ui.session_state["project"] = p
     ui.run()
     return ui, p, events, payloads
+
+
+def test_access_mode_highlights_immediately_and_preserves_mounting_choices(monkeypatch):
+    ui, p, events, payloads = picker_ui(monkeypatch)
+    labels = {
+        "face": "Select mounting face",
+        "holes": "Select mounting holes",
+        "access": "Select openings / keep-clear areas",
+    }
+    original = p.requirements
+    for mode in ("face", "holes", "access", "holes", "access"):
+        button(ui, labels[mode]).click().run()
+        assert not ui.exception
+        assert button(ui, labels[mode]).proto.type == "primary"
+        assert all(
+            button(ui, label).proto.type == "secondary"
+            for other, label in labels.items()
+            if other != mode
+        )
+        assert p.requirements == original
+    data = payloads["access"][-1]
+    assert data["source_key"] == payloads["holes"][-1]["source_key"]
+    assert data["context"] == payloads["holes"][-1]["context"]
+    chosen = next(i for i in data["access_ids"] if i.startswith("hole:"))
+    events["access"].append(
+        dict(context=data["access_context"], sequence=3, feature_id=chosen)
+    )
+    ui.run()
+    assert not ui.exception
+    assert p.requirements == original  # Access intent/padding are saved separately.
+    assert next(x for x in ui.selectbox if x.label == "Access feature").value == chosen
+    events["access"].append(
+        dict(context=data["access_context"], sequence=1, feature_id="face:old")
+    )
+    button(ui, labels["holes"]).click().run()
+    button(ui, labels["access"]).click().run()
+    assert next(x for x in ui.selectbox if x.label == "Access feature").value == chosen
+    button(ui, "Add selected access").click().run()
+    assert not ui.exception
+    assert p.requirements.access_selections[0].feature_id == chosen
+    assert p.requirements.mounting_hole_ids == original.mounting_hole_ids
+    assert p.requirements.interface_id == original.interface_id
+    saved = Project.load(ROOT / "artifacts" / p.id / "project.json")
+    assert saved.requirements == p.requirements
 
 
 def test_immediate_selections_survive_switches_without_automatic_holes(monkeypatch):

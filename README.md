@@ -7,7 +7,7 @@ generate geometry, revise it, and export a reproducible design record.
 
 ## Selection reliability — November 1, 2026
 
-Mounting face and hole selection now share one persistent 3D viewer. Switching
+Mounting face, hole and opening selection now share one persistent 3D viewer. Switching
 between them preserves the camera and model instead of loading a second scene.
 Hole clicks highlight immediately and save as an ordered, complete selection;
 delayed updates cannot drop newer picks. Repeated clicks keep holes selected.
@@ -19,6 +19,31 @@ Later picks send only selection IDs, and the selected face shares one outline an
 direction arrow instead of hundreds of duplicate rendered overlays. Project saves
 reuse compact immutable geometry records. The original STEP measurement and export
 precision are unchanged; no preview decimation is involved.
+
+The active selection button is highlighted. Opening selection sends only its small
+set of measured aperture overlays; it keeps the mounting face, selected screw holes
+and camera. Changing categories does not reload the source geometry or the page.
+
+## Clearer editing and continuous bracket corners — November 1, 2026
+
+**Display settings** groups **Objects**, **Overlays**, and **Edit & compare**.
+Enable **Edit fixture dimensions**, choose a named setting, read its description,
+enter a value, and choose **Apply dimension and rebuild**. The panel distinguishes
+the value in the saved CAD from the current requirement. Automatic corner values
+show their derived size. A fixed preview caption replaces floating dimension markers;
+these values are design settings, not measurements of arbitrary displayed edges.
+Dimension locks are available in a collapsed section.
+
+**Design conversation** now shows the current step, next question and latest reply.
+Earlier dialogue and selection/save activity are collapsed; the complete original
+conversation remains available to the planner.
+
+New L-bracket revisions apply manufacturing corner finishing continuously across
+the joined base, wall and ribs. This removes the small square ledges above the
+previously chamfered or rounded base corners. The native CAD validation checks for
+leftover material in those corner regions, and the finish is included in STEP.
+**Generate a new revision** to update an existing design; historical CAD and exports
+remain reproducible.
 
 ## Automatic rib fillets — November 1, 2026
 
@@ -38,7 +63,7 @@ combinations fail recoverably; reduce the radius or turn the option off.
 
 The model preview and fixture thickness stay visible. Open **Choose mounting face
 and holes** to change the mounting selection; it starts open until a mounting face
-is confirmed. **Display settings** contains overlays and on-model dimension editing.
+is confirmed. **Display settings** contains overlays and fixture dimension editing.
 Detailed settings are grouped in **Mounting**, **Fabrication**, and **Advanced**
 tabs below the thickness control. All settings remain available and retain their
 saved values when switching groups. Additional proposals are under **More fixture
@@ -73,13 +98,13 @@ baseline is commit `3a66d5c`; the feature work has not been merged into `main`.
 | 1. Selected access | Click measured faces, holes or rear profiles for full-through openings and finite keep-clear areas. Cuts follow thickness revisions and are checked against final native geometry. |
 | 2. Existing base | Upload a second STEP, select its contact face and holes, and position it using in-plane offsets/rotation. The fixture copies the measured base pattern. |
 | 3. Retention | Convex-envelope contour nests, open cylindrical saddles, closed collars and split clamps with separate caps, alongside existing screw mounts and trays. |
-| 4. Dimensions | Set **Fixture thickness (mm)** below the viewer, or enable **Edit dimensions on model** to edit/lock other supported values. Rebuild through the normal revision and AI-review workflow. |
+| 4. Dimensions | Set **Fixture thickness (mm)** below the viewer, or enable **Edit fixture dimensions** to edit/lock other supported values. Rebuild through the normal revision and AI-review workflow. |
 | 5. Hardware | Optional part/base counterbores, 90° countersinks, hex nut pockets and finite screwdriver access. Native checks cover voids, sidewalls and seat floors. |
 | 6. Manufacturing geometry | Printing chamfers exposed base corners; machining rounds them and adds cutter relief to rectangular openings. Method selection needs no material, printer or slicer settings. |
 
 UI Man supplied the coordinated presentation refresh and hardware controls, with
 existing widget callbacks and backend contracts preserved. Manufacturing corner
-size defaults to `min(2 mm, thickness / 3)` and is editable on the model. This is a
+size defaults to `min(2 mm, thickness / 3)` and is editable in the dimension panel. This is a
 concept assumption. New projects enable the rules; old projects keep their original
 geometry until the manufacturing method is saved or changed.
 

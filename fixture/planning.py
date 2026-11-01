@@ -263,7 +263,7 @@ def proposal_requirements(requirements, proposal):
     return patch_requirements(requirements, changes)
 
 
-def compile_plan(a, r, require_ready=True, compiler_version=10):
+def compile_plan(a, r, require_ready=True, compiler_version=11):
     if compiler_version < 9:
         if (
             r.access_selections
@@ -278,7 +278,7 @@ def compile_plan(a, r, require_ready=True, compiler_version=10):
                 "Extended access, base, hardware and manufacturing choices need compiler version 9."
             )
         return _compile_plan(a, r, require_ready, compiler_version)
-    if compiler_version not in (9, 10):
+    if compiler_version not in (9, 10, 11):
         raise ValueError("Unsupported compiler version.")
     from .access import add_access
     from .existing_base import add_base

@@ -23,6 +23,7 @@ from fixture.ui_theme import (
     welcome_panel,
     project_overview,
     conversation_intro,
+    conversation_panel,
 )
 
 ROOT = Path(__file__).resolve().parent
@@ -270,6 +271,7 @@ with left, st.container(key="studio-workspace"):
 with right, st.container(border=True, key="studio-conversation"):
     st.subheader("Design conversation")
     conversation_intro()
+    conversation_panel(p, missing_questions(a, r))
     with st.expander(
         "Start with a design brief", expanded=not (p.current or p.messages)
     ):
@@ -297,16 +299,7 @@ with right, st.container(border=True, key="studio-conversation"):
                 else " No CAD revision was saved for this attempt."
             )
         )
-    if p.messages:
-        with st.container(height=300):
-            for m in p.messages:
-                with st.chat_message(m["role"]):
-                    if m["role"] == "assistant" and len(m["content"]) > 400:
-                        st.write(short_text(m["content"]))
-                        with st.expander("Read full response"):
-                            st.write(m["content"])
-                    else:
-                        st.write(m["content"])
+    st.markdown("**Your reply or change request**")
     text = st.chat_input("Describe the task or request a revision")
     if text:
         with st.spinner("Planning from measured features…"):
@@ -315,8 +308,6 @@ with right, st.container(border=True, key="studio-conversation"):
             build(p, change=text)
         st.rerun()
     questions = missing_questions(a, r)
-    if questions:
-        st.info("\n\n".join(questions))
     if r.interface_id:
         st.subheader("Mounting proposals")
         st.caption(

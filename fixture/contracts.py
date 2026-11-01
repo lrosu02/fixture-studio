@@ -236,7 +236,9 @@ class Proposal(Record):
 
 class Operation(Record):
     id: str
-    kind: Literal["place", "stock", "support", "mount", "relief", "combine", "fillet"]
+    kind: Literal[
+        "place", "stock", "support", "mount", "relief", "combine", "fillet", "finish"
+    ]
     edge_segments: Annotated[tuple[tuple[Vec, Vec], ...], Field(max_length=2)] = ()
     fillet_radius: Positive | None = None
     depends_on: tuple[str, ...] = ()
@@ -269,6 +271,12 @@ class Operation(Record):
 
     @model_validator(mode="after")
     def bounds(self):
+        if self.kind == "finish" and (
+            self.shape not in ("chamfer_box", "rounded_box") or self.axis != "y"
+        ):
+            raise ValueError(
+                "Joined corner finishing requires a bounded Y-axis finished outline."
+            )
         if self.kind == "fillet":
             if (
                 not self.edge_segments
@@ -339,7 +347,7 @@ class FastenerClearance(Record):
 
 
 class Plan(Record):
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] = 1
     source_hash: str
     interface_id: str
     composition: Composition
@@ -370,12 +378,16 @@ class Plan(Record):
                     raise ValueError("Missing support parent.")
                 bodies.add(op.body)
             if (
-                op.kind in ("mount", "relief", "combine", "fillet")
+                op.kind in ("mount", "relief", "combine", "fillet", "finish")
                 and op.target not in bodies
             ):
                 raise ValueError("Operation references a missing body.")
             if op.kind == "fillet" and self.version < 10:
                 raise ValueError("Fillets require compiler version 10.")
+            if op.kind == "finish" and self.version < 11:
+                raise ValueError(
+                    "Joined corner finishing requires compiler version 11."
+                )
             if op.kind == "combine":
                 if op.other not in bodies or op.other == op.target:
                     raise ValueError("Invalid combine reference.")

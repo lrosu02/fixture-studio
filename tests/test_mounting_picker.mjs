@@ -32,7 +32,9 @@ async function harness({defer=false, request=false, manyFaces=false}={}) {
         traces.push({type:'cone',x:[n],y:[1],z:[1],u:[0],v:[0],w:[1],meta:{direction_for:id}});
     }
     win.Plotly = {newPlot:()=>{creates++;return defer?new Promise(resolve=>{finish=resolve;}):Promise.resolve();},
-        restyle:async(...args)=>{draws.push(args);}, purge:()=>{purges++;}, Plots:{resize:()=>{}}};
+        update:async(...args)=>{draws.push(args);
+            if(args[2]['scene.camera']) plot._fullLayout.scene.camera=args[2]['scene.camera'];
+        }, purge:()=>{purges++;}, Plots:{resize:()=>{}}};
     globalThis.window=win;
     globalThis.ResizeObserver=class {observe(){} disconnect(){}};
     let data={figure:JSON.stringify({data:traces,layout:{scene:{}}}),source_key:'sample',context:'epoch-1',mode:'holes',sequence:0,interface_id:null,hole_ids:[]};
@@ -78,7 +80,7 @@ test('geometry handshake transfers the mesh only on an actual scene mount',async
 
 test('hundreds of candidate faces share only three rendered evidence traces',async()=>{
     const h=await harness({manyFaces:true});
-    assert.equal(h.plot.dataset.renderedTraces,'7'); // four holes + three evidence traces
+    assert.equal(h.plot.dataset.renderedTraces,'9'); // four holes + three evidence + two access traces
     h.click('a');await tick();
     const first=h.draws.at(-1)[1];
     assert.ok(first.x.some(v=>JSON.stringify(v)==='[0,1]'));
@@ -114,11 +116,55 @@ test('face/hole mode switches preserve the scene, camera and unsent acknowledgem
     h.click('a');
     for(let n=0;n<12;n++) {h.render({mode:'face'});h.render({mode:'holes'});}
     h.click('b');await tick();
-    assert.equal(h.plot._fullLayout.scene.camera,camera);
+    assert.deepEqual(h.plot._fullLayout.scene.camera,camera);
     assert.deepEqual(h.sent.at(-1).hole_ids,['a','b']);
     assert.equal(h.sent.length,2);
     assert.deepEqual(h.counts(),{creates:1,purges:0});
     assert.equal(h.win.count(),4);
+    h.cleanup();
+});
+
+test('openings share the scene and keep mounting picks through stale access acknowledgements',async()=>{
+    const h=await harness();
+    h.click('a');h.click('b');
+    const camera={eye:{x:2,y:3,z:1}};
+    h.plot._fullLayout={scene:{camera}};
+    const scene=h.plot.dataset.sceneId;
+    const access={mode:'access',access_context:'access-1',access_sequence:0,access_selected:null,
+        access_ids:['hole:c','hole:d'],access_token:'disks-1',access_geometry:JSON.stringify([
+            {meta:{pick_kind:'face',interface_id:'hole:c'},x:[0,1,0],y:[0,0,1],z:[0,0,0],i:[0],j:[1],k:[2]}
+        ])};
+    h.render(access);await tick();
+    assert.deepEqual(h.transport.at(-1),['access_geometry_loaded','disks-1']);
+    h.click('c');h.click('d');
+    const picks=h.transport.filter(([key])=>key==='access_picked');
+    assert.deepEqual(picks.map(([,v])=>v.feature_id),['hole:c','hole:d']);
+    h.render({access_geometry:null,access_sequence:1,access_selected:'hole:c'});
+    h.click('d'); // A stale server snapshot cannot revert to C and emit D twice.
+    assert.equal(h.transport.filter(([key])=>key==='access_picked').length,2);
+    h.render({mode:'face'});h.render({mode:'holes'});h.click('c');
+    assert.deepEqual(h.sent.at(-1).hole_ids,['a','b','c']);
+    h.render({mode:'access',access_context:'access-2',access_sequence:0,access_selected:'hole:c'});
+    h.click('d');
+    assert.deepEqual(h.transport.at(-1),['access_picked',{context:'access-2',sequence:1,feature_id:'hole:d'}]);
+    await tick();
+    assert.deepEqual(h.plot._fullLayout.scene.camera,camera);
+    assert.equal(h.plot.dataset.sceneId,scene);
+    assert.deepEqual(h.counts(),{creates:1,purges:0});
+    assert.equal(h.win.count(),4);
+    h.cleanup();
+});
+
+test('a live WebGL wheel zoom takes priority over stale layout camera during redraw',async()=>{
+    const h=await harness();
+    const live={eye:{x:.75,y:.8,z:.5},center:{x:0,y:0,z:0},up:{x:0,y:0,z:1}};
+    h.plot._fullLayout={scene:{camera:{eye:{x:2,y:2,z:2}},_scene:{getCamera:()=>live}}};
+    h.click('a');await tick();
+    assert.deepEqual(h.draws.at(-1)[2]['scene.camera'],live);
+    assert.equal(h.plot.dataset.cameraBeforeRedraw,h.plot.dataset.cameraAfterRedraw);
+    h.render({mode:'face'});await tick();
+    assert.deepEqual(h.plot._fullLayout.scene.camera,live);
+    assert.deepEqual(h.counts(),{creates:1,purges:0});
     h.cleanup();
 });
 

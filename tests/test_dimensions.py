@@ -11,7 +11,10 @@ def test_dimension_edit_rebuild_preserves_measurements_and_locks():
     p = Project(a, r)
     first = p.generate()
     fig = dimension_figure(a, first)
-    assert any(t.meta and t.meta.get("dimension") == "thickness" for t in fig.data)
+    assert any(
+        a.xref == "paper" and "thickness" in a.text.lower() for a in fig.layout.annotations
+    )
+    assert not any(t.meta and t.meta.get("dimension") for t in fig.data)
     changed = p.generate(edit_dimension(r, "thickness", 8), "Thicker stock")
     assert (
         changed.parent == first.id
@@ -44,7 +47,7 @@ def test_on_model_ui_rebuild(monkeypatch):
     next(s for s in ui.selectbox if s.label == "Conversation mode").select(
         "Offline commands"
     ).run()
-    next(c for c in ui.checkbox if c.label == "Edit dimensions on model").check().run()
+    next(c for c in ui.checkbox if c.label == "Edit fixture dimensions").check().run()
     next(s for s in ui.selectbox if s.label == "Dimension to edit").select(
         "thickness"
     ).run()
@@ -54,7 +57,7 @@ def test_on_model_ui_rebuild(monkeypatch):
     assert ui.session_state["project"].current.requirements.thickness == 8
 
 
-def test_model_click_replaces_a_prior_manual_dropdown_selection(monkeypatch):
+def test_legacy_model_click_cannot_replace_manual_dimension_selection(monkeypatch):
     from streamlit.testing.v1 import AppTest
 
     click = {}
@@ -73,7 +76,7 @@ def test_model_click_replaces_a_prior_manual_dropdown_selection(monkeypatch):
     ui = AppTest.from_file(str(Path("app.py").resolve()), default_timeout=45)
     ui.session_state["project"] = p
     ui.run()
-    next(c for c in ui.checkbox if c.label == "Edit dimensions on model").check().run()
+    next(c for c in ui.checkbox if c.label == "Edit fixture dimensions").check().run()
     next(s for s in ui.selectbox if s.label == "Dimension to edit").select(
         "margin"
     ).run()
@@ -86,9 +89,9 @@ def test_model_click_replaces_a_prior_manual_dropdown_selection(monkeypatch):
     assert not ui.exception
     assert (
         next(s for s in ui.selectbox if s.label == "Dimension to edit").value
-        == "thickness"
+        == "margin"
     )
     assert (
         next(n for n in ui.number_input if n.label == "New value (mm)").value
-        == r.thickness
+        == r.margin
     )

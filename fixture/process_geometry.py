@@ -98,6 +98,8 @@ def add_process(a, r, plan):
     ops = [replacements.get(o.id, o) for o in plan.operations]
     for o in corner_reliefs(r, plan):
         ops.append(o.model_copy(update={"depends_on": (ops[-1].id,)}))
+    if finish := joined_corner_finish(r, plan):
+        ops.append(finish.model_copy(update={"depends_on": (ops[-1].id,)}))
     return Plan.model_validate(
         {
             **plan.model_dump(),
@@ -106,8 +108,49 @@ def add_process(a, r, plan):
                 **plan.parameters,
                 "manufacturing_geometry": p["rules"],
                 "process_radius_mm": p["corner_mm"],
+                **(
+                    {"joined_corner_finish": "Continuous base, wall and rib outline"}
+                    if finish
+                    else {}
+                ),
             },
         }
+    )
+
+
+def joined_corner_finish(r, plan):
+    if plan.version < 11 or plan.composition != "l_bracket" or not policy(r)["enabled"]:
+        return None
+    from .operation_bounds import bounds
+
+    foot = next(o for o in finished_feet(r, plan) if o.id == "base-foot")
+    stocks = [o for o in plan.operations if o.kind in ("stock", "support")]
+    low = min(bounds(o)[0][1] for o in stocks) - 1
+    high = max(bounds(o)[1][1] for o in stocks) + 1
+    for o in stocks:
+        lo, hi = bounds(o)
+        if any(
+            lo[k] < foot.origin[k] - 0.01
+            or hi[k] > foot.origin[k] + foot.size[k] + 0.01
+            for k in (0, 2)
+        ):
+            raise ValueError(
+                "Joined corner finishing needs the full bracket inside its base footprint."
+            )
+    return Operation(
+        id="process-joined-corners",
+        kind="finish",
+        target="mounting-platform",
+        shape=foot.shape,
+        axis="y",
+        corner_radius=foot.corner_radius,
+        origin=(foot.origin[0], low, foot.origin[2]),
+        size=(foot.size[0], high - low, foot.size[2]),
+        purpose="Continuous exterior corner finish across joined base, wall and ribs",
+        provenance={
+            "outline": "derived",
+            "radius": "user" if r.process_radius else "assumed",
+        },
     )
 
 
@@ -116,6 +159,23 @@ def validate_process(a, r, plan, bodies, add):
         return
     import usd_brep as sm
     from .executor import primitive
+
+    if finish := joined_corner_finish(r, plan):
+        square = finish.model_copy(update={"shape": "box", "corner_radius": None})
+        removed = sm.booleans.boolean_difference(primitive(square), primitive(finish))
+        obstruction = abs(
+            sm.booleans.boolean_intersection(
+                bodies[finish.target].copy(), removed
+            ).volume(relative_accuracy=1e-8)
+        )
+        add(
+            "Joined exterior corners",
+            "Native intersection with full-height corner removal; no wall/rib ledges above the base",
+            obstruction,
+            "passed" if obstruction < 0.01 else "failed",
+            units="mm³",
+            correction="Apply the same exterior corner finish to the joined bracket.",
+        )
 
     # Independent expected corner tools: inspect the native result, not operation labels.
     for foot in finished_feet(r, plan):

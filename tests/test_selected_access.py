@@ -121,7 +121,7 @@ def test_access_picker_ui_adds_measured_reference(monkeypatch):
     from streamlit.testing.v1 import AppTest
 
     monkeypatch.setattr(
-        "fixture.access_controls.picker_component",
+        "fixture.mounting_picker.picker_component",
         lambda: lambda **kw: SimpleNamespace(picked=None),
     )
     ui = AppTest.from_file(

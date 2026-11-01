@@ -41,18 +41,32 @@ export default function(args) {
     // Only the selected face needs an outline/arrow. Reuse three traces instead
     // of hundreds of hidden traces that Plotly still recalculates on each pick.
     for (const [kind,trace] of templates) figure.data.push({...trace,meta:{evidence_kind:kind}});
+    figure.data.push({type:'mesh3d',x:[],y:[],z:[],i:[],j:[],k:[],color:'#56b4e9',opacity:0.65,
+        flatshading:true,hoverinfo:'skip',showlegend:false,meta:{access_selected:true},visible:false});
+    figure.data.push({type:'scatter3d',x:[],y:[],z:[],mode:'lines',line:{color:'#56b4e9',width:4},
+        hoverinfo:'skip',showlegend:false,meta:{access_candidates:true},visible:false});
     plot.dataset.renderedTraces = String(figure.data.length);
     let current = args, context, sequence = 0, face = null, holes = new Set();
+    let accessContext, accessSequence=0, accessSelected=null, accessToken=null, accessMeshes=[], accessIds=new Set();
+    let accessLines={x:[],y:[],z:[]};
     let ready = false, disposed = false, pressed = null, dragged = false;
     let hovered = null, pointer = null, drawPending = false, drawing = false;
     let lastStyle = '';
     const traceStyles = new Map();
+    function liveCamera() {
+        const scene=plot._fullLayout?.scene;
+        return scene?._scene?.getCamera?.() || scene?.camera;
+    }
     function traceStyle(trace) {
         return JSON.stringify([trace.visible,trace.color,trace.line?.width,trace.marker?.color,trace.marker?.symbol,trace.text,
-            ...(trace.meta?.evidence_kind ? ['x','y','z','u','v','w'].map(k=>trace[k]) : [])]);
+            ...(trace.meta?.evidence_kind || trace.meta?.access_selected || trace.meta?.access_candidates
+                ? ['x','y','z','u','v','w','i','j','k'].map(k=>trace[k]) : [])]);
     }
 
     function hint() {
+        if(current.data.mode==='access') return accessSelected
+            ? 'Access feature selected in blue. Choose opening or keep-clear settings below.'
+            : 'Click a face, opening or recess. Orange marks the mounting face; screw holes stay selected.';
         return current.data.mode === 'holes'
             ? `${holes.size} selected. Click to add; remove with × below. Drag to rotate.`
             : 'Click a mounting surface. Selected holes stay marked. Drag to rotate.';
@@ -69,6 +83,24 @@ export default function(args) {
             holes = new Set(data.hole_ids);
         }
         // An older server acknowledgement must never undo a newer local click.
+        if(data.mode==='access') {
+            accessIds = new Set(data.access_ids || []);
+            if(accessContext!==data.access_context || (data.access_sequence || 0)>=accessSequence) {
+                accessContext=data.access_context;
+                accessSequence=data.access_sequence || 0;
+                accessSelected=data.access_selected;
+            }
+            if(data.access_geometry && data.access_token!==accessToken) {
+                accessToken=data.access_token;
+                accessMeshes=JSON.parse(data.access_geometry).map(t=>({meta:t.meta,
+                    ...Object.fromEntries(['x','y','z','i','j','k'].map(k=>[k,array(t[k])]))}));
+                accessLines={x:[],y:[],z:[]};
+                for(const mesh of accessMeshes) for(const k of ['x','y','z']) {
+                    accessLines[k].push(...mesh[k],mesh[k][0],null);
+                }
+                current.setStateValue('access_geometry_loaded',accessToken);
+            }
+        }
     }
     function style(trace) {
         const m = trace.meta;
@@ -78,15 +110,20 @@ export default function(args) {
             trace.visible = Boolean(selected);
             if(selected) for(const k of ['x','y','z','u','v','w']) if(k in selected) trace[k] = selected[k];
         }
-        if (m.pick_kind === 'face') {
-            trace.visible = current.data.mode === 'face';
-            trace.color = m.interface_id === face ? '#ffb454' : '#74a9bc';
+        if(m.access_selected) {
+            const mesh = accessSelected?.startsWith('face:')
+                ? meshes.find(t=>t.meta?.interface_id===accessSelected.slice(5))
+                : accessMeshes.find(t=>t.meta?.interface_id===accessSelected);
+            trace.visible=current.data.mode==='access' && Boolean(mesh);
+            if(mesh) for(const k of ['x','y','z','i','j','k']) trace[k]=mesh[k];
         }
-        if (m.direction_for) trace.visible = m.direction_for === face;
-        if (m.outline_for) trace.visible = m.outline_for === face;
+        if(m.access_candidates) {
+            trace.visible=current.data.mode==='access';
+            Object.assign(trace,accessLines);
+        }
         if (m.hole_id) {
             const selected = m.interface_id === face && holes.has(m.hole_id);
-            trace.visible = current.data.mode === 'holes'
+            trace.visible = current.data.mode === 'access' ? true : current.data.mode === 'holes'
                 ? !holes.size || m.interface_id === face : selected;
             trace.line.width = selected ? 8 : 5;
             trace.marker.color[trace.marker.color.length - 1] = selected ? '#ffffff' : trace.line.color;
@@ -95,7 +132,7 @@ export default function(args) {
                 selected ? 'Selected · remove using × in the list' : 'Click to select');
         }
     }
-    function signature() { return JSON.stringify([current.data.mode,face,[...holes]]); }
+    function signature() { return JSON.stringify([current.data.mode,face,[...holes],accessSelected,accessToken]); }
     async function redraw() {
         drawPending = true;
         if (!ready || disposed || drawing) return;
@@ -106,7 +143,7 @@ export default function(args) {
                 const nextStyle = signature();
                 if (nextStyle === lastStyle) continue;
                 lastStyle = nextStyle;
-                const indices = [], changes = {visible:[], color:[], 'line.width':[], 'marker.color':[], 'marker.symbol':[], text:[], x:[],y:[],z:[],u:[],v:[],w:[]};
+                const indices = [], changes = {visible:[], 'line.width':[], 'marker.color':[], 'marker.symbol':[], text:[], x:[],y:[],z:[],u:[],v:[],w:[],i:[],j:[],k:[]};
                 figure.data.forEach((trace,index) => {
                     if (!trace.meta) return; // Never replace or retessellate the source mesh.
                     style(trace);
@@ -115,16 +152,22 @@ export default function(args) {
                     traceStyles.set(index,key);
                     indices.push(index);
                     changes.visible.push(trace.visible);
-                    changes.color.push(trace.meta.pick_kind === 'face' ? trace.color : undefined);
                     changes['line.width'].push(trace.meta.hole_id ? trace.line.width : undefined);
                     changes['marker.color'].push(trace.meta.hole_id ? [...trace.marker.color] : undefined);
                     changes['marker.symbol'].push(trace.meta.hole_id ? [...trace.marker.symbol] : undefined);
                     changes.text.push(trace.meta.hole_id ? trace.text : undefined);
-                    for(const k of ['x','y','z','u','v','w']) changes[k].push(trace.meta.evidence_kind ? trace[k] : undefined);
+                    for(const k of ['x','y','z','u','v','w','i','j','k']) changes[k].push(
+                        trace.meta.evidence_kind || trace.meta.access_selected || trace.meta.access_candidates ? trace[k] : undefined);
                 });
                 if (indices.length) {
                     const started = performance.now();
-                    await window.Plotly.restyle(plot, changes, indices);
+                    // A trace-only restyle can restore the last layout camera,
+                    // losing a live WebGL wheel zoom. Commit both together.
+                    const camera=liveCamera();
+                    const layout=camera ? {'scene.camera':JSON.parse(JSON.stringify(camera))} : {};
+                    plot.dataset.cameraBeforeRedraw=JSON.stringify(camera || null);
+                    await window.Plotly.update(plot, changes, layout, indices);
+                    plot.dataset.cameraAfterRedraw=JSON.stringify(liveCamera() || null);
                     plot.dataset.lastRedrawMs = String(Math.round(performance.now()-started));
                 }
             }
@@ -140,6 +183,13 @@ export default function(args) {
     }
     function choose(hit) {
         if (!ready || disposed || !hit) return;
+        if(current.data.mode==='access') {
+            const id=hit.hole_id ? 'hole:'+hit.hole_id : hit.interface_id;
+            if(!accessIds.has(id) || id===accessSelected) return;
+            accessSelected=id;
+            current.setStateValue('access_picked',{context:accessContext,sequence:++accessSequence,feature_id:id});
+            status.textContent=hint();redraw();return;
+        }
         if (current.data.mode === 'holes') {
             if (!hit.hole_id || (holes.size && hit.interface_id !== face)) return;
             if (holes.has(hit.hole_id)) return;
@@ -156,11 +206,16 @@ export default function(args) {
         if (current.data.mode === 'holes') {
             return hovered?.pointer && Math.hypot(x-hovered.pointer[0],y-hovered.pointer[1]) <= 12 ? hovered : null;
         }
+        if(current.data.mode==='access' && hovered?.pointer && Math.hypot(x-hovered.pointer[0],y-hovered.pointer[1])<=12 && accessIds.has('hole:'+hovered.hole_id)) return hovered;
         const scene = plot._fullLayout?.scene?._scene;
         const params = scene?.glplot?.cameraParams, canvas = scene?.glplot?.canvas;
         if (!params || !canvas) return null;
         const ray = cameraRay(params, scene.dataScale, canvas.getBoundingClientRect(), x,y);
-        return ray ? nearestFace(meshes,ray) : null;
+        const candidates=current.data.mode==='access' ? [
+            ...meshes.map(m=>m.meta?.pick_kind==='face' ? {...m,meta:{...m.meta,interface_id:'face:'+m.meta.interface_id}} : m),
+            ...accessMeshes
+        ] : meshes;
+        return ray ? nearestFace(candidates,ray) : null;
     }
     function cancel() { pressed = null; dragged = false; }
     function down(e) {
@@ -182,7 +237,7 @@ export default function(args) {
     }
     function hover(event) {
         const hit = event.points?.find(p => p.data?.meta?.hole_id &&
-            (!holes.size || p.data.meta.interface_id === face));
+            (current.data.mode==='access' || !holes.size || p.data.meta.interface_id === face));
         hovered = hit ? {...hit.data.meta, pointer:pointer?.slice()} : null;
     }
     function unhover() { hovered = null; }
@@ -227,6 +282,7 @@ export default function(args) {
         ready = true;
         plot.on('plotly_hover',hover);
         plot.on('plotly_unhover',unhover);
+        plot.on('plotly_relayout',()=>{plot.dataset.camera=JSON.stringify(liveCamera() || null);});
         status.textContent = hint();
         redraw();
     }).catch(() => { if (!disposed) status.textContent = '3D selection could not load. Use the measured lists below.'; });

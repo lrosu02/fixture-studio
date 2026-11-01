@@ -182,7 +182,7 @@ def _replace(project, key=None, face=False):
     reset_selection(project)
 
 
-def render_mounting_picker(project, mode):
+def render_mounting_picker(project, mode, on_done=None):
     a = project.analysis
     if not a.interfaces:
         st.info("No supported mounting surfaces were detected in this STEP.")
@@ -194,6 +194,29 @@ def render_mounting_picker(project, mode):
     transport = st.session_state.get(key, {})
     request = transport.get("geometry_request")
     send_geometry = bool(request and request != transport.get("geometry_loaded"))
+    from .access_controls import (
+        access_state,
+        access_pick_geometry,
+        apply_access_event,
+        render_access_controls,
+    )
+
+    access_data = {}
+    if mode == "access":
+        access_key, access, access_choices = access_state(project)
+        access_token = str(request) + ":" + access_key
+        access_data = dict(
+            access_context=access["context"],
+            access_sequence=access["sequence"],
+            access_selected=access["selected"],
+            access_ids=list(access_choices),
+            access_token=access_token,
+            access_geometry=access_pick_geometry(access_key, a, project.requirements)
+            if request
+            and access_choices
+            and transport.get("access_geometry_loaded") != access_token
+            else None,
+        )
     result = picker_component()(
         data=dict(
             # The browser requests immutable geometry once per actual mount.
@@ -206,15 +229,24 @@ def render_mounting_picker(project, mode):
             sequence=st.session_state.mounting_pick_sequence,
             interface_id=picks.interface_id,
             hole_ids=list(picks.hole_ids),
+            **access_data,
         ),
         key=key,
         on_picked_change=lambda: _on_pick(project, key),
         on_geometry_request_change=lambda: None,
         on_geometry_loaded_change=lambda: None,
+        on_access_geometry_loaded_change=lambda: None,
+        on_access_picked_change=lambda: apply_access_event(
+            project, st.session_state.get(key, {}).get("access_picked")
+        ),
         height=555,
     )
     # Also supports direct rendering and AppTest; already acknowledged events are no-ops.
     apply_event(project, result.picked)
+    apply_access_event(project, getattr(result, "access_picked", None))
+    if mode == "access":
+        render_access_controls(project, on_done=on_done, viewer=False)
+        return
     picks = st.session_state.mounting_picks
     if st.session_state.get("mounting_pick_error"):
         st.warning(st.session_state.mounting_pick_error)

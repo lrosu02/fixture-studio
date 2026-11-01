@@ -1,16 +1,15 @@
 from pathlib import Path
 from hashlib import sha256
-import numpy as np
-import plotly.graph_objects as go
 from plotly.offline import get_plotlyjs
 import streamlit as st
 from .contracts import Record, MAX_DIM
 from .viewer import assembly_figure
 from .planning import patch_requirements, missing_questions
-from .selection_ui import save_selection
+from .selection_ui import save_selection, rerun_selection
+from .process_geometry import policy
 
 LABELS = {
-    "thickness": "Stock thickness",
+    "thickness": "Fixture thickness",
     "gap": "Part gap",
     "margin": "Minimum stock margin",
     "mount_height": "Mount height",
@@ -24,6 +23,23 @@ LABELS = {
     "base_offset_y": "Base offset Y",
     "base_rotation": "Base rotation",
     "process_radius": "Manufacturing corner size",
+}
+
+DESCRIPTIONS = {
+    "thickness": "Thickness of the generated fixture stock. The uploaded part stays unchanged.",
+    "margin": "Minimum fixture material extending beyond the part footprint.",
+    "gap": "Space between neighboring parts when the fixture holds more than one.",
+    "mount_height": "Height of the part's mounting reference above the top of the base.",
+    "base_depth": "Front-to-back depth of the L-bracket's base foot.",
+    "locating_clearance": "Extra space between the part and its locating wall.",
+    "locating_wall": "Thickness of the wall surrounding the located part.",
+    "locating_height": "Height of the wall surrounding the located part.",
+    "retention_length": "Length of the cylindrical support along the part's axis.",
+    "split_gap": "Gap separating the split-clamp halves.",
+    "base_offset_x": "Position of the existing base along the mounting frame's X axis.",
+    "base_offset_y": "Position of the existing base along the mounting frame's Y axis.",
+    "base_rotation": "Rotation of the existing base in its mounting plane.",
+    "process_radius": "Manufacturing corner size: chamfer for printing, radius/relief for machining. This is separate from rib-root fillets.",
 }
 SHORT_LABELS = {
     "thickness": "Stock",
@@ -73,7 +89,20 @@ def fields(r):
 
 def value(r, plan, field):
     v = getattr(r, field)
-    return float(v if v is not None else plan.parameters.get(field + "_mm", 0))
+    if v is not None:
+        return float(v)
+    if field == "process_radius":
+        return float(policy(r)["corner_mm"])
+    derived = plan.parameters.get(field + "_mm")
+    return float(derived) if derived is not None else None
+
+
+def value_label(r, plan, field):
+    number = value(r, plan, field)
+    if number is None:
+        return "Automatic"
+    unit = "°" if field == "base_rotation" else "mm"
+    return ("Automatic · " if getattr(r, field) is None else "") + f"{number:g} {unit}"
 
 
 def select_dimension(r, event, context):
@@ -130,7 +159,7 @@ def thickness_controls(project, build):
         st.error(error)
     if "thickness" in r.locks:
         st.caption(
-            "Thickness is locked. Unlock it in Advanced or the on-model dimension editor."
+                "Thickness is locked. Unlock it in Advanced or the fixture dimension editor."
         )
     if project.current:
         current = project.current.requirements.thickness
@@ -152,37 +181,25 @@ def thickness_controls(project, build):
         )
 
 
-def dimension_figure(a, revision):
+def dimension_figure(a, revision, selected_field=None):
     r = revision.requirements
     fig = assembly_figure(a, revision=revision, evidence=False)
-    points = np.concatenate([np.array(m.vertices) for m in revision.meshes.values()])
-    lo, hi = points.min(axis=0), points.max(axis=0)
-    span = np.maximum(hi - lo, 1)
-    for n, field in enumerate(fields(r)):
-        # Labels are editable design values, not measurements read from pixels.
-        point = (
-            lo[0] + span[0] * (n % 3) / 2,
-            lo[1] - span[1] * (0.12 + 0.18 * (n // 3)),
-            hi[2] + span[2] * 0.1,
-        )
-        locked = field in r.locks
-        fig.add_trace(
-            go.Scatter3d(
-                x=[point[0]],
-                y=[point[1]],
-                z=[point[2]],
-                mode="markers+text",
-                marker=dict(size=9, color="#8c97a4" if locked else "#ffb454"),
-                text=[
-                    f"{SHORT_LABELS[field]}: {value(r, revision.plan, field):g} {'°' if field == 'base_rotation' else 'mm'}"
-                    + (" · locked" if locked else "")
-                ],
-                textposition="top center",
-                hoverinfo="text",
-                hovertext=LABELS[field],
-                meta={"dimension": field},
-                showlegend=False,
-            )
+    field = selected_field or "thickness"
+    if field in fields(r):
+        fig.add_annotation(
+            text=f"Design setting · {LABELS[field]}: {value_label(r, revision.plan, field)}",
+            x=0.02,
+            y=0.98,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+            xanchor="left",
+            yanchor="top",
+            align="left",
+            font=dict(size=11, color="#edf3f7"),
+            bgcolor="#17242f",
+            bordercolor="#3b5060",
+            borderpad=7,
         )
     return fig
 
@@ -205,77 +222,109 @@ def registered_component(source):
 def dimension_controls(p, build):
     rev = p.current
     if rev is None:
-        st.info("Generate a fixture to edit its on-model dimensions.")
+        st.info("Generate a fixture to edit its dimensions here.")
         return
     r = p.requirements
     context = p.id + rev.id + str(hash(r.model_dump_json()))
     choices = fields(r)
-    result = component()(
-        data=dict(
-            figure=dimension_figure(p.analysis, rev).to_json(),
-            context=context,
-            view_key=p.id,
-            fields=choices,
-        ),
-        key="dimensions-" + p.id,
-        on_picked_change=lambda: None,
-        height=580,
-    )
     selected = st.session_state.get("dimension-field-" + p.id, choices[0])
     choice_key = "dimension-choice-" + context
-    if result.picked:
-        try:
-            selected = select_dimension(r, result.picked, context)
-            st.session_state[choice_key] = selected
-        except ValueError as error:
-            st.info(str(error))
+    preview_field = st.session_state.get(choice_key, selected)
+    if preview_field not in choices:
+        preview_field = choices[0]
+    panel, preview = st.container(), st.container()
+    with preview:
+        st.caption(
+            "Preview of the saved CAD. The caption identifies a design setting, "
+            "not a measured edge. Choose a setting above to edit it."
+        )
+        component()(
+            data=dict(
+                figure=dimension_figure(p.analysis, rev, preview_field).to_json(),
+                context=context,
+                view_key=p.id,
+                fields=[],
+            ),
+            key="dimensions-" + p.id,
+            on_picked_change=lambda: None,
+            height=580,
+        )
     if selected not in choices:
         selected = choices[0]
     if st.session_state.get(choice_key) not in choices:
         st.session_state[choice_key] = selected
-    field = st.selectbox(
-        "Dimension to edit",
-        choices,
-        index=choices.index(selected),
-        format_func=LABELS.get,
-        key=choice_key,
-    )
-    st.session_state["dimension-field-" + p.id] = field
-    number = st.number_input(
-        "New value (degrees)" if field == "base_rotation" else "New value (mm)",
-        value=value(r, rev.plan, field),
-        key="dimension-value-" + context + field,
-        disabled=field in r.locks,
-    )
-    locked = st.checkbox(
-        "Lock this dimension",
-        value=field in r.locks,
-        key="dimension-lock-" + context + field,
-    )
-    if st.button("Save dimension lock"):
-        try:
-            locks = (
-                tuple(sorted(set(r.locks) | {field}))
-                if locked
-                else tuple(k for k in r.locks if k != field)
+    with panel, st.container(border=True):
+        st.markdown("**Edit a fixture dimension**")
+        field = st.selectbox(
+            "Dimension to edit",
+            choices,
+            index=choices.index(selected),
+            format_func=LABELS.get,
+            key=choice_key,
+        )
+        st.session_state["dimension-field-" + p.id] = field
+        st.caption(DESCRIPTIONS[field])
+        st.caption(
+            "Built value: "
+            + value_label(rev.requirements, rev.plan, field)
+            + " · Saved setting: "
+            + value_label(r, rev.plan, field)
+        )
+        number = st.number_input(
+            "New value (degrees)" if field == "base_rotation" else "New value (mm)",
+            value=value(r, rev.plan, field),
+            key="dimension-value-" + context + field,
+            disabled=field in r.locks,
+            help="Enter the target value, then rebuild to update and check the fixture CAD.",
+        )
+        if field in r.locks:
+            st.info(
+                "This dimension is locked. Open Dimension lock below to unlock it before editing."
             )
-            p.requirements = patch_requirements(r, {"locks": locks})
-            p.save()
-            st.rerun()
-        except ValueError as error:
-            st.error(str(error))
-    if st.button("Apply dimension and rebuild", disabled=field in r.locks):
-        try:
-            updated = edit_dimension(r, field, number)
-            p.messages.append(
-                dict(
-                    role="user",
-                    content=f"Change {LABELS[field]} to {number:g}. Preserve locked dimensions and rebuild.",
+        questions = missing_questions(p.analysis, r)
+        if st.button(
+            "Apply dimension and rebuild",
+            type="primary",
+            disabled=field in r.locks or number is None or bool(questions),
+        ):
+            try:
+                updated = edit_dimension(r, field, number)
+                p.messages.append(
+                    dict(
+                        role="user",
+                        content=f"Change {LABELS[field]} to {number:g}. Preserve locked dimensions and rebuild.",
+                    )
                 )
+                build(p, updated, f"{LABELS[field]} → {number:g}")
+            except ValueError as error:
+                st.error(str(error))
+        st.caption(
+            "Rebuild runs the normal CAD checks and review. A failed change keeps the last valid fixture."
+        )
+        if questions:
+            st.info("Before rebuilding: " + " ".join(questions))
+        with st.expander("Dimension lock", expanded=False):
+            st.caption(
+                "A locked value is protected from manual and assistant changes until you unlock it."
             )
-            build(p, updated, f"{LABELS[field]} → {number:g}")
-        except ValueError as error:
-            st.error(str(error))
-    st.caption(
-        "Click an amber label to edit. Measured source holes stay fixed. Rebuilds preserve the last valid revision if a change conflicts."
-    )
+            locked = st.checkbox(
+                "Lock this dimension",
+                value=field in r.locks,
+                key="dimension-lock-" + context + field,
+            )
+            if st.button("Save dimension lock"):
+                try:
+                    locks = (
+                        tuple(sorted(set(r.locks) | {field}))
+                        if locked
+                        else tuple(k for k in r.locks if k != field)
+                    )
+                    save_selection(
+                        p,
+                        patch_requirements(r, {"locks": locks}),
+                        p.highlights,
+                        f"Dimension lock: {LABELS[field]} {'locked' if locked else 'unlocked'}.",
+                    )
+                    rerun_selection()
+                except (ValueError, OSError) as error:
+                    st.error(str(error))

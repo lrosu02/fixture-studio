@@ -2,8 +2,8 @@
 
 import streamlit as st
 from .viewer import assembly_figure
+from .display_controls import render_display_controls
 from .mounting_picker import render_mounting_picker
-from .access_controls import render_access_controls
 from .dimensions import dimension_controls, thickness_controls
 from .ui_theme import workspace_intro
 from .controls import (
@@ -79,12 +79,18 @@ def workspace(project, build):
             "to fasten the part. Picks save immediately."
         )
         face_button, hole_button = st.columns(2)
-        if face_button.button("Select mounting face", width="stretch"):
-            set_workspace_mode("face", p)
-        if hole_button.button("Select mounting holes", width="stretch"):
-            set_workspace_mode("holes", p)
-        if st.button("Select openings / keep-clear areas", width="stretch"):
-            set_workspace_mode("access", p)
+        for button, label, mode, flag in (
+            (face_button, "Select mounting face", "face", "face_mode"),
+            (hole_button, "Select mounting holes", "holes", "pick_mode"),
+            (st, "Select openings / keep-clear areas", "access", "access_mode"),
+        ):
+            button.button(
+                label,
+                width="stretch",
+                on_click=set_workspace_mode,
+                args=(mode, p),
+                type="primary" if st.session_state.get(flag) else "secondary",
+            )
         st.caption(
             "Openings and keep-clear areas reserve space for cables, tools or moving parts."
         )
@@ -94,61 +100,48 @@ def workspace(project, build):
     selecting = pick_mode or face_mode or access_mode
     if selecting or p.current:
         views = st.columns(2)
-        views[0].button("View assembly", on_click=request_assembly, args=(p,))
+        views[0].button(
+            "View assembly",
+            on_click=request_assembly,
+            args=(p,),
+            type="primary"
+            if not selecting
+            and not st.session_state.get(view_key(p, "edit"), False)
+            and st.session_state.get(view_key(p, "source"), True)
+            and st.session_state.get(view_key(p, "fixture"), True)
+            else "secondary",
+        )
         if p.current:
             views[1].button(
-                "View generated fixture", on_click=request_assembly, args=(p, True)
+                "View generated fixture",
+                on_click=request_assembly,
+                args=(p, True),
+                type="primary"
+                if not selecting
+                and not st.session_state.get(view_key(p, "edit"), False)
+                and not st.session_state.get(view_key(p, "source"), True)
+                and st.session_state.get(view_key(p, "fixture"), True)
+                else "secondary",
             )
     if selecting and p.current:
         st.caption(
             "Selection view shows the uploaded part. Use View generated fixture to inspect the CAD."
         )
-    with st.expander("Display settings", expanded=False):
-        toggles = st.columns(2)
-        for name, default in (("source", True), ("fixture", True), ("evidence", True)):
-            st.session_state.setdefault(view_key(p, name), default)
-        source = toggles[0].checkbox(
-            "Source",
-            key=view_key(p, "source"),
-            disabled=selecting,
-            help="Show the uploaded part.",
-        )
-        fixture = toggles[1].checkbox(
-            "Fixture",
-            key=view_key(p, "fixture"),
-            disabled=selecting,
-            help="Show the generated fixture from the saved revision.",
-        )
-        evidence = toggles[0].checkbox(
-            "Mounting holes", key=view_key(p, "evidence"), disabled=selecting
-        )
-        dimensions = toggles[1].checkbox("Dimensions", False, disabled=selecting)
-        envelopes = toggles[0].checkbox(
-            "Access volumes",
-            False,
-            disabled=selecting,
-            help="Show space reserved for cables, tools and moving parts.",
-        )
-        st.session_state.setdefault(view_key(p, "edit"), False)
-        editing_dimensions = toggles[1].checkbox(
-            "Edit dimensions on model",
-            key=view_key(p, "edit"),
-            disabled=selecting or p.current is None,
-        )
-        compare = st.checkbox(
-            "Overlay previous revision",
-            False,
-            disabled=selecting or not (p.current and p.current.parent),
-        )
+    display = render_display_controls(p, selecting)
+    source, fixture, evidence = (display[k] for k in ("source", "fixture", "evidence"))
+    dimensions, envelopes = display["dimensions"], display["envelopes"]
+    editing_dimensions, compare = display["editing_dimensions"], display["compare"]
     previous = (
         next((v for v in p.revisions if p.current and v.id == p.current.parent), None)
         if compare
         else None
     )
-    if access_mode:
-        render_access_controls(p, on_done=lambda: set_workspace_mode("assembly", p))
-    elif face_mode or pick_mode:
-        render_mounting_picker(p, "face" if face_mode else "holes")
+    if selecting:
+        render_mounting_picker(
+            p,
+            "access" if access_mode else "face" if face_mode else "holes",
+            on_done=lambda: set_workspace_mode("assembly", p),
+        )
     else:
         if editing_dimensions:
             dimension_controls(p, build)

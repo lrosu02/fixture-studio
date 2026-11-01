@@ -28,6 +28,15 @@ h3 { font-size: 1.08rem; }
 [data-testid="stCaptionContainer"] p { color: var(--studio-muted); }
 .st-key-studio-workspace h3, .st-key-studio-conversation h3 { font-size: 1.15rem; }
 .st-key-studio-conversation { background: #111c25; border-radius: 10px; }
+.studio-conversation-step {
+  border-left: 3px solid var(--studio-accent);
+  background: #15302d;
+  border-radius: 0 8px 8px 0;
+  padding: .9rem 1rem;
+  margin: .1rem 0 .7rem;
+}
+.studio-conversation-step h4 { color: #e4faf5; font-size: 1rem; margin: .35rem 0; }
+.studio-conversation-step p { color: #cadfd8; font-size: .86rem; margin: 0; line-height: 1.6; }
 [data-testid="stWidgetLabel"] p { font-weight: 500; font-size: .86rem; }
 [data-testid="stButton"] button,
 [data-testid="stDownloadButton"] button {

@@ -155,6 +155,9 @@ L-bracket inward rib/base roots receive automatic SMLib fillets by default (auto
 The default radius is at most 1.5 mm and one quarter of thickness, bounded by available geometry.
 rib_fillet_radius overrides within those bounds; auto_rib_fillets=false leaves sharp joints.
 Fillets are concept geometry, not a strength assessment. Other edges are not automatically filleted.
+With manufacturing_features enabled, L-bracket exterior corner finishing follows one
+continuous base-footprint outline through the joined base, wall and ribs (compiler 11).
+This avoids square wall/rib ledges above chamfered or rounded base corners.
 Its mount_height is the selected interface origin above the base top, along +Y;
 base_depth is the rearward foot extent along -Z. Both can be user-specified or
 derived from the measured part as visible concept defaults. A bridge has two legs

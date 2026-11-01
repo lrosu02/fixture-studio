@@ -201,6 +201,10 @@ def execute(plan, analysis, path):
                 from .fillets import apply_fillet
 
                 bodies[op.target] = apply_fillet(bodies[op.target], op)
+            elif op.kind == "finish":
+                bodies[op.target] = sm.booleans.boolean_intersection(
+                    bodies[op.target], primitive(op)
+                )
         if not bodies:
             raise ValueError("Plan produced no bodies.")
         for name, b in bodies.items():

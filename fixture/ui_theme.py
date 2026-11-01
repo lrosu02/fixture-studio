@@ -105,4 +105,131 @@ def workspace_intro():
 
 
 def conversation_intro():
-    st.caption("Describe the job, compare approaches, and request a revision.")
+    st.caption(
+        "Answer the next question, review the response, then choose a fixture concept."
+    )
+
+
+def is_activity_message(message):
+    """Classify UI/workflow notes for display without changing the AI transcript."""
+    text = message["content"].strip()
+    return (
+        text.startswith(
+            (
+                "3D mounting selection:",
+                "Part retention:",
+                "Manufacturing method:",
+                "Screw sizes for selected holes:",
+                "Make these measured rear recesses through passages:",
+                "Attach to uploaded base ",
+                "Set fixture thickness to ",
+                "Dimension lock:",
+                "Start design using my brief, saved conversation,",
+                "Built ",
+                "Offline mode: geometric checks only;",
+                "Selected opening ",
+            )
+        )
+        or text == "What would you like to change next?"
+        or (
+            text.startswith("Change ")
+            and text.endswith("Preserve locked dimensions and rebuild.")
+        )
+        or (
+            text.startswith("Selected ")
+            and text.endswith("Generate a revision to apply it.")
+        )
+    )
+
+
+def conversation_sections(project):
+    """Return a read-only presentation of the full, original message records."""
+    dialogue, activity = [], []
+    for index, message in enumerate(project.messages):
+        (activity if is_activity_message(message) else dialogue).append(
+            (index, message)
+        )
+    latest_user = next(
+        (entry for entry in reversed(dialogue) if entry[1]["role"] == "user"), None
+    )
+    latest_reply = next(
+        (entry for entry in reversed(dialogue) if entry[1]["role"] == "assistant"), None
+    )
+    shown = {entry[0] for entry in (latest_user, latest_reply) if entry}
+    return dict(
+        latest_user=latest_user[1] if latest_user else None,
+        latest_reply=latest_reply[1] if latest_reply else None,
+        history=[message for index, message in dialogue if index not in shown],
+        activity=[message for _, message in activity],
+    )
+
+
+def conversation_questions(project, questions=()):
+    """Prefer the planner's current clarification over the general setup checklist."""
+    attempt = getattr(project, "last_planner_attempt", None) or {}
+    action = attempt.get("action") or {}
+    current = (
+        action.get("questions", ())
+        if getattr(project, "stage", None) == "clarifying" and not project.error
+        else ()
+    )
+    return tuple(dict.fromkeys([*current, *questions]))
+
+
+def conversation_panel(project, questions=()):
+    questions = conversation_questions(project, questions)
+    sections = conversation_sections(project)
+    pending = bool(
+        project.current and project.current.requirements != project.requirements
+    )
+    if project.error:
+        step, prompt = (
+            "Resolve the last attempt",
+            "Review the error below, then retry or describe a change.",
+        )
+    elif questions:
+        step, prompt = "Complete the setup", questions[0]
+    elif pending:
+        step, prompt = (
+            "Review your changes",
+            "Choose Generate on a fixture concept to apply your saved changes to the CAD.",
+        )
+    elif project.current:
+        step, prompt = (
+            "Review the fixture",
+            "Inspect the model, request a change, or prepare a STEP download.",
+        )
+    else:
+        step, prompt = (
+            "Choose a fixture concept",
+            "Review the proposals below and generate the approach you want.",
+        )
+    st.html(
+        '<section class="studio-conversation-step" aria-label="Current design step">'
+        '<span class="studio-eyebrow">CURRENT STEP</span>'
+        f"<h4>{escape(step)}</h4><p>{escape(prompt)}</p></section>"
+    )
+    if len(questions) > 1:
+        with st.expander("Other setup details", expanded=False):
+            for question in questions[1:]:
+                st.write(question)
+    if sections["latest_user"]:
+        with st.expander("Your latest request", expanded=False):
+            st.write(sections["latest_user"]["content"])
+    if reply := sections["latest_reply"]:
+        st.markdown("**Latest assistant reply**")
+        with st.chat_message("assistant"):
+            text = reply["content"]
+            st.write(text if len(text) <= 650 else text[:650].rsplit(" ", 1)[0] + "…")
+            if len(text) > 650:
+                with st.expander("Read full assistant reply", expanded=False):
+                    st.write(text)
+    if sections["history"]:
+        with st.expander("Earlier conversation", expanded=False):
+            for message in sections["history"]:
+                with st.chat_message(message["role"]):
+                    st.write(message["content"])
+    if sections["activity"]:
+        with st.expander("Selection and save activity", expanded=False):
+            for message in sections["activity"]:
+                st.caption(message["content"])

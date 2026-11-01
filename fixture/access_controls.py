@@ -8,11 +8,11 @@ from .contracts import AccessSelection
 from .access import options
 from .intake import get_interface
 from .face_picking import face_picker_figure, face_surface
-from .face_picker import picker_component
 from .hole_picker import outer_boundary_points
 from .picking import HolePicks
 from .viewer import hole_picker_figure
 from .planning import patch_requirements
+from .selection_ui import save_selection, rerun_selection
 
 
 @st.cache_data(max_entries=8, show_spinner=False)
@@ -47,8 +47,15 @@ def access_figure(key, _a, _r):
         for trace in holes.data:
             if trace.meta and trace.meta.get("hole_id") in _r.mounting_hole_ids:
                 fig.add_trace(trace)
+    fig.add_traces(access_disks(_a, _r))
+    return fig.to_json()
+
+
+def access_disks(a, r):
+    i = get_interface(a, r.interface_id)
     basis = np.array([i.x, i.y, i.z])
-    for id, c in options(_a, _r).items():
+    traces = []
+    for id, c in options(a, r).items():
         if c["kind"] == "face":
             continue
         if c["kind"] == "hole":
@@ -89,7 +96,7 @@ def access_figure(key, _a, _r):
                 )
         p = p @ basis + np.array(i.origin)
         n = len(p)
-        fig.add_trace(
+        traces.append(
             go.Mesh3d(
                 x=p[:, 0],
                 y=p[:, 1],
@@ -104,7 +111,7 @@ def access_figure(key, _a, _r):
                 name=c["label"],
             )
         )
-    return fig.to_json()
+    return traces
 
 
 @st.fragment
@@ -114,51 +121,65 @@ def access_controls(p):
 
 def _finish_access():
     st.session_state.access_mode = False
-    st.rerun(scope="app")
+    rerun_selection()
 
 
-def render_access_controls(p, on_done=None):
+@st.cache_data(max_entries=12, show_spinner=False)
+def access_catalog(key, _a, _r):
+    return options(_a, _r)
+
+
+def access_state(p):
+    r = p.requirements
+    key = f"{p.id}:{r.interface_id}:{r.rear_clearance}"
+    state = st.session_state.setdefault(
+        "access-draft-" + key, {"context": uuid4().hex, "selected": None, "sequence": 0}
+    )
+    choices = access_catalog(key, p.analysis, r) if r.interface_id else {}
+    return key, state, choices
+
+
+def apply_access_event(p, event):
+    if not isinstance(event, dict):
+        return
+    _, state, choices = access_state(p)
+    if event.get("context") != state["context"]:
+        return
+    sequence = event.get("sequence")
+    if type(sequence) is not int or sequence <= state["sequence"]:
+        return
+    if event.get("feature_id") not in choices:
+        return
+    state.update(selected=event["feature_id"], sequence=sequence)
+
+
+@st.cache_data(max_entries=12, show_spinner=False)
+def access_pick_geometry(key, _a, _r):
+    # Source and face triangles already live in the persistent viewer. Send only
+    # opening/recess disks when the mounting frame changes, not a second scene.
+    from plotly.io import to_json
+
+    import json
+
+    return json.dumps(json.loads(to_json(go.Figure(access_disks(_a, _r))))["data"])
+
+
+def render_access_controls(p, on_done=None, viewer=True):
+    if viewer:
+        from .mounting_picker import render_mounting_picker
+
+        return render_mounting_picker(p, "access", on_done=on_done)
     if not p.requirements.interface_id:
         st.info("Select a mounting face first so access has a defined direction.")
         return
-    a, r = p.analysis, p.requirements
-    choices = options(a, r)
-    key = p.id + str(r.interface_id)
-    state = st.session_state.setdefault(
-        "access-draft-" + key, {"context": uuid4().hex, "selected": None}
-    )
+    r = p.requirements
+    key, state, choices = access_state(p)
     st.caption(
         "Click a face, opening disk or measured recess. Through openings follow the mounting normal; keep-clear faces create a finite outward box. Selected material/contact conflicts are checked before saving a revision."
     )
     st.caption(
         "Your mounting face outline and selected screw-hole markers remain visible."
     )
-    event = picker_component()(
-        data=dict(
-            figure=access_figure(
-                a.source_hash
-                + str(a.version)
-                + str(r.interface_id)
-                + str((r.rear_clearance, r.mounting_confirmed, r.mounting_hole_ids)),
-                a,
-                r,
-            ),
-            context=state["context"],
-            view_key="access-" + key,
-            interface_id=state["selected"],
-            hint="Select a face or opening for access. Drag to rotate.",
-            selected_hint="Access feature selected. Choose its intent below.",
-        ),
-        key="access-picker-" + key,
-        on_picked_change=lambda: None,
-        height=555,
-    )
-    if (
-        event.picked
-        and event.picked.get("context") == state["context"]
-        and event.picked.get("interface_id") in choices
-    ):
-        state["selected"] = event.picked["interface_id"]
     ids = [None, *choices]
     selected = st.selectbox(
         "Access feature",
@@ -168,6 +189,8 @@ def render_access_controls(p, on_done=None):
             choices[v]["label"] if v else "Click in 3D or choose here"
         ),
         key="access-feature-" + state["context"] + str(state["selected"]),
+        on_change=_choose_access,
+        args=(p, "access-feature-" + state["context"] + str(state["selected"])),
     )
     intent = st.radio(
         "Access intent",
@@ -184,7 +207,7 @@ def render_access_controls(p, on_done=None):
             choice = AccessSelection(
                 feature_id=selected, intent=intent, padding=padding, reach=reach
             )
-            p.requirements = patch_requirements(
+            updated = patch_requirements(
                 r,
                 {
                     "access_selections": (
@@ -193,15 +216,14 @@ def render_access_controls(p, on_done=None):
                     )
                 },
             )
-            p.messages.append(
-                dict(
-                    role="user",
-                    content=f"Selected {choices[selected]['label']} for {intent}, padding {padding:g} mm, finite reach {reach:g} mm. Generate a revision to apply it.",
-                )
+            save_selection(
+                p,
+                updated,
+                p.highlights,
+                f"Selected {choices[selected]['label']} for {intent}, padding {padding:g} mm, finite reach {reach:g} mm. Generate a revision to apply it.",
             )
-            p.save()
-            st.rerun()
-        except ValueError as error:
+            rerun_selection()
+        except (ValueError, OSError) as error:
             st.error(str(error))
     if r.access_selections:
         retain = st.multiselect(
@@ -213,7 +235,7 @@ def render_access_controls(p, on_done=None):
         )
         if st.button("Save access selection list"):
             try:
-                p.requirements = patch_requirements(
+                updated = patch_requirements(
                     r,
                     {
                         "access_selections": tuple(
@@ -221,8 +243,15 @@ def render_access_controls(p, on_done=None):
                         )
                     },
                 )
-                p.save()
-                st.rerun()
-            except ValueError as error:
+                save_selection(
+                    p, updated, p.highlights, "Updated saved access selections."
+                )
+                rerun_selection()
+            except (ValueError, OSError) as error:
                 st.error(str(error))
     st.button("Done selecting access", on_click=on_done or _finish_access)
+
+
+def _choose_access(p, key):
+    _, state, _ = access_state(p)
+    state.update(selected=st.session_state[key], sequence=0, context=uuid4().hex)

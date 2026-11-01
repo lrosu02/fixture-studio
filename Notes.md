@@ -1,5 +1,70 @@
 # Engineering record
 
+## Persistent access selection, dimension clarity and joined corners (2026-11-01)
+
+Opening selection still mounted its own component after the face/hole viewer was
+made persistent. It now uses the same component, key, source geometry and camera.
+Only two reusable access traces are added: combined aperture outlines and one
+selected surface. Measured face meshes already present for ray picking are reused.
+A separate sequence/context protects access drafts from delayed events; selecting
+an opening does not alter mounting holes. Access saves use the same atomic selection
+transaction and workspace fragment as other picks. All three selection buttons
+derive primary styling from callback-updated mode state, including the first click.
+
+UI Man supplied grouped display controls, the current-step conversation card and
+the revised dimension panel. Display labels explain what is shown; unavailable
+controls explain why. The dimension panel separates built and saved values,
+explains each editable setting, resolves automatic corner sizes, and puts locks
+under an expander. Arbitrary 3D dimension markers were removed in favor of a fixed
+2D design-setting caption. Legacy click payloads cannot overwrite manual choices.
+The full message transcript remains intact; only its presentation is grouped.
+
+The screenshot's small bracket corner ledge was real geometry. Compiler 10 finished
+the base footprint before joining square wall/rib stock, leaving material above
+the cut corners. Compiler 11 adds a bounded SMLib intersection of the complete
+bracket with an extended finished-footprint outline. It retains all through cuts
+and fillets. An independent native intersection with the expected removed corner
+regions detects a missing finish. Printing chamfers and machined round corners
+are both covered. Older compiler versions keep the historical behavior.
+
+The latest saved two-motor NEMA17 case was rebuilt in a separate project. Expected
+corner-removal regions contained 264.1229 mm³ of material before the fix and 0 mm³
+afterward. Its exported STEP re-imported as one valid solid, with eight part holes,
+four base holes and no failed geometry checks. Original project/revisions were
+preserved. Evidence is under ignored `artifacts/ui-selection-20261101/`.
+
+Live large-STEP QA retained one scene across holes → openings → face → holes, even
+after rotating the camera; the whole-app run counter remained 1. Opening mode sent
+about 5 KB of state after its one-time overlay transfer, instead of resending the
+7.55 MB source. A measured mode redraw was 579 ms on this machine; initial mesh
+loading and WebGL redraw still take time. Geometry correctness checks do not
+establish load capacity or global manufacturability.
+
+Follow-up browser testing caught a subtler camera issue: retaining the scene did
+not always retain a live wheel zoom during a trace-only restyle. Selection updates
+now capture the current native Plotly camera and update highlights and camera in
+one [Plotly.update call](https://plotly.com/javascript/plotlyjs-function-reference/#plotlyupdate).
+The pinned Plotly scene camera accessor is also used by its own save-camera code;
+layout camera is the fallback. Browser diagnostics record before/after camera
+values, and a JS regression covers a live camera differing from saved layout.
+
+Final live QA on the real STEP confirmed zoom/rotation before and after an opening
+mode change matched within floating-point precision, with one scene and a 523 ms
+redraw. Clicking the removed fourth mounting hole restored all four immediately;
+clicking a measured face in opening mode selected Face 329 without changing them.
+UI Man independently tested display/conversation controls, pending 6 → 8 mm edits,
+lock/unlock and an explicit native rebuild on a synthetic project. All checks passed
+and no AI request was needed for these UI tests. Screenshots/counters are in
+`artifacts/ui-clarity-20261101/`.
+
+Verification: 213 Python cases covered. The final complete run passed 212 and found
+one assertion still expecting capitalized “Thickness”; the actual caption is
+“Fixture thickness”. After correcting that assertion, the affected dimension,
+workspace and transport suite passed 15/15, including native rebuilds. The two
+joined-corner fault-injection cases passed for printing and machining; the complete
+manufacturing suite passed 12/12. Both JS interaction suites passed 15/15. Ruff F
+checks and `git diff --check` passed. No unresolved test failures remain.
+
 ## Large STEP selection performance and automatic rib fillets (2026-11-01)
 
 The user's saved stepper project exposed costs missed by the earlier persistent

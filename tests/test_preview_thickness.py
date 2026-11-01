@@ -89,9 +89,9 @@ def test_generation_leaves_source_picker_and_displays_generated_mesh(mode):
     assert set(p.current.meshes) <= names and "Source 1" in names
     button(ui, "View generated fixture").click().run()
     assert visible_meshes(ui) == set(p.current.meshes)
-    assert not check(ui, "Source").value and check(ui, "Fixture").value
+    assert not check(ui, "Uploaded part").value and check(ui, "Generated fixture").value
     button(ui, "View assembly").click().run()
-    assert "Source 1" in visible_meshes(ui) and check(ui, "Fixture").value
+    assert "Source 1" in visible_meshes(ui) and check(ui, "Generated fixture").value
 
 
 def test_thickness_rebuild_and_restore_show_the_correct_real_cad():
@@ -99,7 +99,7 @@ def test_thickness_rebuild_and_restore_show_the_correct_real_cad():
     p = Project(a, r)
     first = p.generate()
     ui = app(p)
-    check(ui, "Fixture").uncheck().run()
+    check(ui, "Generated fixture").uncheck().run()
     button(ui, "Select mounting holes").click().run()
     thickness(ui).set_value(8).run()
     assert p.current.id == first.id and p.requirements.thickness == 8
@@ -112,7 +112,7 @@ def test_thickness_rebuild_and_restore_show_the_correct_real_cad():
         and second.metrics["volume_mm3"] > first.metrics["volume_mm3"]
     )
     assert second.plan.interface_id == first.plan.interface_id
-    assert set(second.meshes) <= visible_meshes(ui) and check(ui, "Fixture").value
+    assert set(second.meshes) <= visible_meshes(ui) and check(ui, "Generated fixture").value
     shape = cq.importers.importStep(str(prepare_step(second))).val()
     assert shape.isValid() and shape.BoundingBox().zlen == pytest.approx(8, abs=0.01)
     button(ui, "Select mounting face").click().run()

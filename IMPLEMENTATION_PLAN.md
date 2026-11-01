@@ -127,6 +127,23 @@ actual component update lifecycle without an intervening unmount, plus saved-sta
 ordering and mode transitions. Verification details are in Notes.md. No new
 cumulative development duration is asserted.
 
+## Selection and dimension clarity / corner correction — November 1, 2026
+
+- [x] Highlight the active face, hole or opening selection tool immediately.
+- [x] Reuse one persistent scene for all three selection categories; preserve camera
+  and mounting picks, and reject delayed access events.
+- [x] Group display settings by objects, overlays and editing/comparison; show the
+  current conversation step and collapse older dialogue/technical activity.
+- [x] Replace floating dimension markers with a clear panel and fixed caption;
+  explain settings, built vs pending values, automatic defaults and locks.
+- [x] Compiler 11: finish joined L-bracket exterior corners continuously through
+  base, wall and ribs, with native residual-material validation and verified STEP.
+- [x] Preserve historical compiler output and test the real saved NEMA17 case in
+  an independent project, including eight part holes and four base holes.
+
+The above UI work was coordinated with UI Man. Detailed evidence and limitations
+are in Notes.md; existing designs require a new revision to receive CAD changes.
+
 ## Large-part selection and rib fillets follow-up — November 1, 2026
 
 Mounting selection requests immutable viewer geometry once per browser mount;

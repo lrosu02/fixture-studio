@@ -5,6 +5,7 @@ from fixture.project import Project
 from fixture.step_export import prepare_step
 from fixture.executor import execute
 from fixture.validation import validate
+from fixture.planning import compile_plan
 from tests.test_geometry import ready
 
 
@@ -85,3 +86,58 @@ def test_hardware_and_process_combination_and_legacy_default():
     from fixture.contracts import Requirements
 
     assert Requirements.model_validate(legacy).manufacturing_features is False
+
+
+@pytest.mark.parametrize("fabrication", ["3D printing", "Machined stock"])
+def test_joined_corner_finish_removes_wall_ledge_and_detects_missing_finish(
+    tmp_path, fabrication
+):
+    import usd_brep as sm
+    from fixture.executor import primitive
+    from fixture.process_geometry import joined_corner_finish
+
+    a, r = ready(
+        composition="l_bracket", fabrication=fabrication, manufacturing_features=True
+    )
+    plan = compile_plan(a, r)
+    legacy = compile_plan(a, r, compiler_version=10)
+    assert not any(o.kind == "finish" for o in legacy.operations)
+    old, _, _ = execute(legacy, a, tmp_path / "legacy.usda")
+    finish = joined_corner_finish(r, plan)
+    square = finish.model_copy(update={"shape": "box", "corner_radius": None})
+    removed = sm.booleans.boolean_difference(primitive(square), primitive(finish))
+    ledge = abs(
+        sm.booleans.boolean_intersection(
+            old[finish.target].copy(), removed.copy()
+        ).volume()
+    )
+    assert ledge > 1  # Real wall/rib material overhangs the old finished base corners.
+
+    rev = Project(a, r).generate()
+    current, _, _ = execute(rev.plan, a, tmp_path / "current.usda")
+    assert (
+        abs(
+            sm.booleans.boolean_intersection(
+                current[finish.target].copy(), removed.copy()
+            ).volume()
+        )
+        < 0.01
+    )
+    assert any(
+        c.name == "Joined exterior corners" and c.result == "passed" for c in rev.checks
+    )
+    assert cq.importers.importStep(str(prepare_step(rev))).val().isValid()
+    assert (
+        sum(o.kind == "mount" for o in plan.operations)
+        == sum(o.kind == "mount" for o in legacy.operations)
+        > 0
+    )
+
+    missing = plan.model_copy(
+        update={"operations": tuple(o for o in plan.operations if o.kind != "finish")}
+    )
+    defective, _, cuts = execute(missing, a, tmp_path / "missing-finish.usda")
+    assert any(
+        c.name == "Joined exterior corners" and c.result == "failed"
+        for c in validate(a, r, missing, defective, cuts)
+    )
