@@ -1,5 +1,81 @@
 # Engineering record
 
+## Large STEP selection performance and automatic rib fillets (2026-11-01)
+
+The user's saved stepper project exposed costs missed by the earlier persistent
+viewer fix: 154,854 preview triangles, 199 candidate interfaces and a 29 MB pretty
+JSON project. Every selection still transmitted about 7.55 million characters of
+viewer geometry and serialized the full source/revision meshes. Encoding the source
+analysis alone took 1.71 s. Separate candidate meshes and hundreds of hidden arrows
+also caused Plotly to recalculate many traces; a live mode change took 2,513 ms.
+
+The component now requests immutable geometry using a per-mount nonce and acknowledges
+delivery. Updates carry only mode/selection/context/sequence; a browser reload requests
+geometry again. Cumulative local picks still take precedence over older acknowledgements.
+Candidate meshes remain in the ray-test catalog, but the original mesh is rendered
+once, with three reusable selected-face evidence traces. The stepper view now has
+20 rendered traces. No CAD or preview simplification was applied. Stable scene IDs,
+four retained hole selections and the unchanged full-app rerun counter were verified
+in the real browser. Measured redraws were 294–389 ms, and updates were 288–309
+characters. These are local observations, not hardware-independent performance guarantees.
+
+Project persistence retains the existing JSON schema and atomic temporary-file
+replacement. Frozen analysis/revision records cache their compact JSON by identity;
+replacing a record invalidates its cache. The code must continue replacing these
+records, not mutating nested dictionaries in place. A separate copy of the real
+stepper analysis saved in 98.2 ms cold, then 23.2–25.4 ms warm (11.22 MB on disk).
+The user's original project was not modified for benchmarking. Local probes and
+screenshots are under ignored `artifacts/fillet-selection-20261101/`.
+
+Compiler 10 derives the two inward straight rib/base edges from compiled bracket
+dimensions and uses `usd_brep.fillets.fillet_edges` on handles belonging to the same
+current BRep. It never chooses arbitrary imported-part edges or exposes unrestricted
+kernel commands to the planner. The operation is bounded to two Z-axis segments,
+the existing workspace/operation limits, and radius ≤2 mm. The default is
+min(1.5 mm, thickness/4), also limited by root length and available width. The
+Fabrication controls and validated AI change schema support disable/override.
+Legacy compiler versions keep their previous geometry; newly generated revisions
+use the default-on option even when continuing an old project.
+
+SMLib's fillet call can mutate its input, so before/after volume is captured before
+the call. The result must remain one manifold solid with added root material.
+Finishing occurs after structural unions and before all hardware/access cuts;
+existing native passage and mounting checks remain authoritative. Independent small
+material/void probes at three root stations detect absent rounding; explicitly
+requested reliefs are excluded and incomplete sampling is reported inconclusive.
+These checks establish sampled geometry, not root stress or fatigue resistance.
+
+The pinned SMLib exporter describes these constant-radius blend surfaces as cones
+with zero semi-angle. OCCT rejects a zero-angle `Geom_ConicalSurface`; STEP adapter
+3 transfers that analytic surface as a cylinder, retaining topology and exact NURBS
+edges. No fixture construction moved to OCCT. Filleted fixtures were exported,
+reopened as valid STEP solids with the expected blend radii, and reproduced from ZIP.
+The implementation uses the installed NVIDIA API; upstream constraints remain in
+[NVIDIA's known issues](https://github.com/NVIDIA-Omniverse/usd-brep/blob/main/KNOWN_ISSUES.md).
+
+Native limitation: a 2 mm fillet followed by a base-hole Boolean failed for one
+transformed motor test; filleting after those cuts also failed. The same input passed
+at 0.5, 1.0, 1.5 and 1.9 mm. The 1.5 mm concept default avoids that tested boundary;
+there is no silent radius retry that would override an explicit dimension. Kernel
+failures preserve the previous valid revision. General edge blends, wall/rib blends,
+and arbitrary freeform fillet surfaces remain outside this extension.
+
+Verification: **201 Python tests passed in 296.29 s** with
+`.venv\Scripts\python.exe -m pytest tests -q`. Initial broad collection without
+`tests` encountered duplicate copied repositories under ignored artifacts; the
+explicit project test directory resolves that collection issue. Targeted runs
+(25 structure/STEP/workspace cases and six fillet/transport cases) overlap this
+suite. **13 JavaScript pointer/component cases passed**, covering delivery/remount,
+rapid picks, delayed acknowledgements, mode transitions, explicit removal, shared
+face traces and ray picking. Ruff F checks and `git diff --check` passed.
+
+A separate copy of the user's actual stepper project also generated two R1.5 mm
+root fillets, passed every evaluated geometry check, and exported verified STEP
+(`7f9394b59ef04dbdb3235a8fb3f3117f/24aaa0fb51b1`, ignored local artifacts).
+The browser exercised real mouse additions from two to four holes, retained the
+selection across face/hole modes, and selected a hole-free face using the new shared
+outline. No live AI call was needed; no new cumulative development time is asserted.
+
 Fixture Studio implements the concept in IMPLEMENTATION_PLAN.md: a reusable
 conversational fixture tool, with a synthetic six-part case as a demonstration.
 No dimensions, quantities, bolt circles or mounting conclusions from the sample

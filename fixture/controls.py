@@ -572,3 +572,44 @@ def manufacturing_controls(p):
                 st.rerun()
             except ValueError as error:
                 st.error(str(error))
+
+
+def fillet_controls(p):
+    r = p.requirements
+    with st.expander("Rib-to-base fillets", expanded=False):
+        st.caption(
+            "Round the inward joints on ribbed L-brackets. Applies when you generate or rebuild."
+        )
+        key = f"fillets-{p.id}-{r.auto_rib_fillets}-{r.rib_fillet_radius}"
+        enabled = st.checkbox(
+            "Automatic rib fillets", r.auto_rib_fillets, key=key + "-enabled"
+        )
+        radius = st.number_input(
+            "Fillet radius (mm; 0 = automatic)",
+            0.0,
+            2.0,
+            float(r.rib_fillet_radius or 0),
+            step=0.1,
+            key=key + "-radius",
+            disabled=not enabled,
+        )
+        st.caption(
+            "Automatic radius: up to 1.5 mm and one quarter of thickness, reduced for smaller brackets. Other edges stay unchanged."
+        )
+        if st.button("Save fillet settings", key=key + "-save"):
+            try:
+                from .selection_ui import save_selection, rerun_selection
+
+                updated = patch_requirements(
+                    r,
+                    {"auto_rib_fillets": enabled, "rib_fillet_radius": radius or None},
+                )
+                save_selection(
+                    p,
+                    updated,
+                    p.highlights,
+                    f"Rib fillets: {'automatic' if enabled else 'off'}; radius {radius or 'derived'}.",
+                )
+                rerun_selection()
+            except (ValueError, OSError) as error:
+                st.error(str(error))

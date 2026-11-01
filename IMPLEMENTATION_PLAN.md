@@ -127,6 +127,24 @@ actual component update lifecycle without an intervening unmount, plus saved-sta
 ordering and mode transitions. Verification details are in Notes.md. No new
 cumulative development duration is asserted.
 
+## Large-part selection and rib fillets follow-up — November 1, 2026
+
+Mounting selection requests immutable viewer geometry once per browser mount;
+subsequent events carry selection IDs. Source meshes are not decimated. Candidate
+face meshes remain available for ray tests, while only the selected outline and
+direction arrow are rendered. Compact cached geometry serialization preserves the
+existing atomic project-save format and reduces repeated save work.
+
+Compiler **10** adds a bounded native SMLib edge-fillet operation for the two
+inward L-bracket rib/base joints. Default radius is min(1.5 mm, thickness/4), further
+bounded by available joint space. Fabrication controls and conversational changes
+can disable it or specify a bounded radius. Versions 1–9 retain their geometry.
+STEP adapter **3** transfers SMLib's zero-angle cone representation as an exact
+cylinder. Native material/void sampling, existing hole/passage checks, USD reopening,
+STEP reopening and bundle reproduction cover the extension. Detailed evidence and
+remaining native-kernel limitations are recorded in Notes.md; no new cumulative
+development duration is asserted.
+
 **Product scope**
 
 The first version supports parts with recognizable planar attachment faces and circular mounting-hole patterns. It constructs fixtures from a small vocabulary of plates, rails, supports, holes, slots, openings, and repeated placements. This permits meaningfully different designs with predictable modeling behavior.

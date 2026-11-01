@@ -263,7 +263,7 @@ def proposal_requirements(requirements, proposal):
     return patch_requirements(requirements, changes)
 
 
-def compile_plan(a, r, require_ready=True, compiler_version=9):
+def compile_plan(a, r, require_ready=True, compiler_version=10):
     if compiler_version < 9:
         if (
             r.access_selections
@@ -278,7 +278,7 @@ def compile_plan(a, r, require_ready=True, compiler_version=9):
                 "Extended access, base, hardware and manufacturing choices need compiler version 9."
             )
         return _compile_plan(a, r, require_ready, compiler_version)
-    if compiler_version != 9:
+    if compiler_version not in (9, 10):
         raise ValueError("Unsupported compiler version.")
     from .access import add_access
     from .existing_base import add_base
@@ -291,11 +291,16 @@ def compile_plan(a, r, require_ready=True, compiler_version=9):
         if r.part_attachment in MODES
         else _compile_plan(a, r, require_ready, 8)
     )
-    plan = plan.model_copy(update={"version": 9})
+    plan = plan.model_copy(update={"version": compiler_version})
     plan = add_base(a, r, plan)
     plan = add_hardware(a, r, plan)
     plan = add_access(a, r, plan)
-    return add_process(a, r, plan)
+    plan = add_process(a, r, plan)
+    if compiler_version >= 10:
+        from .fillets import add_rib_fillets
+
+        plan = add_rib_fillets(r, plan)
+    return plan
 
 
 def _compile_plan(a, r, require_ready=True, compiler_version=8):

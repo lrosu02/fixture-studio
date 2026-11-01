@@ -197,6 +197,10 @@ def execute(plan, analysis, path):
                     else sm.booleans.boolean_difference
                 )
                 bodies[op.target] = fn(bodies[op.target], bodies.pop(op.other))
+            elif op.kind == "fillet":
+                from .fillets import apply_fillet
+
+                bodies[op.target] = apply_fillet(bodies[op.target], op)
         if not bodies:
             raise ValueError("Plan produced no bodies.")
         for name, b in bodies.items():

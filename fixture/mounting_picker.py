@@ -191,9 +191,15 @@ def render_mounting_picker(project, mode):
     picks = st.session_state.mounting_picks
     key = "mounting-picker-" + project.id
     source_key = f"{project.id}:{a.source_hash}:{a.version}"
+    transport = st.session_state.get(key, {})
+    request = transport.get("geometry_request")
+    send_geometry = bool(request and request != transport.get("geometry_loaded"))
     result = picker_component()(
         data=dict(
-            figure=picker_geometry(source_key, a),
+            # The browser requests immutable geometry once per actual mount.
+            # Subsequent picks carry only IDs; never resend megabytes per click.
+            figure=picker_geometry(source_key, a) if send_geometry else None,
+            geometry_token=request if send_geometry else None,
             source_key=source_key,
             mode=mode,
             context=picks.context,
@@ -203,6 +209,8 @@ def render_mounting_picker(project, mode):
         ),
         key=key,
         on_picked_change=lambda: _on_pick(project, key),
+        on_geometry_request_change=lambda: None,
+        on_geometry_loaded_change=lambda: None,
         height=555,
     )
     # Also supports direct rendering and AppTest; already acknowledged events are no-ops.

@@ -40,7 +40,11 @@ def test_step_roundtrip_all_fixture_families(composition, quantity):
         if BRepAdaptor_Surface(f.wrapped).GetType() == GeomAbs_Cylinder
     ]
     assert len(radii) >= 4 * quantity
-    assert all(radius == pytest.approx(1.7, abs=1e-6) for radius in radii)
+    assert sum(radius == pytest.approx(1.7, abs=1e-6) for radius in radii) >= 4 * quantity
+    if composition == "l_bracket":
+        assert sum(radius == pytest.approx(1.5, abs=1e-6) for radius in radii) == 2
+    else:
+        assert all(radius == pytest.approx(1.7, abs=1e-6) for radius in radii)
     report = json.loads(path.with_name("step-export.json").read_text())
     assert report["result"] == "passed" and report["units"] == "mm"
     assert len(report["bodies"]) == len(shapes)

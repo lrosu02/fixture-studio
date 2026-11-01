@@ -460,4 +460,8 @@ def validate(a, r, plan, bodies, cuts):
         validate_retention(a, r, plan, bodies, add)
         validate_hardware(a, r, plan, bodies, add)
         validate_process(a, r, plan, bodies, add)
+    if plan.version >= 10:
+        from .fillets import validate_fillets
+
+        validate_fillets(r, plan, bodies, add)
     return tuple(checks)

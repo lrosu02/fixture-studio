@@ -17,7 +17,7 @@ import threading
 
 import numpy as np
 
-ADAPTER_VERSION = 2
+ADAPTER_VERSION = 3
 _LOCK = threading.RLock()
 
 
@@ -142,7 +142,8 @@ def _body(block):
             if kind == "plane"
             else (
                 Geom_CylindricalSurface(axes, data[key + "radius"][index])
-                if kind == "cylinder"
+                # SMLib represents straight fillet cylinders as zero-angle cones.
+                if kind == "cylinder" or abs(data[key + "semiAngle"][index]) < 1e-12
                 else Geom_ConicalSurface(
                     axes, data[key + "semiAngle"][index], data[key + "radius"][index]
                 )

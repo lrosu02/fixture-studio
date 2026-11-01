@@ -7,18 +7,49 @@ export default function(args) {
         plot.mountingViewer.update(args);
         return plot.mountingViewer.dispose;
     }
+    if (plot.mountingRequestSource !== args.data.source_key) {
+        delete plot.mountingRequest;
+        plot.mountingRequestSource = args.data.source_key;
+    }
+    if (!args.data.figure) {
+        if (!plot.mountingRequest) {
+            plot.mountingRequest = crypto.randomUUID();
+            args.setStateValue('geometry_request',plot.mountingRequest);
+        }
+        return () => { delete plot.mountingRequest; };
+    }
     const status = args.parentElement.querySelector('.mounting-picker-status');
     const figure = JSON.parse(args.data.figure);
+    plot.dataset.sceneId = crypto.randomUUID();
+    plot.dataset.geometryBytes = String(args.data.figure.length);
     const meshes = figure.data.filter(t => t.type === 'mesh3d').map(t => ({
         meta:t.meta, ...Object.fromEntries(['x','y','z','i','j','k'].map(k => [k,array(t[k])]))
     }));
+    // Pick the original visible surface with ray tests. Separate colored meshes
+    // for every candidate force hundreds of expensive WebGL rebuilds on a mode
+    // switch; keep them only as immutable hit-test data, never display overlays.
+    const evidence = new Map(), templates = new Map();
+    for (const trace of figure.data) {
+        const id = trace.meta?.outline_for || trace.meta?.direction_for;
+        if (!id) continue;
+        const kind = trace.meta.outline_for ? 'outline' : trace.type === 'cone' ? 'tip' : 'arrow';
+        if (!evidence.has(id)) evidence.set(id,{});
+        evidence.get(id)[kind] = trace;
+        templates.set(kind,trace);
+    }
+    figure.data = figure.data.filter(t => !t.meta?.pick_kind && !t.meta?.outline_for && !t.meta?.direction_for);
+    // Only the selected face needs an outline/arrow. Reuse three traces instead
+    // of hundreds of hidden traces that Plotly still recalculates on each pick.
+    for (const [kind,trace] of templates) figure.data.push({...trace,meta:{evidence_kind:kind}});
+    plot.dataset.renderedTraces = String(figure.data.length);
     let current = args, context, sequence = 0, face = null, holes = new Set();
     let ready = false, disposed = false, pressed = null, dragged = false;
     let hovered = null, pointer = null, drawPending = false, drawing = false;
     let lastStyle = '';
     const traceStyles = new Map();
     function traceStyle(trace) {
-        return JSON.stringify([trace.visible,trace.color,trace.line?.width,trace.marker?.color,trace.marker?.symbol,trace.text]);
+        return JSON.stringify([trace.visible,trace.color,trace.line?.width,trace.marker?.color,trace.marker?.symbol,trace.text,
+            ...(trace.meta?.evidence_kind ? ['x','y','z','u','v','w'].map(k=>trace[k]) : [])]);
     }
 
     function hint() {
@@ -42,6 +73,11 @@ export default function(args) {
     function style(trace) {
         const m = trace.meta;
         if (!m) return;
+        if (m.evidence_kind) {
+            const selected = evidence.get(face)?.[m.evidence_kind];
+            trace.visible = Boolean(selected);
+            if(selected) for(const k of ['x','y','z','u','v','w']) if(k in selected) trace[k] = selected[k];
+        }
         if (m.pick_kind === 'face') {
             trace.visible = current.data.mode === 'face';
             trace.color = m.interface_id === face ? '#ffb454' : '#74a9bc';
@@ -70,7 +106,7 @@ export default function(args) {
                 const nextStyle = signature();
                 if (nextStyle === lastStyle) continue;
                 lastStyle = nextStyle;
-                const indices = [], changes = {visible:[], color:[], 'line.width':[], 'marker.color':[], 'marker.symbol':[], text:[]};
+                const indices = [], changes = {visible:[], color:[], 'line.width':[], 'marker.color':[], 'marker.symbol':[], text:[], x:[],y:[],z:[],u:[],v:[],w:[]};
                 figure.data.forEach((trace,index) => {
                     if (!trace.meta) return; // Never replace or retessellate the source mesh.
                     style(trace);
@@ -84,8 +120,13 @@ export default function(args) {
                     changes['marker.color'].push(trace.meta.hole_id ? [...trace.marker.color] : undefined);
                     changes['marker.symbol'].push(trace.meta.hole_id ? [...trace.marker.symbol] : undefined);
                     changes.text.push(trace.meta.hole_id ? trace.text : undefined);
+                    for(const k of ['x','y','z','u','v','w']) changes[k].push(trace.meta.evidence_kind ? trace[k] : undefined);
                 });
-                if (indices.length) await window.Plotly.restyle(plot, changes, indices);
+                if (indices.length) {
+                    const started = performance.now();
+                    await window.Plotly.restyle(plot, changes, indices);
+                    plot.dataset.lastRedrawMs = String(Math.round(performance.now()-started));
+                }
             }
         } finally { drawing = false; }
     }
@@ -149,6 +190,7 @@ export default function(args) {
         if (disposed) return;
         if (next.data.mode !== current.data.mode) { cancel(); hovered = null; }
         current = next;
+        plot.dataset.updateBytes = String(JSON.stringify(next.data).length);
         sync(next.data);
         status.textContent = hint();
         redraw();
@@ -165,8 +207,10 @@ export default function(args) {
         window.removeEventListener('blur',cancel);
         if (ready) window.Plotly.purge(plot);
         delete plot.mountingViewer;
+        delete plot.mountingRequest;
     }
     plot.mountingViewer = {sourceKey:args.data.source_key, update, dispose};
+    if (args.data.geometry_token) args.setStateValue('geometry_loaded',args.data.geometry_token);
     sync(args.data);
     figure.data.forEach(style);
     figure.data.forEach((trace,index) => traceStyles.set(index,traceStyle(trace)));

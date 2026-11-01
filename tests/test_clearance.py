@@ -46,7 +46,7 @@ def test_separate_clearances_preserve_mounting_and_reproduce(tmp_path):
     p = Project(a, r)
     rev = p.generate()
     regions = [op for op in rev.plan.operations if op.id.startswith("rear-relief-")]
-    assert rev.plan.version == 9 and len(regions) == 2
+    assert rev.plan.version == 10 and len(regions) == 2
     assert {op.shape for op in regions} == {"cylinder", "prism"}
     assert rev.metrics["hole_count"] == 4 and rev.metrics["body_count"] == 1
     assert all(c.result == "passed" for c in rev.checks if c.name.startswith("Rear"))

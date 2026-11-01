@@ -14,6 +14,26 @@ delayed updates cannot drop newer picks. Repeated clicks keep holes selected.
 Use **×** in the selected-hole list or **Clear hole selection** to remove them.
 Selecting a different mounting face still clears incompatible holes.
 
+Large STEP models now transfer their selection geometry once per viewer mount.
+Later picks send only selection IDs, and the selected face shares one outline and
+direction arrow instead of hundreds of duplicate rendered overlays. Project saves
+reuse compact immutable geometry records. The original STEP measurement and export
+precision are unchanged; no preview decimation is involved.
+
+## Automatic rib fillets — November 1, 2026
+
+Newly generated ribbed L-brackets round the two inward rib-to-base joints in SMLib.
+The default radius is the smaller of **1.5 mm**, **thickness / 4**, and the space
+available at the joint. Under **Fabrication → Rib-to-base fillets**, turn this off
+or set a radius up to 2 mm (further limited by the bracket geometry). Generate a new
+revision to apply the settings; existing saved CAD stays unchanged.
+
+The rounded surfaces are included in **STEP** and the reproducible design bundle.
+Through passages and screw holes are cut after the fillets and checked as before.
+This currently applies to these two L-bracket joints, not arbitrary edge rounding.
+Fillets do not establish load capacity or fatigue life. Unsupported native fillet
+combinations fail recoverably; reduce the radius or turn the option off.
+
 ## Simplified workspace — November 1, 2026
 
 The model preview and fixture thickness stay visible. Open **Choose mounting face

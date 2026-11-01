@@ -34,6 +34,8 @@ class Changes(Record):
     mount_height: float | None = None
     base_depth: float | None = None
     reinforce: bool | None = None
+    auto_rib_fillets: bool | None = None
+    rib_fillet_radius: float | None = None
     rear_clearance: float | None = None
     rear_passages: tuple[str, ...] | None = None
     through_access_required: bool | None = None
@@ -149,6 +151,10 @@ outward box. The controller rejects cuts that remove required mounting contacts.
 Respect that explicit face selection. Do not ask the user to type its coordinates.
 If rear_clearance_error is present, report that measurement error, not 'no profile'.
 An l_bracket has a perpendicular base foot and optional triangular side ribs (reinforce).
+L-bracket inward rib/base roots receive automatic SMLib fillets by default (auto_rib_fillets).
+The default radius is at most 1.5 mm and one quarter of thickness, bounded by available geometry.
+rib_fillet_radius overrides within those bounds; auto_rib_fillets=false leaves sharp joints.
+Fillets are concept geometry, not a strength assessment. Other edges are not automatically filleted.
 Its mount_height is the selected interface origin above the base top, along +Y;
 base_depth is the rearward foot extent along -Z. Both can be user-specified or
 derived from the measured part as visible concept defaults. A bridge has two legs

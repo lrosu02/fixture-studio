@@ -11,6 +11,7 @@ from .controls import (
     screw_size_controls,
     requirement_controls,
     manufacturing_controls,
+    fillet_controls,
     passage_controls,
 )
 from .base_controls import base_controls
@@ -228,6 +229,7 @@ def workspace(project, build):
         base_controls(p)
     with fabrication:
         manufacturing_controls(p)
+        fillet_controls(p)
         passage_controls(p)
     with advanced:
         st.caption(

@@ -169,6 +169,8 @@ class Requirements(Record):
     mount_height: Positive | None = None
     base_depth: Positive | None = None
     reinforce: bool = True
+    auto_rib_fillets: bool = True
+    rib_fillet_radius: Positive | None = None
     rear_clearance: Annotated[float, Field(ge=0.3, le=10)] = 0.3
     rear_passages: Annotated[tuple[str, ...], Field(max_length=32)] = ()
     through_access_required: bool = False
@@ -234,7 +236,9 @@ class Proposal(Record):
 
 class Operation(Record):
     id: str
-    kind: Literal["place", "stock", "support", "mount", "relief", "combine"]
+    kind: Literal["place", "stock", "support", "mount", "relief", "combine", "fillet"]
+    edge_segments: Annotated[tuple[tuple[Vec, Vec], ...], Field(max_length=2)] = ()
+    fillet_radius: Positive | None = None
     depends_on: tuple[str, ...] = ()
     frame: Literal["interface"] = "interface"
     body: str | None = None
@@ -265,6 +269,24 @@ class Operation(Record):
 
     @model_validator(mode="after")
     def bounds(self):
+        if self.kind == "fillet":
+            if (
+                not self.edge_segments
+                or not self.fillet_radius
+                or self.fillet_radius > 2
+            ):
+                raise ValueError(
+                    "Rib fillets require bounded edge segments and radius ≤ 2 mm."
+                )
+            for start, end in self.edge_segments:
+                if any(abs(v) > MAX_DIM for point in (start, end) for v in point):
+                    raise ValueError("Fillet edge exceeds workspace.")
+                if start[:2] != end[:2] or end[2] - start[2] < 4 * self.fillet_radius:
+                    raise ValueError(
+                        "Rib fillets require a long enough straight Z-axis root."
+                    )
+        elif self.edge_segments or self.fillet_radius:
+            raise ValueError("Only fillet operations may select edges.")
         if any(x <= 0 or x > MAX_DIM for x in self.size):
             raise ValueError("Operation dimensions must be positive and bounded.")
         if any(abs(x) > MAX_DIM for x in self.origin):
@@ -317,7 +339,7 @@ class FastenerClearance(Record):
 
 
 class Plan(Record):
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10] = 1
     source_hash: str
     interface_id: str
     composition: Composition
@@ -347,8 +369,13 @@ class Plan(Record):
                 if op.kind == "support" and op.target not in bodies:
                     raise ValueError("Missing support parent.")
                 bodies.add(op.body)
-            if op.kind in ("mount", "relief", "combine") and op.target not in bodies:
+            if (
+                op.kind in ("mount", "relief", "combine", "fillet")
+                and op.target not in bodies
+            ):
                 raise ValueError("Operation references a missing body.")
+            if op.kind == "fillet" and self.version < 10:
+                raise ValueError("Fillets require compiler version 10.")
             if op.kind == "combine":
                 if op.other not in bodies or op.other == op.target:
                     raise ValueError("Invalid combine reference.")

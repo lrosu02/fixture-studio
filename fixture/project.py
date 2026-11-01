@@ -29,6 +29,8 @@ class Project:
     feedback: list = field(default_factory=list)
     last_attempt: BuildFeedback | None = None
     last_planner_attempt: dict | None = None
+    _analysis_json: tuple = field(default=(), init=False, repr=False, compare=False)
+    _revision_json: dict = field(default_factory=dict, init=False, repr=False, compare=False)
 
     @classmethod
     def new(cls, analysis):
@@ -176,16 +178,36 @@ class Project:
         folder.mkdir(parents=True, exist_ok=True)
         snapshot = {
             "version": 1,
-            "analysis": self.analysis.model_dump(),
             "requirements": self.requirements.model_dump(),
             "active_id": self.active_id,
-            "revisions": [r.model_dump() for r in self.revisions],
             "messages": self.messages,
             "feedback": [f.model_dump() for f in self.feedback],
             "last_planner_attempt": self.last_planner_attempt,
         }
         temp = folder / "project.tmp"
-        temp.write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
+        # Immutable geometry dominates large projects. Serialize it once and
+        # reuse those exact bytes for selection-only saves, without changing the
+        # on-disk schema or the atomic replacement/rollback contract.
+        if not self._analysis_json or self._analysis_json[0] is not self.analysis:
+            self._analysis_json = (self.analysis, self.analysis.model_dump_json())
+        revisions = {}
+        for revision in self.revisions:
+            cached = self._revision_json.get(revision.id)
+            revisions[revision.id] = (
+                cached
+                if cached and cached[0] is revision
+                else (revision, revision.model_dump_json())
+            )
+        self._revision_json = revisions
+        payload = (
+            json.dumps(snapshot)[:-1]
+            + ',"analysis":'
+            + self._analysis_json[1]
+            + ',"revisions":['
+            + ",".join(v[1] for v in revisions.values())
+            + "]}"
+        )
+        temp.write_text(payload, encoding="utf-8")
         temp.replace(folder / "project.json")
 
     def export(self, mark_exported=True):

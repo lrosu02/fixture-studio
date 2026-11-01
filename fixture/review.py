@@ -9,6 +9,7 @@ from .intake import get_interface, local_points
 from .structures import STRUCTURES
 
 CAPABILITIES = {
+    "rib_fillets": "Compiler 10 adds native SMLib circular fillets to inward L-bracket rib/base joints before through cuts. Automatic radius ≤2 mm, reduced for stock/edge size; optional disable or bounded radius override. STEP retains analytic curved surfaces. No strength certification.",
     "extended_retention": "Convex-envelope nest on an outer plane; saddle, closed collar or split clamp on a complete measured outside cylindrical face. Split clamps have a separate cap and joining bores. No friction/preload solver; cannot certify grip. Concave/freeform nests unsupported.",
     "selected_access": "Measured plane/hole/rear-profile selection, full fixture depth through cuts or finite outward keep-clear regions; rederived and natively validated on every revision.",
     "existing_base": "Second measured STEP base, selected face/holes, in-plane offset/rotation, matching fixture holes. Base is a preview/reference, excluded from fixture STEP. Exact base collision is not evaluated.",

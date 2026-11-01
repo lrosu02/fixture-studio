@@ -7,6 +7,7 @@ const source = await readFile(new URL('../fixture/mounting_picker.js',import.met
 const renderer = (await import('data:text/javascript;base64,'+Buffer.from(helpers+source).toString('base64'))).default;
 const tick = () => new Promise(resolve => setImmediate(resolve));
 class Surface {
+    dataset = {};
     listeners = new Map();
     addEventListener(name,fn) { if (!this.listeners.has(name)) this.listeners.set(name,new Set()); this.listeners.get(name).add(fn); }
     removeEventListener(name,fn) { this.listeners.get(name)?.delete(fn); }
@@ -16,7 +17,7 @@ class Surface {
     closest() { return null; }
     count() { return [...this.listeners.values()].reduce((n,set)=>n+set.size,0); }
 }
-async function harness({defer=false}={}) {
+async function harness({defer=false, request=false, manyFaces=false}={}) {
     const plot = new Surface(), win = new Surface(), status = {}, sent = [], draws = [];
     let creates=0,purges=0,finish;
     const traces = ['a','b','c','d'].map(hole_id=>({
@@ -24,16 +25,24 @@ async function harness({defer=false}={}) {
         marker:{color:['#56b4e9'],symbol:['circle']},text:'Click to select'
     }));
     traces.push({type:'mesh3d',x:[-1,1,1,-1],y:[-1,-1,1,1],z:[0,0,0,0],i:[0,0],j:[1,2],k:[2,3],meta:{pick_kind:'face',interface_id:'face-a'}});
+    if(manyFaces) for(let n=0;n<200;n++) {
+        const id=n===0?'face-a':`face-${n}`;
+        traces.push({type:'scatter3d',x:[n,n+1],y:[0,0],z:[0,0],meta:{outline_for:id},line:{color:'#ffb454'}});
+        traces.push({type:'scatter3d',x:[n,n],y:[0,1],z:[0,1],meta:{direction_for:id},line:{color:'#ffb454'}});
+        traces.push({type:'cone',x:[n],y:[1],z:[1],u:[0],v:[0],w:[1],meta:{direction_for:id}});
+    }
     win.Plotly = {newPlot:()=>{creates++;return defer?new Promise(resolve=>{finish=resolve;}):Promise.resolve();},
         restyle:async(...args)=>{draws.push(args);}, purge:()=>{purges++;}, Plots:{resize:()=>{}}};
     globalThis.window=win;
     globalThis.ResizeObserver=class {observe(){} disconnect(){}};
     let data={figure:JSON.stringify({data:traces,layout:{scene:{}}}),source_key:'sample',context:'epoch-1',mode:'holes',sequence:0,interface_id:null,hole_ids:[]};
     const parentElement={querySelector:s=>s.includes('status')?status:plot};
+    const figure = data.figure, transport = [];
+    if(request) data.figure = null;
     let cleanup;
     function render(updates={}) {
         data={...data,...updates};
-        cleanup=renderer({parentElement,data,setStateValue:(_,v)=>sent.push(v)});
+        cleanup=renderer({parentElement,data,setStateValue:(key,v)=>key==='picked'?sent.push(v):transport.push([key,v])});
     }
     function pointer(type,x=20,y=20,extra={}) {
         (type==='pointerdown'?plot:win).fire(type,{clientX:x,clientY:y,button:0,target:plot,...extra});
@@ -44,8 +53,40 @@ async function harness({defer=false}={}) {
         pointer('pointerdown');pointer('pointerup');
     }
     render(); await tick();
-    return {plot,win,status,sent,draws,render,click,pointer,cleanup:()=>cleanup(),finish:()=>finish(),counts:()=>({creates,purges})};
+    return {plot,win,status,sent,draws,render,click,pointer,figure,transport,cleanup:()=>cleanup(),finish:()=>finish(),counts:()=>({creates,purges})};
 }
+
+test('geometry handshake transfers the mesh only on an actual scene mount',async()=>{
+    const h=await harness({request:true});
+    assert.equal(h.transport[0][0],'geometry_request');
+    const token=h.transport[0][1];
+    h.render({mode:'face'});assert.equal(h.transport.length,1);
+    h.render({figure:h.figure,geometry_token:token,mode:'holes'});await tick();
+    assert.deepEqual(h.transport[1],['geometry_loaded',token]);
+    const scene=h.plot.dataset.sceneId;
+    h.click('a');h.render({figure:null,geometry_token:null,sequence:1,interface_id:'face-a',hole_ids:['a']});
+    h.render({mode:'face'});h.render({mode:'holes'});h.click('b');
+    assert.deepEqual(h.sent.at(-1).hole_ids,['a','b']);
+    assert.equal(h.plot.dataset.sceneId,scene);
+    assert.ok(Number(h.plot.dataset.updateBytes)<400);
+    assert.deepEqual(h.counts(),{creates:1,purges:0});
+    h.cleanup();h.render({figure:null});
+    assert.equal(h.transport.at(-1)[0],'geometry_request');
+    assert.notEqual(h.transport.at(-1)[1],token);
+    h.cleanup();
+});
+
+test('hundreds of candidate faces share only three rendered evidence traces',async()=>{
+    const h=await harness({manyFaces:true});
+    assert.equal(h.plot.dataset.renderedTraces,'7'); // four holes + three evidence traces
+    h.click('a');await tick();
+    const first=h.draws.at(-1)[1];
+    assert.ok(first.x.some(v=>JSON.stringify(v)==='[0,1]'));
+    h.render({mode:'face',context:'new-face',interface_id:'face-199',hole_ids:[]});await tick();
+    assert.ok(h.draws.at(-1)[1].x.some(v=>JSON.stringify(v)==='[199,200]'));
+    assert.deepEqual(h.counts(),{creates:1,purges:0});
+    h.cleanup();
+});
 
 test('rapid clicks and stale acknowledgements keep the complete selection',async()=>{
     const h=await harness();

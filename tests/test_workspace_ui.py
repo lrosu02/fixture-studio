@@ -85,7 +85,7 @@ def test_immediate_selections_survive_switches_without_automatic_holes(monkeypat
 
     button(ui, "Select mounting face").click().run()
     assert ui.session_state["mounting_picks"].interface_id == face.id
-    assert all(h in payloads["face"][-1]["figure"] for h in face.hole_ids[:2])
+    assert payloads["face"][-1]["hole_ids"] == list(face.hole_ids[:2])
     button(ui, "Select mounting holes").click().run()
     assert ui.session_state["mounting_picks"].hole_ids == face.hole_ids[:2]
     assert payloads["holes"][-1]["interface_id"] == face.id
