@@ -11,7 +11,7 @@ from fixture.planning import (
     proposal_requirements,
 )
 from fixture.agent import plan_turn, offline_turn, review_turn
-from fixture.workspace import workspace
+from fixture.workspace import workspace, request_assembly
 from fixture.subscription import subscription_turn, subscription_review, executable
 from fixture.manufacturing import manufacturing_guidance
 from fixture.workflow import plan_design, generate_with_feedback
@@ -61,6 +61,8 @@ def build(project, requirements=None, change="Generate reviewed proposal"):
         status.empty()
     except Exception as error:
         project.error = f"{type(error).__name__}: {error}"
+    if project.current:
+        request_assembly(project)
     st.rerun()
 
 

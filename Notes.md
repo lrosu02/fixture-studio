@@ -6,6 +6,37 @@ No dimensions, quantities, bolt circles or mounting conclusions from the sample
 are embedded in general application logic. Sample-specific values live in the
 sample generator, test fixtures and demo scripts only.
 
+## Thickness control and generated preview (2026-10-31)
+
+The missing generated preview came from leaving the source-only selection mode
+active after a build. The workspace now watches active revision changes and
+consumes explicit assembly-view requests before creating its widgets. Successful
+builds, restored revisions and failed rebuilds with retained CAD leave the picker
+and enable fixture visibility. The explicit View generated fixture action also
+hides the uploaded part; View assembly restores both. Ordinary selection-mode
+changes remain within the workspace fragment.
+
+Fixture thickness is visible below the viewer. Its callback uses the same
+lock-aware requirement patching and atomic-save rollback as direct selections;
+it records user provenance so automatic AI corrections cannot override it.
+Changing the value does not invoke AI or construction. An explicit rebuild uses
+the existing revision/check/review pipeline and reports when the visible CAD is
+still at the old thickness. The uploaded source geometry is unchanged.
+
+Focused verification: **17 tests passed in 74.50 s**, including immediate save,
+invalid-input and save-failure rollback, locked values, generation from each of
+the three pickers, fixture-only/assembly views, real SMLib thickness revision,
+STEP re-import with the expected 8 mm stock thickness, revision restore and
+last-valid preview after an injected construction failure. These tests use
+synthetic parts and offline review; no live AI result is asserted for this update.
+The affected UI, feedback, rendered mesh and selected-access regression set also
+passed **23 tests in 67.25 s**. Ruff F checks and formatting checks passed.
+An isolated browser session with the synthetic motor also verified generation
+from face/hole selection, fixture-only viewing, saving 8 mm while keeping the
+6 mm preview, then rebuilding real CAD with the same four measured holes and
+no failed checks. Switching selection/assembly/fixture views caused no additional
+builds, exports or AI calls.
+
 ## Features 1–6 implementation and verification (2026-10-30)
 
 Subsequent selection UX update: direct face/hole choices save immediately; no second

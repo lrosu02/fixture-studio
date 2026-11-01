@@ -5,6 +5,21 @@ OpenCASCADE measures the part; NVIDIA SMLib constructs the fixture's actual CAD.
 Review mounting evidence, clarify requirements, choose a plate, rails, L-bracket or bridge,
 generate geometry, revise it, and export a reproducible design record.
 
+## Thickness and preview update — October 31, 2026
+
+**Fixture thickness (mm)** is now visible below the viewer under **Fixture
+dimensions**. Editing it saves the requirement immediately. For an existing
+fixture, choose **Rebuild with this thickness** to regenerate CAD through the
+normal checks and AI-review workflow. Until then, the previous revision stays
+visible and its thickness is identified. This changes the fixture, not the
+uploaded STEP. Locked thickness values remain protected.
+
+Generation and revision restore now return to the assembly preview with the
+fixture visible, even when started from a face, hole or opening picker. Use
+**View generated fixture** to inspect the CAD alone, or **View assembly** to see
+it with the uploaded part. Selection categories continue to show the source for
+picking. Failed rebuilds retain the last valid CAD and show the error.
+
 ## Feature expansion — October 30, 2026
 
 Features **1–6** are implemented on `feature/fixture-tools-1-6`. The rollback
@@ -15,7 +30,7 @@ baseline is commit `3a66d5c`; the feature work has not been merged into `main`.
 | 1. Selected access | Click measured faces, holes or rear profiles for full-through openings and finite keep-clear areas. Cuts follow thickness revisions and are checked against final native geometry. |
 | 2. Existing base | Upload a second STEP, select its contact face and holes, and position it using in-plane offsets/rotation. The fixture copies the measured base pattern. |
 | 3. Retention | Convex-envelope contour nests, open cylindrical saddles, closed collars and split clamps with separate caps, alongside existing screw mounts and trays. |
-| 4. Dimensions | Enable **Edit dimensions on model**, click an amber label, edit/lock its value and rebuild through the normal revision and AI-review workflow. |
+| 4. Dimensions | Set **Fixture thickness (mm)** below the viewer, or enable **Edit dimensions on model** to edit/lock other supported values. Rebuild through the normal revision and AI-review workflow. |
 | 5. Hardware | Optional part/base counterbores, 90° countersinks, hex nut pockets and finite screwdriver access. Native checks cover voids, sidewalls and seat floors. |
 | 6. Manufacturing geometry | Printing chamfers exposed base corners; machining rounds them and adds cutter relief to rectangular openings. Method selection needs no material, printer or slicer settings. |
 
@@ -217,6 +232,9 @@ Original STEP bytes and mesh arrays are not sent.
    margin or thickness, then rebuild and review once more. User-specified dimensions,
    measured mounting features, clearances and other requirements cannot change in
    this automatic step. Further changes require your feedback in chat.
+6. To change stock thickness directly, edit **Fixture thickness (mm)** below the
+   viewer and choose **Rebuild with this thickness**. Use **View generated fixture**
+   for a fixture-only preview; use revision history to restore an earlier result.
 
 **Advanced — requirements and assumptions** is collapsed by default. Use it for
 manual overrides and locks; normal clarification happens in the conversation.

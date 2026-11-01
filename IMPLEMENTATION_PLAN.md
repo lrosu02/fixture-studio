@@ -98,6 +98,15 @@ AI replay was blocked and is not claimed. Details and remaining limits are in
 Notes.md. The user-reported 3h30m checkpoint remains historical; no new cumulative
 duration is asserted.
 
+## Thickness and preview follow-up — October 31, 2026
+
+A visible fixture-thickness control saves the user's value and rebuilds on request
+through the existing revision pipeline. Generated and restored CAD now exits
+source-only selection mode, with direct fixture-only and assembly view buttons.
+The focused 17-case check covers actual native thickness changes and STEP re-import,
+all three selection modes, locked/invalid edits, restore and failed-build recovery.
+See README and Notes for usage and verification. No new cumulative time is asserted.
+
 **Product scope**
 
 The first version supports parts with recognizable planar attachment faces and circular mounting-hole patterns. It constructs fixtures from a small vocabulary of plates, rails, supports, holes, slots, openings, and repeated placements. This permits meaningfully different designs with predictable modeling behavior.

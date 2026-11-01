@@ -4,9 +4,10 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.offline import get_plotlyjs
 import streamlit as st
-from .contracts import Record
+from .contracts import Record, MAX_DIM
 from .viewer import assembly_figure
-from .planning import patch_requirements
+from .planning import patch_requirements, missing_questions
+from .selection_ui import save_selection
 
 LABELS = {
     "thickness": "Stock thickness",
@@ -88,6 +89,67 @@ def edit_dimension(r, field, number):
     if field not in fields(r):
         raise ValueError("Unsupported dimension.")
     return patch_requirements(r, {field: float(number)})
+
+
+def _save_thickness(project, key):
+    error_key = "thickness-error-" + project.id
+    try:
+        number = st.session_state[key]
+        if number <= 0:
+            raise ValueError("Fixture thickness must be greater than zero.")
+        updated = edit_dimension(project.requirements, "thickness", number)
+        save_selection(
+            project,
+            updated,
+            project.highlights,
+            f"Set fixture thickness to {number:g} mm.",
+        )
+        st.session_state.pop(error_key, None)
+    except (ValueError, OSError) as error:
+        st.session_state[key] = project.requirements.thickness
+        st.session_state[error_key] = str(error)
+
+
+def thickness_controls(project, build):
+    r = project.requirements
+    st.markdown("**Fixture dimensions**")
+    key = f"fixture-thickness-{project.id}-{r.thickness}"
+    st.number_input(
+        "Fixture thickness (mm)",
+        min_value=0.0,
+        max_value=float(MAX_DIM),
+        value=float(r.thickness),
+        step=0.5,
+        disabled="thickness" in r.locks,
+        key=key,
+        on_change=_save_thickness,
+        args=(project, key),
+        help="Stock thickness for the generated fixture. The uploaded part is unchanged.",
+    )
+    if error := st.session_state.get("thickness-error-" + project.id):
+        st.error(error)
+    if "thickness" in r.locks:
+        st.caption(
+            "Thickness is locked. Unlock it in Advanced or the on-model dimension editor."
+        )
+    if project.current:
+        current = project.current.requirements.thickness
+        changed = current != r.thickness
+        if changed:
+            st.caption(
+                f"Showing the {current:g} mm fixture. Rebuild to use {r.thickness:g} mm."
+            )
+        questions = missing_questions(project.analysis, r)
+        if st.button(
+            "Rebuild with this thickness", disabled=not changed or bool(questions)
+        ):
+            build(project, r, f"Fixture thickness → {r.thickness:g} mm")
+        if changed and questions:
+            st.info("Before rebuilding: " + " ".join(questions))
+    else:
+        st.caption(
+            "Thickness saves immediately and will be used when you generate the fixture."
+        )
 
 
 def dimension_figure(a, revision):

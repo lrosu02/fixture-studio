@@ -5,7 +5,7 @@ from .viewer import assembly_figure
 from .hole_picker import render_hole_picker, begin_hole_selection
 from .face_picker import render_face_picker, begin_face_selection
 from .access_controls import render_access_controls
-from .dimensions import dimension_controls
+from .dimensions import dimension_controls, thickness_controls
 from .ui_theme import workspace_intro
 from .controls import (
     retention_controls,
@@ -30,6 +30,32 @@ def set_workspace_mode(mode, project):
         begin_hole_selection(project)
 
 
+def request_assembly(project, fixture_only=False):
+    # A build may finish after these widgets were rendered. Apply the request on
+    # the next render, before creating widgets, rather than mutating live keys.
+    st.session_state["workspace-view-request"] = (project.id, fixture_only)
+
+
+def view_key(project, name):
+    return f"workspace-view-{project.id}-{name}"
+
+
+def sync_preview(project):
+    revision = (project.id, project.active_id)
+    changed = st.session_state.get("workspace-revision") != revision
+    st.session_state["workspace-revision"] = revision
+    requested = st.session_state.pop("workspace-view-request", None)
+    if requested and requested[0] != project.id:
+        requested = None
+    if requested or (changed and project.current):
+        fixture_only = bool(requested and requested[1])
+        set_workspace_mode("assembly", project)
+        st.session_state[view_key(project, "source")] = not fixture_only
+        st.session_state[view_key(project, "fixture")] = True
+        st.session_state[view_key(project, "evidence")] = not fixture_only
+        st.session_state[view_key(project, "edit")] = False
+
+
 @st.fragment
 def workspace(project, build):
     p = project
@@ -37,6 +63,7 @@ def workspace(project, build):
     if st.session_state.get("workspace-project") != p.id:
         set_workspace_mode("assembly", p)
         st.session_state["workspace-project"] = p.id
+    sync_preview(p)
     st.subheader("Design choices")
     workspace_intro()
     if st.session_state.pop("close_hole_picker", False):
@@ -54,13 +81,30 @@ def workspace(project, build):
     pick_mode = st.session_state.get("pick_mode", False)
     access_mode = st.session_state.get("access_mode", False)
     selecting = pick_mode or face_mode or access_mode
-    if selecting:
-        st.button("View assembly", on_click=set_workspace_mode, args=("assembly", p))
+    if selecting or p.current:
+        views = st.columns(2)
+        views[0].button("View assembly", on_click=request_assembly, args=(p,))
+        if p.current:
+            views[1].button(
+                "View generated fixture", on_click=request_assembly, args=(p, True)
+            )
+    if selecting and p.current:
+        st.caption(
+            "Selection view shows the uploaded part. Use View generated fixture to inspect the CAD."
+        )
     with st.expander("View options", expanded=False):
         toggles = st.columns(5)
-        source = toggles[0].checkbox("Source", True, disabled=selecting)
-        fixture = toggles[1].checkbox("Fixture", True, disabled=selecting)
-        evidence = toggles[2].checkbox("Mounting holes", True, disabled=selecting)
+        for name, default in (("source", True), ("fixture", True), ("evidence", True)):
+            st.session_state.setdefault(view_key(p, name), default)
+        source = toggles[0].checkbox(
+            "Source", key=view_key(p, "source"), disabled=selecting
+        )
+        fixture = toggles[1].checkbox(
+            "Fixture", key=view_key(p, "fixture"), disabled=selecting
+        )
+        evidence = toggles[2].checkbox(
+            "Mounting holes", key=view_key(p, "evidence"), disabled=selecting
+        )
         dimensions = toggles[3].checkbox("Dimensions", False, disabled=selecting)
         envelopes = toggles[4].checkbox("Access volumes", False, disabled=selecting)
         compare = st.checkbox(
@@ -80,8 +124,11 @@ def workspace(project, build):
     elif pick_mode:
         render_hole_picker(p)
     else:
+        st.session_state.setdefault(view_key(p, "edit"), False)
         editing_dimensions = st.checkbox(
-            "Edit dimensions on model", False, disabled=p.current is None
+            "Edit dimensions on model",
+            key=view_key(p, "edit"),
+            disabled=p.current is None,
         )
         if editing_dimensions:
             dimension_controls(p, build)
@@ -123,6 +170,7 @@ def workspace(project, build):
             st.info(
                 "The viewer shows the last valid revision. Generate to apply edited requirements."
             )
+    thickness_controls(p, build)
     retention_controls(p)
     screw_size_controls(p)
 
