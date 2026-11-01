@@ -168,7 +168,7 @@ def test_ui_selects_a_face_without_holes_immediately(monkeypatch):
     from streamlit.testing.v1 import AppTest
 
     monkeypatch.setattr(
-        "fixture.face_picker.picker_component",
+        "fixture.mounting_picker.picker_component",
         lambda: lambda **kw: SimpleNamespace(picked=None),
     )
     app = AppTest.from_file(

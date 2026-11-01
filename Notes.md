@@ -6,6 +6,47 @@ No dimensions, quantities, bolt circles or mounting conclusions from the sample
 are embedded in general application logic. Sample-specific values live in the
 sample generator, test fixtures and demo scripts only.
 
+## Persistent mounting selection (2026-11-01)
+
+The previous face/hole tools mounted different components. Each component render
+also called Plotly.newPlot and registered pointer listeners again. Inspection of
+Streamlit 1.66.1's installed BidiComponent runtime showed that update renders do
+not invoke the returned unmount cleanup. Thus ordinary acknowledgements could
+rebuild the scene and accumulate stale handlers; fake tests had incorrectly
+modeled updates as cleanup followed by mounting a fresh plot.
+
+The workspace now mounts one keyed face/hole component at a stable position. Its
+controller lives on the plot DOM element and updates in place. One handler set
+and one WebGL scene remain until unmount/source replacement. Only changed feature
+overlays are restyled. Explicit axis ranges and a fixed aspect ratio prevent
+selected-face arrows from changing the apparent scale. The same ray tests remain
+in use for measured surface picking; no CAD measurement or construction changed.
+
+Each browser click immediately sends persistent cumulative selection state with a
+context epoch and increasing sequence. Backend callbacks validate and save before
+rendering dependent controls. Older acknowledgements do not overwrite pending
+local clicks; older/replayed events cannot replace newer saved selections. Explicit
+list edits, clear, external requirement changes, failed saves and project changes
+reset the epoch. Mode changes do not. Existing lock checks and save rollback apply.
+A different face intentionally clears incompatible holes. Source geometry and
+accepted CAD revisions remain unchanged until normal generation.
+
+Verification: 57 affected Python tests passed in 145.17 s (workspace, app UI,
+face/hole selection, retention, thickness/preview, selected access and existing
+base). Eleven Node pointer/component cases passed, including rapid clicks across
+stale acknowledgements, twelve consecutive mode switches, explicit removal/reset,
+rotation/cancellation and updates during asynchronous WebGL setup. Ruff F checks
+and diff whitespace checks passed. An isolated browser session exercised real
+mixed-size hole clicks, switching modes while a save was pending, explicit list
+removal and preserved feature highlights; the surrounding app-run counter remained
+at one. The final fixed-aspect viewer preserved screen positions on the first pick.
+A final outline-only selected face in hole mode avoids overlapping face shading;
+the nine workspace tests and five new lifecycle tests passed again after that
+display refinement.
+No AI call was required for this fix. Large STEP files still require their initial
+mesh load; this change removes reconstruction between mounting face/hole modes,
+not all processing costs or all other viewer transitions.
+
 ## UI simplification (2026-11-01)
 
 The user requested fewer settings visible at once. UI Man grouped controls into

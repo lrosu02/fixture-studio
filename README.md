@@ -5,6 +5,15 @@ OpenCASCADE measures the part; NVIDIA SMLib constructs the fixture's actual CAD.
 Review mounting evidence, clarify requirements, choose a plate, rails, L-bracket or bridge,
 generate geometry, revise it, and export a reproducible design record.
 
+## Selection reliability — November 1, 2026
+
+Mounting face and hole selection now share one persistent 3D viewer. Switching
+between them preserves the camera and model instead of loading a second scene.
+Hole clicks highlight immediately and save as an ordered, complete selection;
+delayed updates cannot drop newer picks. Repeated clicks keep holes selected.
+Use **×** in the selected-hole list or **Clear hole selection** to remove them.
+Selecting a different mounting face still clears incompatible holes.
+
 ## Simplified workspace — November 1, 2026
 
 The model preview and fixture thickness stay visible. Open **Choose mounting face

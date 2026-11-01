@@ -96,9 +96,16 @@ def test_face_button_immediate_selection_and_mode_switch(monkeypatch):
     events = []
 
     def component(**kwargs):
-        return SimpleNamespace(picked=events.pop(0) if events else None)
+        event = events.pop(0) if events else None
+        if event:
+            event.setdefault("sequence", kwargs["data"]["sequence"] + 1)
+            if "hole_ids" in event:
+                event["hole_ids"] = tuple(
+                    dict.fromkeys((*kwargs["data"]["hole_ids"], *event["hole_ids"]))
+                )
+        return SimpleNamespace(picked=event)
 
-    monkeypatch.setattr("fixture.face_picker.picker_component", lambda: component)
+    monkeypatch.setattr("fixture.mounting_picker.picker_component", lambda: component)
     app = AppTest.from_file(
         str(Path(__file__).resolve().parents[1] / "app.py"), default_timeout=45
     ).run()
@@ -107,7 +114,7 @@ def test_face_button_immediate_selection_and_mode_switch(monkeypatch):
     original = project.requirements
     next(b for b in app.button if b.label == "Select mounting face").click().run()
     assert not app.exception
-    picks = app.session_state["face_picks"]
+    picks = app.session_state["mounting_picks"]
     interface = next(
         i for i in project.analysis.interfaces if i.id == original.interface_id
     )
@@ -119,7 +126,7 @@ def test_face_button_immediate_selection_and_mode_switch(monkeypatch):
     assert saved.part_attachment == "unselected"
     assert not any(b.label == "Use this mounting face" for b in app.button)
     next(b for b in app.button if b.label == "Select mounting holes").click().run()
-    assert not app.session_state["hole_picks"].hole_ids
+    assert not app.session_state["mounting_picks"].hole_ids
     next(b for b in app.button if b.label == "View assembly").click().run()
     assert not app.exception and app.session_state["project"].requirements == saved
 

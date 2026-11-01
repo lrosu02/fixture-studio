@@ -2,8 +2,7 @@
 
 import streamlit as st
 from .viewer import assembly_figure
-from .hole_picker import render_hole_picker, begin_hole_selection
-from .face_picker import render_face_picker, begin_face_selection
+from .mounting_picker import render_mounting_picker
 from .access_controls import render_access_controls
 from .dimensions import dimension_controls, thickness_controls
 from .ui_theme import workspace_intro
@@ -24,10 +23,6 @@ def set_workspace_mode(mode, project):
     st.session_state.face_mode = mode == "face"
     st.session_state.pick_mode = mode == "holes"
     st.session_state.access_mode = mode == "access"
-    if mode == "face":
-        begin_face_selection(project)
-    elif mode == "holes":
-        begin_hole_selection(project)
 
 
 def request_assembly(project, fixture_only=False):
@@ -151,10 +146,8 @@ def workspace(project, build):
     )
     if access_mode:
         render_access_controls(p, on_done=lambda: set_workspace_mode("assembly", p))
-    elif face_mode:
-        render_face_picker(p)
-    elif pick_mode:
-        render_hole_picker(p)
+    elif face_mode or pick_mode:
+        render_mounting_picker(p, "face" if face_mode else "holes")
     else:
         if editing_dimensions:
             dimension_controls(p, build)

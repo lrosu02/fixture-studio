@@ -118,6 +118,15 @@ Synthetic browser checks verified selection, first manufacturing edit, pending
 thickness and fixture-only visibility without unintended builds or AI calls.
 No new cumulative development time is asserted.
 
+## Persistent mounting selection follow-up — November 1, 2026
+
+Face/hole selection now uses one persistent scene and a stable camera. Ordered,
+cumulative browser state prevents delayed saves from dropping newer picks; explicit
+removal and incompatible-face changes remain supported. Regression checks cover the
+actual component update lifecycle without an intervening unmount, plus saved-state
+ordering and mode transitions. Verification details are in Notes.md. No new
+cumulative development duration is asserted.
+
 **Product scope**
 
 The first version supports parts with recognizable planar attachment faces and circular mounting-hole patterns. It constructs fixtures from a small vocabulary of plates, rails, supports, holes, slots, openings, and repeated placements. This permits meaningfully different designs with predictable modeling behavior.

@@ -16,19 +16,21 @@ def picker_ui(monkeypatch, **updates):
     events = {"face": [], "holes": []}
     payloads = {"face": [], "holes": []}
 
-    def component(kind):
-        def render(**kwargs):
-            payloads[kind].append(kwargs["data"])
-            return SimpleNamespace(picked=events[kind].pop(0) if events[kind] else None)
+    def component(**kwargs):
+        data = kwargs["data"]
+        kind = data["mode"]
+        payloads[kind].append(data)
+        event = events[kind].pop(0) if events[kind] else None
+        if event:
+            event.setdefault("sequence", data["sequence"] + 1)
+            # Browser sends a full snapshot, including previous rapid clicks.
+            if kind == "holes":
+                event["hole_ids"] = tuple(
+                    dict.fromkeys((*data["hole_ids"], *event["hole_ids"]))
+                )
+        return SimpleNamespace(picked=event)
 
-        return render
-
-    monkeypatch.setattr(
-        "fixture.face_picker.picker_component", lambda: component("face")
-    )
-    monkeypatch.setattr(
-        "fixture.hole_picker.picker_component", lambda: component("holes")
-    )
+    monkeypatch.setattr("fixture.mounting_picker.picker_component", lambda: component)
     ui = AppTest.from_file(str(ROOT / "app.py"), default_timeout=45)
     ui.session_state["project"] = p
     ui.run()
@@ -42,7 +44,7 @@ def test_immediate_selections_survive_switches_without_automatic_holes(monkeypat
     button(ui, "Select mounting face").click().run()
     assert p.requirements == original
     events["face"].append(
-        dict(context=ui.session_state["face_picks"].context, interface_id=face.id)
+        dict(context=ui.session_state["mounting_picks"].context, interface_id=face.id)
     )
     ui.run()
     assert not ui.exception
@@ -55,8 +57,8 @@ def test_immediate_selections_survive_switches_without_automatic_holes(monkeypat
     assert not any("Use this mounting face" == x.label for x in ui.button)
 
     button(ui, "Select mounting holes").click().run()
-    assert not ui.session_state["hole_picks"].hole_ids
-    context = ui.session_state["hole_picks"].context
+    assert not ui.session_state["mounting_picks"].hole_ids
+    context = ui.session_state["mounting_picks"].context
     for hole in face.hole_ids[:2]:
         events["holes"].append(
             dict(context=context, interface_id=face.id, hole_ids=(hole,))
@@ -64,7 +66,7 @@ def test_immediate_selections_survive_switches_without_automatic_holes(monkeypat
         ui.run()
         assert not ui.exception
     assert p.requirements.mounting_hole_ids == face.hole_ids[:2]
-    assert ui.session_state["hole_picks"].context == context
+    assert ui.session_state["mounting_picks"].context == context
     assert p.requirements.part_attachment == "screws"
     assert (
         "Screws through selected part holes"
@@ -82,11 +84,12 @@ def test_immediate_selections_survive_switches_without_automatic_holes(monkeypat
     assert saved.requirements == p.requirements and not p.revisions
 
     button(ui, "Select mounting face").click().run()
-    assert ui.session_state["face_picks"].interface_id == face.id
+    assert ui.session_state["mounting_picks"].interface_id == face.id
     assert all(h in payloads["face"][-1]["figure"] for h in face.hole_ids[:2])
     button(ui, "Select mounting holes").click().run()
-    assert ui.session_state["hole_picks"].hole_ids == face.hole_ids[:2]
-    assert "Selected mounting face" in payloads["holes"][-1]["figure"]
+    assert ui.session_state["mounting_picks"].hole_ids == face.hole_ids[:2]
+    assert payloads["holes"][-1]["interface_id"] == face.id
+    assert payloads["holes"][-1]["figure"] == payloads["face"][-1]["figure"]
     current = p.requirements
     button(ui, "View assembly").click().run()
     assert p.requirements == current
@@ -98,7 +101,7 @@ def test_explicit_removal_clear_and_another_face_invalidate_old_events(monkeypat
     ui, p, events, _ = picker_ui(monkeypatch)
     face = next(i for i in p.analysis.interfaces if i.id == p.requirements.interface_id)
     button(ui, "Select mounting holes").click().run()
-    context = ui.session_state["hole_picks"].context
+    context = ui.session_state["mounting_picks"].context
     events["holes"].append(
         dict(context=context, interface_id=face.id, hole_ids=face.hole_ids[:2])
     )
@@ -107,7 +110,7 @@ def test_explicit_removal_clear_and_another_face_invalidate_old_events(monkeypat
         x for x in ui.multiselect if x.label == "Selected holes — remove with ×"
     ).unselect(face.hole_ids[1]).run()
     assert p.requirements.mounting_hole_ids == (face.hole_ids[0],)
-    assert ui.session_state["hole_picks"].context != context
+    assert ui.session_state["mounting_picks"].context != context
     button(ui, "Clear hole selection").click().run()
     assert (
         not p.requirements.mounting_hole_ids
@@ -118,11 +121,11 @@ def test_explicit_removal_clear_and_another_face_invalidate_old_events(monkeypat
     )
     ui.run()
     assert not p.requirements.mounting_hole_ids
-    assert any("older selection" in x.value for x in ui.warning)
+    assert not any("older selection" in x.value for x in ui.warning)
     button(ui, "Select mounting face").click().run()
     other = next(i for i in p.analysis.interfaces if i.id != face.id)
     events["face"].append(
-        dict(context=ui.session_state["face_picks"].context, interface_id=other.id)
+        dict(context=ui.session_state["mounting_picks"].context, interface_id=other.id)
     )
     ui.run()
     assert p.requirements.interface_id == other.id
@@ -140,7 +143,7 @@ def test_locked_choices_and_save_failure_preserve_accepted_requirements(monkeypa
     button(ui, "Select mounting holes").click().run()
     events["holes"].append(
         dict(
-            context=ui.session_state["hole_picks"].context,
+            context=ui.session_state["mounting_picks"].context,
             interface_id=face.id,
             hole_ids=(face.hole_ids[0],),
         )
@@ -148,7 +151,7 @@ def test_locked_choices_and_save_failure_preserve_accepted_requirements(monkeypa
     ui.run()
     assert not ui.exception and p.requirements == original and not p.messages
     assert any("locked" in x.value for x in ui.warning)
-    assert not ui.session_state["hole_picks"].hole_ids
+    assert not ui.session_state["mounting_picks"].hole_ids
 
     p.requirements = original.model_copy(update={"locks": ()})
     original = p.requirements
@@ -160,7 +163,7 @@ def test_locked_choices_and_save_failure_preserve_accepted_requirements(monkeypa
     button(ui, "Select mounting face").click().run()
     other = next(i for i in p.analysis.interfaces if i.id != face.id)
     events["face"].append(
-        dict(context=ui.session_state["face_picks"].context, interface_id=other.id)
+        dict(context=ui.session_state["mounting_picks"].context, interface_id=other.id)
     )
     ui.run()
     assert not ui.exception and p.requirements == original and not p.messages
@@ -242,7 +245,7 @@ def test_generate_refreshes_selection_and_blocks_missing_choices(monkeypatch):
     face = next(i for i in p.analysis.interfaces if i.id == p.requirements.interface_id)
     events["holes"].append(
         dict(
-            context=ui.session_state["hole_picks"].context,
+            context=ui.session_state["mounting_picks"].context,
             interface_id=face.id,
             hole_ids=(face.hole_ids[0],),
         )
@@ -260,7 +263,7 @@ def test_first_manufacturing_edit_after_selection_is_saved(monkeypatch):
     face = next(i for i in p.analysis.interfaces if i.id == p.requirements.interface_id)
     events["holes"].append(
         dict(
-            context=ui.session_state["hole_picks"].context,
+            context=ui.session_state["mounting_picks"].context,
             interface_id=face.id,
             hole_ids=(face.hole_ids[0],),
         )
@@ -273,3 +276,38 @@ def test_first_manufacturing_edit_after_selection_is_saved(monkeypatch):
     assert not ui.exception and p.requirements.fabrication == "3D printing"
     assert p.requirements.mounting_hole_ids == (face.hole_ids[0],)
     assert not p.revisions
+
+
+def test_newer_snapshot_wins_over_delayed_first_hole_and_survives_mode_changes(
+    monkeypatch,
+):
+    ui, p, events, payloads = picker_ui(monkeypatch)
+    face = next(i for i in p.analysis.interfaces if i.id == p.requirements.interface_id)
+    button(ui, "Select mounting holes").click().run()
+    context = ui.session_state["mounting_picks"].context
+    events["holes"].append(
+        dict(context=context, sequence=4, interface_id=face.id, hole_ids=face.hole_ids)
+    )
+    ui.run()
+    messages = list(p.messages)
+    events["holes"].append(
+        dict(
+            context=context,
+            sequence=1,
+            interface_id=face.id,
+            hole_ids=face.hole_ids[:1],
+        )
+    )
+    ui.run()
+    assert p.requirements.mounting_hole_ids == face.hole_ids
+    assert p.messages == messages
+    figure = payloads["holes"][-1]["figure"]
+    for _ in range(3):
+        button(ui, "Select mounting face").click().run()
+        assert payloads["face"][-1]["figure"] == figure
+        button(ui, "Select mounting holes").click().run()
+        assert payloads["holes"][-1]["context"] == context
+        assert p.requirements.mounting_hole_ids == face.hole_ids
+    saved = Project.load(ROOT / "artifacts" / p.id / "project.json")
+    assert saved.requirements.mounting_hole_ids == face.hole_ids
+    assert not p.revisions and not ui.exception

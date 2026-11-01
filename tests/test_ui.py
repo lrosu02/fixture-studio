@@ -101,9 +101,16 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
 
     def component(**kwargs):
         payloads.append(kwargs["data"])
-        return SimpleNamespace(picked=events.pop(0) if events else None)
+        event = events.pop(0) if events else None
+        if event:
+            event.setdefault("sequence", kwargs["data"]["sequence"] + 1)
+            if "hole_ids" in event:
+                event["hole_ids"] = tuple(
+                    dict.fromkeys((*kwargs["data"]["hole_ids"], *event["hole_ids"]))
+                )
+        return SimpleNamespace(picked=event)
 
-    monkeypatch.setattr("fixture.hole_picker.picker_component", lambda: component)
+    monkeypatch.setattr("fixture.mounting_picker.picker_component", lambda: component)
     app = AppTest.from_file(
         str(Path(__file__).resolve().parents[1] / "app.py"), default_timeout=45
     ).run()
@@ -119,7 +126,7 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
     )
     next(b for b in app.button if b.label == "Select mounting holes").click().run()
     assert not app.exception
-    picks = app.session_state["hole_picks"]
+    picks = app.session_state["mounting_picks"]
     assert (
         not picks.hole_ids
     )  # Default interface is not automatic consent to select every hole.
@@ -132,7 +139,7 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
     )
     app.run()
     assert not app.exception
-    assert app.session_state["hole_picks"].hole_ids == (interface.hole_ids[1],)
+    assert app.session_state["mounting_picks"].hole_ids == (interface.hole_ids[1],)
     another_size = next(
         h
         for h, d in zip(interface.hole_ids, interface.diameters)
@@ -142,15 +149,15 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
         dict(context=picks.context, interface_id=interface.id, hole_ids=(another_size,))
     )
     app.run()
-    chosen = app.session_state["hole_picks"].hole_ids
+    chosen = app.session_state["mounting_picks"].hole_ids
     assert len(chosen) == 2
     assert any("Different measured hole sizes" in x.value for x in app.info)
     events.append(
         dict(context=picks.context, interface_id=interface.id, hole_ids=chosen)
     )
     app.run()
-    assert app.session_state["hole_picks"].hole_ids == chosen
-    assert payloads[-1] == payloads[-2]
+    assert app.session_state["mounting_picks"].hole_ids == chosen
+    assert payloads[-1]["figure"] == payloads[-2]["figure"]
     assert payloads[-1]["context"] == payloads[-3]["context"]
     # The first accepted click also highlights its face. Later additions and
     # repeated events preserve the immutable figure, draft context and camera.
@@ -158,8 +165,8 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
         x for x in app.multiselect if x.label == "Selected holes — remove with ×"
     ).unselect(another_size).run()
     chosen = (interface.hole_ids[1],)
-    assert app.session_state["hole_picks"].hole_ids == chosen
-    assert app.session_state["hole_picks"].context != picks.context
+    assert app.session_state["mounting_picks"].hole_ids == chosen
+    assert app.session_state["mounting_picks"].context != picks.context
     assert (
         payloads[-1]["context"] != picks.context
     )  # Explicit removal does reset the draft.
@@ -169,7 +176,7 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
     assert app.session_state["pick_mode"]
     next(b for b in app.button if b.label == "Select mounting holes").click().run()
     next(b for b in app.button if b.label == "Clear hole selection").click().run()
-    assert not app.session_state["hole_picks"].hole_ids
+    assert not app.session_state["mounting_picks"].hole_ids
     assert not app.session_state["project"].requirements.mounting_hole_ids
     assert app.session_state["project"].requirements.part_attachment == "unselected"
 
