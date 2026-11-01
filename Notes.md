@@ -6,6 +6,31 @@ No dimensions, quantities, bolt circles or mounting conclusions from the sample
 are embedded in general application logic. Sample-specific values live in the
 sample generator, test fixtures and demo scripts only.
 
+## UI simplification (2026-11-01)
+
+The user requested fewer settings visible at once. UI Man grouped controls into
+Mounting, Fabrication and Advanced tabs, collapsed optional import/assistant/history
+sections, moved overlays and model metrics into display/detail sections, and kept
+fixture thickness plus assembly/fixture-only views prominent. The first two mounting
+proposals remain visible; additional concepts are expandable. Existing projects use
+the conversation without an always-visible starting brief.
+
+All tab contents are still rendered within the existing workspace fragment. Hidden
+controls retain their values and callbacks; there is no lazy-render/default-reset
+path. No native geometry, planning, schema or storage contract changed. Picking
+remains immediate, thickness changes still require an explicit rebuild, and exports
+remain associated with the displayed revision. Main-process restart is needed when
+Streamlit has cached older imported modules; saved projects remain on disk.
+
+Verification: **26 affected UI tests passed in 121.83 s** across workspace,
+thickness/preview, dimensions, hardware controls and app workflows. After the final
+proposal grouping, the overlapping app UI set passed **7 tests in 51.19 s**.
+Ruff F checks and diff whitespace checks passed. Isolated synthetic/offline browser
+checks confirmed that group navigation caused no app rerun, native generation or
+AI calls; removing a hole then making the first fabrication edit preserved three
+selected holes. Fixture-only view remained available, and changing thickness from
+6 to 8 mm saved the requirement while retaining the 6 mm CAD until explicit rebuild.
+
 ## Thickness control and generated preview (2026-10-31)
 
 The missing generated preview came from leaving the source-only selection mode

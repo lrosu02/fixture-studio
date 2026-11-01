@@ -107,6 +107,17 @@ The focused 17-case check covers actual native thickness changes and STEP re-imp
 all three selection modes, locked/invalid edits, restore and failed-build recovery.
 See README and Notes for usage and verification. No new cumulative time is asserted.
 
+## UI simplification follow-up — November 1, 2026
+
+Optional controls are grouped into Mounting, Fabrication and Advanced tabs, with
+details and secondary proposals collapsed. Thickness and generated-preview access
+remain visible. Eager tab rendering preserves saved controls within the workspace
+fragment; CAD/planning/storage contracts are unchanged. The affected 26-case UI
+set passed, followed by seven overlapping app checks after proposal grouping.
+Synthetic browser checks verified selection, first manufacturing edit, pending
+thickness and fixture-only visibility without unintended builds or AI calls.
+No new cumulative development time is asserted.
+
 **Product scope**
 
 The first version supports parts with recognizable planar attachment faces and circular mounting-hole patterns. It constructs fixtures from a small vocabulary of plates, rails, supports, holes, slots, openings, and repeated placements. This permits meaningfully different designs with predictable modeling behavior.

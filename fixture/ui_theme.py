@@ -100,7 +100,7 @@ def project_overview(project, questions=()):
 
 def workspace_intro():
     st.caption(
-        "Choose mounting features on the model. Drag to rotate · scroll to zoom."
+        "Drag to rotate · scroll to zoom. Mounting selections are saved as you pick."
     )
 
 

@@ -64,19 +64,34 @@ def workspace(project, build):
         set_workspace_mode("assembly", p)
         st.session_state["workspace-project"] = p.id
     sync_preview(p)
-    st.subheader("Design choices")
+    st.subheader("Model preview")
     workspace_intro()
     if st.session_state.pop("close_hole_picker", False):
         st.session_state.pick_mode = False
     if st.session_state.pop("close_face_picker", False):
         st.session_state.face_mode = False
-    face_button, hole_button = st.columns(2)
-    if face_button.button("Select mounting face", width="stretch"):
-        set_workspace_mode("face", p)
-    if hole_button.button("Select mounting holes", width="stretch"):
-        set_workspace_mode("holes", p)
-    if st.button("Select openings / keep-clear areas", width="stretch"):
-        set_workspace_mode("access", p)
+    selecting = any(
+        st.session_state.get(name, False)
+        for name in ("face_mode", "pick_mode", "access_mode")
+    )
+    with st.expander(
+        "Choose mounting face and holes",
+        expanded=not r.mounting_confirmed or selecting,
+    ):
+        st.caption(
+            "Choose the face that touches the fixture, then select only the holes used "
+            "to fasten the part. Picks save immediately."
+        )
+        face_button, hole_button = st.columns(2)
+        if face_button.button("Select mounting face", width="stretch"):
+            set_workspace_mode("face", p)
+        if hole_button.button("Select mounting holes", width="stretch"):
+            set_workspace_mode("holes", p)
+        if st.button("Select openings / keep-clear areas", width="stretch"):
+            set_workspace_mode("access", p)
+        st.caption(
+            "Openings and keep-clear areas reserve space for cables, tools or moving parts."
+        )
     face_mode = st.session_state.get("face_mode", False)
     pick_mode = st.session_state.get("pick_mode", False)
     access_mode = st.session_state.get("access_mode", False)
@@ -92,21 +107,38 @@ def workspace(project, build):
         st.caption(
             "Selection view shows the uploaded part. Use View generated fixture to inspect the CAD."
         )
-    with st.expander("View options", expanded=False):
-        toggles = st.columns(5)
+    with st.expander("Display settings", expanded=False):
+        toggles = st.columns(2)
         for name, default in (("source", True), ("fixture", True), ("evidence", True)):
             st.session_state.setdefault(view_key(p, name), default)
         source = toggles[0].checkbox(
-            "Source", key=view_key(p, "source"), disabled=selecting
+            "Source",
+            key=view_key(p, "source"),
+            disabled=selecting,
+            help="Show the uploaded part.",
         )
         fixture = toggles[1].checkbox(
-            "Fixture", key=view_key(p, "fixture"), disabled=selecting
+            "Fixture",
+            key=view_key(p, "fixture"),
+            disabled=selecting,
+            help="Show the generated fixture from the saved revision.",
         )
-        evidence = toggles[2].checkbox(
+        evidence = toggles[0].checkbox(
             "Mounting holes", key=view_key(p, "evidence"), disabled=selecting
         )
-        dimensions = toggles[3].checkbox("Dimensions", False, disabled=selecting)
-        envelopes = toggles[4].checkbox("Access volumes", False, disabled=selecting)
+        dimensions = toggles[1].checkbox("Dimensions", False, disabled=selecting)
+        envelopes = toggles[0].checkbox(
+            "Access volumes",
+            False,
+            disabled=selecting,
+            help="Show space reserved for cables, tools and moving parts.",
+        )
+        st.session_state.setdefault(view_key(p, "edit"), False)
+        editing_dimensions = toggles[1].checkbox(
+            "Edit dimensions on model",
+            key=view_key(p, "edit"),
+            disabled=selecting or p.current is None,
+        )
         compare = st.checkbox(
             "Overlay previous revision",
             False,
@@ -124,12 +156,6 @@ def workspace(project, build):
     elif pick_mode:
         render_hole_picker(p)
     else:
-        st.session_state.setdefault(view_key(p, "edit"), False)
-        editing_dimensions = st.checkbox(
-            "Edit dimensions on model",
-            key=view_key(p, "edit"),
-            disabled=p.current is None,
-        )
         if editing_dimensions:
             dimension_controls(p, build)
         else:
@@ -156,47 +182,70 @@ def workspace(project, build):
             )
     r = p.requirements
     if p.current and not pick_mode:
-        c = st.columns(3)
-        c[0].metric("Source instances", len(p.current.plan.placements))
-        c[1].metric(
-            "Fixture volume",
-            f"{p.current.metrics['volume_mm3']:,.0f} mm³",
-            f"{p.current.metrics['volume_mm3'] - previous.metrics['volume_mm3']:+,.0f} mm³"
-            if previous
-            else None,
-        )
-        c[2].metric("Revision", p.current.id[:6])
+        with st.expander("Model details", expanded=False):
+            c = st.columns(3)
+            c[0].metric("Parts held", len(p.current.plan.placements))
+            c[1].metric(
+                "Fixture volume",
+                f"{p.current.metrics['volume_mm3']:,.0f} mm³",
+                f"{p.current.metrics['volume_mm3'] - previous.metrics['volume_mm3']:+,.0f} mm³"
+                if previous
+                else None,
+            )
+            c[2].metric("Revision", p.current.id[:6])
         if p.current.requirements != r:
             st.info(
                 "The viewer shows the last valid revision. Generate to apply edited requirements."
             )
     thickness_controls(p, build)
-    retention_controls(p)
-    screw_size_controls(p)
-
-    if r.part_attachment == "screws" or r.surroundings == "bolt":
-        st.caption(
-            f"Clearance holes default to [ISO 273 medium]({SOURCE}). No clearance entry is required."
-        )
-    if r.interface_id:
-        try:
-            clearances = resolve_clearances(a, r)
-            st.caption(clearance_summary(clearances))
-            if any(c.basis.startswith("Assumed") for c in clearances):
+    mounting, fabrication, advanced = st.tabs(["Mounting", "Fabrication", "Advanced"])
+    with mounting:
+        if r.mounting_confirmed:
+            count = len(r.mounting_hole_ids)
+            st.caption(
+                f"{count} mounting hole{'s' if count != 1 else ''} selected. "
+                "Open a section below to change attachment details."
+                if count
+                else "Mounting face selected. Choose how to support and hold the part below."
+            )
+        with st.expander(
+            "How the part is held", expanded=r.part_attachment == "unselected"
+        ):
+            if not r.mounting_confirmed:
                 st.caption(
-                    "Unspecified screw sizes are assumed from the measured openings. Threads are not identified; size and fit can be overridden in Advanced."
+                    "Choose a mounting face or holes above to see attachment options."
                 )
-        except ValueError as error:
-            st.warning(str(error))
-    passage_controls(p)
-    manufacturing_controls(p)
-    if r.manufacturing_features and r.fabrication in ("3D printing", "Machined stock"):
+            retention_controls(p)
+            screw_size_controls(p)
+            if r.part_attachment == "screws" or r.surroundings == "bolt":
+                st.caption(
+                    f"Clearance holes use [ISO 273 medium]({SOURCE}) unless overridden."
+                )
+            if r.interface_id:
+                try:
+                    clearances = resolve_clearances(a, r)
+                    st.caption(clearance_summary(clearances))
+                    if any(c.basis.startswith("Assumed") for c in clearances):
+                        st.caption(
+                            "Screw sizes are suggested from measured openings. Threads are not identified."
+                        )
+                except ValueError as error:
+                    st.warning(str(error))
+        hardware_controls(p)
+        base_controls(p)
+    with fabrication:
+        manufacturing_controls(p)
+        passage_controls(p)
+    with advanced:
         st.caption(
-            "Printing chamfers exposed base corners; machining rounds corners and adds "
-            "cutter relief to rectangular openings. These dimensions are editable concept assumptions."
+            "Manual overrides and measured geometry. Most designs can use the controls above."
         )
-    hardware_controls(p)
-    base_controls(p)
+        mounting_evidence_controls(p)
+        requirement_controls(p)
+
+
+def mounting_evidence_controls(p):
+    a, r = p.analysis, p.requirements
     with st.expander("Advanced — mounting evidence", expanded=False):
         options = [None] + [i.id for i in a.interfaces]
         selected = st.selectbox(
@@ -259,4 +308,3 @@ def workspace(project, build):
                 "Select a mounting face above, with or without holes. This list is an optional alternative."
             )
         st.caption(" · ".join(a.limitations))
-    requirement_controls(p)

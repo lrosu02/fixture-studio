@@ -5,6 +5,20 @@ OpenCASCADE measures the part; NVIDIA SMLib constructs the fixture's actual CAD.
 Review mounting evidence, clarify requirements, choose a plate, rails, L-bracket or bridge,
 generate geometry, revise it, and export a reproducible design record.
 
+## Simplified workspace — November 1, 2026
+
+The model preview and fixture thickness stay visible. Open **Choose mounting face
+and holes** to change the mounting selection; it starts open until a mounting face
+is confirmed. **Display settings** contains overlays and on-model dimension editing.
+Detailed settings are grouped in **Mounting**, **Fabrication**, and **Advanced**
+tabs below the thickness control. All settings remain available and retain their
+saved values when switching groups. Additional proposals are under **More fixture
+concepts** after the first two choices.
+
+The sidebar groups part import, assistant settings, saved projects, revision history
+and technical exports. STEP preparation remains directly accessible. Existing
+projects can continue through the conversation without reopening a starting brief.
+
 ## Thickness and preview update — October 31, 2026
 
 **Fixture thickness (mm)** is now visible below the viewer under **Fixture
@@ -372,7 +386,7 @@ the generated SMLib boundary representation to STEP; fixture operations are neve
   generation and explains when another interface or a stand-off design is needed.
 - **Rear protrusion clearance (mm)** in Advanced controls padding from 0.3 to
   10 mm, with requirement locks and revisions. The 0.3 mm minimum accounts for
-  twice the source mesh chord tolerance. **View options → Access volumes** shows
+  twice the source mesh chord tolerance. **Display settings → Access volumes** shows
   these envelopes in purple. This is a conservative mesh approximation, not an
   exact source/fixture collision bridge. Wire routing, tools and future moving
   parts still need their own dimensions; existing STEP relief does not infer them.
@@ -390,7 +404,7 @@ Measured rear reliefs clear protrusions only to their measured depth; they can b
 blind pockets. To route wires through an existing recess, ask **“Make the lower
 rear recess a through passage and generate a revision.”** The conversation can
 select a measured profile by its supplied location without inventing coordinates.
-Alternatively, open **Wire and tool passages** under Design choices, choose the
+Alternatively, open **Fabrication → Wire and tool passages**, choose the
 recess, **Apply through passages**, then Generate. Only selected profiles extend
 through the entire fixture in the mounting-normal direction. Their measured
 outlines stay unchanged; unselected shaft/other reliefs keep their original depth.
@@ -426,7 +440,7 @@ for a bridge (consumes subscription allowance).
 
 ## Manufacturing
 
-Open **Manufacturing** directly below hole selection in **Design choices**. Choose **3D printing**, **Machined stock**,
+Open **Fabrication → How the fixture will be made**. Choose **3D printing**, **Machined stock**,
 **Other / custom**, or **unknown**, then click **Save manufacturing**. This section
 asks only for the method. Material, printer and slicer controls are removed.
 

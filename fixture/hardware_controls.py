@@ -123,7 +123,7 @@ def _choice_controls(project, field, label):
 
 
 def hardware_controls(project):
-    with st.expander("Fastener recesses and tool access", expanded=False):
+    with st.expander("Screw heads, nuts & tool access", expanded=False):
         st.caption(
             "Optional seats for screw heads or nuts. Part seats use the selected mounting holes; "
             "base seats require bolted base attachment. Saving updates requirements; generate a "
@@ -137,15 +137,16 @@ def hardware_controls(project):
                 ("nut_pocket", "DIN 934 legacy nuts"),
             )
         )
-        st.caption(
-            "Manufacturer profiles — "
-            + profiles
-            + ". Other sizes need custom dimensions."
-        )
-        st.caption(
-            "Profile fit allowances: head diameter +0.5 mm, nut flats +0.3 mm, "
-            "counterbore/nut depth +0.2 mm. Custom values override these concept allowances."
-        )
+        with st.expander("Profile references and fit allowances", expanded=False):
+            st.caption(
+                "Manufacturer profiles — "
+                + profiles
+                + ". Other sizes need custom dimensions."
+            )
+            st.caption(
+                "Profile fit allowances: head diameter +0.5 mm, nut flats +0.3 mm, "
+                "counterbore/nut depth +0.2 mm. Custom values override these concept allowances."
+            )
         drafts = {"part_hardware": _choice_controls(project, "part_hardware", "Part")}
         st.divider()
         drafts["base_hardware"] = _choice_controls(project, "base_hardware", "Base")

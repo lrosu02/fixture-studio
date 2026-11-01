@@ -71,27 +71,29 @@ with st.sidebar:
     if st.button("New project", width="stretch"):
         st.session_state.clear()
         st.rerun()
-    st.caption("01 / IMPORT YOUR PART")
-    upload = st.file_uploader("STEP part", type=["step", "stp"])
-    with st.expander("Try an example", expanded=False):
-        sample = st.selectbox(
-            "Bundled specimen",
-            [
-                "synthetic_motor.step",
-                "sensor_bracket.step",
-                "mixed_hole_sizes.step",
-                "hole_free_housing.step",
-                "cylindrical_housing.step",
-                "convex_housing.step",
-                "flanged_connector.step",
-                "ambiguous.step",
-                "multi_body.step",
-                "transformed_motor.step",
-                "unsupported_sphere.step",
-            ],
-        )
-        load = st.button("Load example", width="stretch")
-        st.caption("Examples are synthetic geometry, not manufacturer specifications.")
+    with st.expander("Import a part", expanded="project" not in st.session_state):
+        upload = st.file_uploader("STEP part", type=["step", "stp"])
+        with st.expander("Try an example", expanded=False):
+            sample = st.selectbox(
+                "Bundled specimen",
+                [
+                    "synthetic_motor.step",
+                    "sensor_bracket.step",
+                    "mixed_hole_sizes.step",
+                    "hole_free_housing.step",
+                    "cylindrical_housing.step",
+                    "convex_housing.step",
+                    "flanged_connector.step",
+                    "ambiguous.step",
+                    "multi_body.step",
+                    "transformed_motor.step",
+                    "unsupported_sphere.step",
+                ],
+            )
+            load = st.button("Load example", width="stretch")
+            st.caption(
+                "Examples are synthetic geometry, not manufacturer specifications."
+            )
     if load or (upload and st.session_state.get("upload_id") != upload.file_id):
         try:
             load_part(
@@ -101,27 +103,26 @@ with st.sidebar:
             st.session_state.upload_id = upload.file_id if upload and not load else None
         except Exception as error:
             st.error(f"STEP intake failed: {error}")
-    st.divider()
-    st.caption("02 / DESIGN ASSISTANCE")
     modes = ["ChatGPT subscription (Codex CLI)", "OpenAI API", "Offline commands"]
-    mode = st.selectbox(
-        "Conversation mode",
-        modes,
-        index=0 if executable() else (1 if os.getenv("OPENAI_API_KEY") else 2),
-    )
-    if mode == modes[0]:
-        st.caption(
-            "Uses your ChatGPT subscription allowance. No Platform API key. Measured summaries, conversation and generated review views are sent to OpenAI."
+    with st.expander("Assistant settings", expanded=False):
+        mode = st.selectbox(
+            "Conversation mode",
+            modes,
+            index=0 if executable() else (1 if os.getenv("OPENAI_API_KEY") else 2),
         )
-    elif mode == "OpenAI API":
-        st.caption("Model: " + os.getenv("OPENAI_MODEL", "gpt-6-astra"))
-        st.caption(
-            "Sends measured summaries, conversation and generated review views to OpenAI. Original STEP bytes stay local."
-        )
-    else:
-        st.caption(
-            "Limited deterministic commands; no model call or simulated AI response."
-        )
+        if mode == modes[0]:
+            st.caption(
+                "Uses your ChatGPT subscription allowance. No Platform API key. Measured summaries, conversation and generated review views are sent to OpenAI."
+            )
+        elif mode == "OpenAI API":
+            st.caption("Model: " + os.getenv("OPENAI_MODEL", "gpt-6-astra"))
+            st.caption(
+                "Sends measured summaries, conversation and generated review views to OpenAI. Original STEP bytes stay local."
+            )
+        else:
+            st.caption(
+                "Limited deterministic commands; no model call or simulated AI response."
+            )
     with st.expander("Resume a saved local project"):
         saved = sorted(
             (ROOT / "artifacts").glob("*/project.json"),
@@ -167,12 +168,10 @@ reviewer = (
 )
 with st.sidebar:
     st.divider()
-    st.caption("03 / REVISIONS & DOWNLOADS")
-    st.caption("Stage: " + p.stage)
-    st.caption("STEP imported as one complete part.")
+    st.caption("DOWNLOADS")
     if p.current:
         st.caption(
-            "Export selected revision: generated fixture solids only, in millimeters. The uploaded part is excluded."
+            "Download the displayed fixture in millimeters. The uploaded part is excluded."
         )
         if st.button("Prepare STEP download"):
             try:
@@ -188,28 +187,33 @@ with st.sidebar:
                 file_name=f"fixture-{p.current.id}.step",
                 mime="application/step",
             )
-        st.caption(
-            "The ZIP contains USD BRep CAD, requirements, the operation plan, checks and AI feedback. It also includes STEP after preparation."
-        )
-        st.download_button(
-            "Export CAD + design record",
-            p.export(False),
-            file_name=f"fixture-{p.current.id}.zip",
-            mime="application/zip",
-            on_click=lambda: setattr(p, "stage", "exported"),
-        )
-        ids = [rev.id for rev in p.revisions]
-        selected_revision = st.selectbox(
-            "Revision history",
-            ids,
-            index=ids.index(p.active_id),
-            format_func=lambda rid: next(
-                v.changes[:45] + " · " + rid[:6] for v in p.revisions if v.id == rid
-            ),
-        )
-        if st.button("Restore selected revision"):
-            p.restore(selected_revision)
-            st.rerun()
+        with st.expander("Design files (.zip)", expanded=False):
+            st.caption(
+                "Includes native CAD, requirements, geometry checks and AI feedback. "
+                "Also includes STEP after preparation."
+            )
+            st.download_button(
+                "Export CAD + design record",
+                p.export(False),
+                file_name=f"fixture-{p.current.id}.zip",
+                mime="application/zip",
+                on_click=lambda: setattr(p, "stage", "exported"),
+            )
+        with st.expander("Previous revisions", expanded=False):
+            ids = [rev.id for rev in p.revisions]
+            selected_revision = st.selectbox(
+                "Revision history",
+                ids,
+                index=ids.index(p.active_id),
+                format_func=lambda rid: next(
+                    v.changes[:45] + " · " + rid[:6] for v in p.revisions if v.id == rid
+                ),
+            )
+            if st.button("Restore selected revision"):
+                p.restore(selected_revision)
+                st.rerun()
+    else:
+        st.caption("Generate a fixture to prepare a STEP download.")
     st.caption(
         "All distances in millimeters. Geometry checks do not establish operating performance."
     )
@@ -266,19 +270,20 @@ with left, st.container(key="studio-workspace"):
 with right, st.container(border=True, key="studio-conversation"):
     st.subheader("Design conversation")
     conversation_intro()
-    brief = st.text_area(
-        "Design brief",
-        placeholder="What should this fixture do? Describe the task and any preferences.",
-        key="design-brief-" + p.id,
-        height=100,
-    )
-    st.caption(
-        "Start with a brief, or leave it blank to continue your saved conversation. I will ask relevant questions and prepare a proposal."
-    )
-    if st.button("Start design", type="primary", disabled=reviewer is None):
-        with st.spinner("Planning with AI…"):
-            plan_design(p, planner, text=brief, start=True)
-        st.rerun()
+    with st.expander(
+        "Start with a design brief", expanded=not (p.current or p.messages)
+    ):
+        brief = st.text_area(
+            "Design brief",
+            placeholder="What should this fixture do? Describe the task and any preferences.",
+            key="design-brief-" + p.id,
+            height=100,
+        )
+        st.caption("The assistant will ask for missing details and prepare proposals.")
+        if st.button("Start design", type="primary", disabled=reviewer is None):
+            with st.spinner("Planning with AI…"):
+                plan_design(p, planner, text=brief, start=True)
+            st.rerun()
     if reviewer is None:
         st.caption(
             "Choose an AI conversation mode to use Start design and automatic feedback. Offline generation runs geometric checks only."
@@ -292,19 +297,16 @@ with right, st.container(border=True, key="studio-conversation"):
                 else " No CAD revision was saved for this attempt."
             )
         )
-    with st.container(height=240 if p.messages else 100):
-        if not p.messages:
-            st.caption(
-                "Describe your task. I will use the measured interfaces and ask about decisions that affect the fixture."
-            )
-        for m in p.messages:
-            with st.chat_message(m["role"]):
-                if m["role"] == "assistant" and len(m["content"]) > 400:
-                    st.write(short_text(m["content"]))
-                    with st.expander("Read full response"):
+    if p.messages:
+        with st.container(height=300):
+            for m in p.messages:
+                with st.chat_message(m["role"]):
+                    if m["role"] == "assistant" and len(m["content"]) > 400:
+                        st.write(short_text(m["content"]))
+                        with st.expander("Read full response"):
+                            st.write(m["content"])
+                    else:
                         st.write(m["content"])
-                else:
-                    st.write(m["content"])
     text = st.chat_input("Describe the task or request a revision")
     if text:
         with st.spinner("Planning from measured features…"):
@@ -338,8 +340,17 @@ with right, st.container(border=True, key="studio-conversation"):
                 compile_plan(a, r, require_ready=False)
             except ValueError as error:
                 st.warning(str(error))
-        for prop in options:
-            with st.container(border=True):
+        primary_options = st.container()
+        other_options = (
+            st.expander("More fixture concepts", expanded=False)
+            if len(options) > 2
+            else primary_options
+        )
+        for index, prop in enumerate(options):
+            with (
+                primary_options if index < 2 else other_options,
+                st.container(border=True),
+            ):
                 st.markdown("**" + prop.title + "**")
                 st.write(prop.rationale)
                 if prop.composition in ("l_bracket", "bridge"):

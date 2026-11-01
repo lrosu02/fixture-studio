@@ -40,7 +40,6 @@ def retention_controls(p):
             "nest",
         ]
     )
-    st.markdown("**Part retention**")
     if raw.hole_ids and "screws" not in options:
         st.caption("Select mounting holes in the 3D view to use screw mounting.")
     key = p.id + str(hash(r.model_dump_json()))
@@ -191,8 +190,7 @@ def screw_size_controls(p):
             format_func=lambda v, choices=tuple(choices): (
                 v
                 if v
-                else "Automatic / blank"
-                + (f" — suggested {choices[0]}" if choices else "")
+                else "Automatic" + (f" — suggested {choices[0]}" if choices else "")
             ),
             key=widget_key,
         )
@@ -531,7 +529,7 @@ def requirement_controls(p):
 def manufacturing_controls(p):
     r = p.requirements
     key = f"manufacturing-{p.id}-{hash(r.model_dump_json())}"
-    with st.expander("Manufacturing", expanded=r.fabrication is None):
+    with st.expander("How the fixture will be made", expanded=r.fabrication is None):
         st.caption(f"Saved method: {r.fabrication or 'not specified'}")
         processes = [None, "unknown", FDM, "Machined stock", CUSTOM]
         current = FDM if r.fabrication == "3D printing (FDM/FFF)" else r.fabrication
@@ -539,7 +537,13 @@ def manufacturing_controls(p):
             "Manufacturing method",
             processes,
             index=processes.index(current) if current in processes else 4,
-            format_func=lambda v: "Not specified" if v is None else v,
+            format_func=lambda v: (
+                "Choose a method"
+                if v is None
+                else "Decide later"
+                if v == "unknown"
+                else v
+            ),
             key=key + "-process",
         )
         if process == CUSTOM:
@@ -554,6 +558,14 @@ def manufacturing_controls(p):
         st.caption(
             "The method guides design proposals. Detailed manufacturing validation remains outside this concept tool."
         )
+        if r.manufacturing_features and r.fabrication in (
+            "3D printing",
+            "Machined stock",
+        ):
+            st.caption(
+                "Printing adds chamfers to exposed base corners. Machining rounds corners "
+                "and adds cutter relief. Adjust these dimensions in Advanced."
+            )
         if st.button("Save manufacturing", key=key + "-save"):
             try:
                 save_manufacturing(p, process)

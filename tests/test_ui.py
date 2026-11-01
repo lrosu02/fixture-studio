@@ -297,7 +297,7 @@ def test_ui_new_structures_and_grouped_choices():
         "Offline commands"
     ).run()
     assert not app.exception
-    assert any(x.value == "Design choices" for x in app.subheader)
+    assert any(x.value == "Model preview" for x in app.subheader)
     assert not next(
         x for x in app.expander if x.label == "Advanced — mounting evidence"
     ).proto.expanded
