@@ -5,6 +5,34 @@ OpenCASCADE measures the part; NVIDIA SMLib constructs the fixture's actual CAD.
 Review mounting evidence, clarify requirements, choose a plate, rails, L-bracket or bridge,
 generate geometry, revise it, and export a reproducible design record.
 
+## Place openings after the first design — November 1, 2026
+
+Generate the fixture first, then choose **Add a fixture opening** above its preview.
+Click a flat wall, base or rib side on the generated fixture and enter the
+**Opening diameter (mm)**. The circle previews the location and size without changing
+CAD. **Add opening and rebuild** creates a checked revision with a real round
+through-hole. It does not require a matching hole or recess in the uploaded STEP.
+
+Under **Existing fixture openings**, resize or remove an opening and rebuild.
+Positions stay in the fixture coordinate frame through later revisions; each opening
+belongs to a fixture body and is not automatically repeated for each workpiece.
+STEP includes these holes. Restoring a prior revision restores its opening choices.
+
+New projects allow cable-opening placement after the initial concept. Routing needs
+are still discussed at setup; required openings that have not been placed are marked
+pending. For an older project that requires selection before generation, tell the
+conversation to defer cable-opening placement until after the first build.
+**Select source access features** still handles measured source openings/keep-clear
+regions; the older measured-recess control is available under **Advanced**.
+
+Current scope is circular holes on flat fixture faces aligned with X, Y or Z,
+0.5–500 mm diameter, within the bounded CAD operation budget. Holes need a complete
+0.5 mm geometric rim and a clear path through the fixture assembly. Crossed edges,
+existing holes, obstructing panels and invalid topology reject the revision and
+retain the last valid CAD. These checks do not establish strength, cable bend radius
+or connector fit. Curved/sloped entry surfaces and rectangular/slot openings are not
+supported by this placement tool.
+
 ## Guided conversation, part colors and formed bends — November 1, 2026
 
 New projects start in one visible **Fixture goal** form. Enter the task and number

@@ -205,6 +205,10 @@ def execute(plan, analysis, path):
                         )
             elif op.kind == "relief":
                 for target in op.targets or (op.target,):
+                    if op.id.startswith("fixture-opening-"):
+                        from .custom_openings import check_cut
+
+                        check_cut(bodies[target], op)
                     bodies[target] = sm.booleans.boolean_difference(
                         bodies[target], primitive(op)
                     )

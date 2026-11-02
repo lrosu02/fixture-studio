@@ -468,6 +468,7 @@ def requirement_controls(p):
                     "rear_clearance",
                     "rear_passages",
                     "through_access_required",
+                    "fixture_openings",
                     "mounting_hole_ids",
                     "fabrication",
                     "sheet_joint_style",

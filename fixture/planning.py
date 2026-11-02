@@ -49,6 +49,10 @@ def patch_requirements(current, changes, origin="user"):
         changes.setdefault("mounting_hole_ids", ())
         changes.setdefault("hole_fasteners", ())
     if changes.get("interface_id", current.interface_id) != current.interface_id:
+        if current.fixture_openings and changes.get("fixture_openings") != ():
+            raise ValueError(
+                "Remove fixture openings before changing the mounting frame, then place them on the rebuilt fixture."
+            )
         changes.setdefault("rear_passages", ())
         changes.setdefault("hole_fasteners", ())
         changes.setdefault("access_selections", ())
@@ -189,8 +193,14 @@ def missing_questions(a, r, automatic_clearance=True):
         questions.append(
             "Which manufacturing method should the design use, and are thickness constraints known?"
         )
-    if r.through_access_required and not (
-        r.rear_passages or any(s.intent == "through" for s in r.access_selections)
+    if (
+        r.through_access_required
+        and not r.defer_passages
+        and not (
+            r.fixture_openings
+            or r.rear_passages
+            or any(s.intent == "through" for s in r.access_selections)
+        )
     ):
         questions.append(
             "Select the opening or measured rear recess for the requested through wire/tool path; a blind relief does not satisfy through access."
@@ -298,15 +308,22 @@ def proposal_requirements(requirements, proposal):
     return patch_requirements(requirements, changes)
 
 
-def compile_plan(a, r, require_ready=True, compiler_version=13):
+def compile_plan(a, r, require_ready=True, compiler_version=None):
     from .manufacturing import is_sheet_metal
+    from .custom_openings import add_openings
+
+    if compiler_version is None:
+        compiler_version = 14 if r.fixture_openings else 13
+    if r.fixture_openings and compiler_version < 14:
+        raise ValueError("User-placed openings require compiler version 14.")
 
     if is_sheet_metal(r.fabrication):
-        if compiler_version not in (12, 13):
-            raise ValueError("Sheet assemblies require compiler version 12 or 13.")
+        if compiler_version not in (12, 13, 14):
+            raise ValueError("Sheet assemblies require compiler version 12, 13 or 14.")
         from .sheet_metal import compile_sheet
 
-        return compile_sheet(a, r, require_ready, compiler_version)
+        plan = compile_sheet(a, r, require_ready, min(compiler_version, 13))
+        return add_openings(r, plan.model_copy(update={"version": compiler_version}))
     if compiler_version < 9:
         if (
             r.access_selections
@@ -321,7 +338,7 @@ def compile_plan(a, r, require_ready=True, compiler_version=13):
                 "Extended access, base, hardware and manufacturing choices need compiler version 9."
             )
         return _compile_plan(a, r, require_ready, compiler_version)
-    if compiler_version not in (9, 10, 11, 12, 13):
+    if compiler_version not in (9, 10, 11, 12, 13, 14):
         raise ValueError("Unsupported compiler version.")
     from .access import add_access
     from .existing_base import add_base
@@ -343,7 +360,7 @@ def compile_plan(a, r, require_ready=True, compiler_version=13):
         from .fillets import add_rib_fillets
 
         plan = add_rib_fillets(r, plan)
-    return plan
+    return add_openings(r, plan)
 
 
 def _compile_plan(a, r, require_ready=True, compiler_version=8, allow_sheet=False):
@@ -359,8 +376,14 @@ def _compile_plan(a, r, require_ready=True, compiler_version=8, allow_sheet=Fals
         raise ValueError(
             "A base hole count requires bolted attachment to surroundings."
         )
-    if r.through_access_required and not (
-        r.rear_passages or any(s.intent == "through" for s in r.access_selections)
+    if (
+        r.through_access_required
+        and not r.defer_passages
+        and not (
+            r.fixture_openings
+            or r.rear_passages
+            or any(s.intent == "through" for s in r.access_selections)
+        )
     ):
         raise ValueError(
             "Select the opening or measured rear recess for the required through wire/tool path before generating."

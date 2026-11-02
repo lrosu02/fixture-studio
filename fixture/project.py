@@ -41,6 +41,7 @@ class Project:
             Requirements(
                 interface_id=recommended_interface(analysis),
                 manufacturing_features=True,
+                defer_passages=True,
             ),
         )
 
@@ -132,6 +133,7 @@ class Project:
                             for op in plan.operations
                         )
                     ),
+                    "fixture_opening_count": float(len(candidate.fixture_openings)),
                 }
             summary = f"Built {len(bodies)} fixture solid(s) for {len(plan.placements)} part(s): {len(cuts)} part holes, {int(metrics['base_hole_count'])} base holes."
             revision = Revision(

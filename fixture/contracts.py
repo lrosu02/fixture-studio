@@ -129,6 +129,22 @@ class AccessSelection(Record):
     reach: Annotated[float, Field(gt=0, le=500)] = 10
 
 
+class FixtureOpening(Record):
+    """One round hole positioned by a user on the generated fixture."""
+
+    id: Annotated[str, Field(pattern=r"^[a-zA-Z0-9_-]{1,64}$")]
+    body: Annotated[str, Field(min_length=1, max_length=128)]
+    center: Vec
+    axis: Literal["x", "y", "z"]
+    diameter: Annotated[float, Field(ge=0.5, le=500)]
+
+    @model_validator(mode="after")
+    def bounded_center(self):
+        if any(abs(v) > MAX_DIM for v in self.center):
+            raise ValueError("Opening center exceeds the fixture workspace.")
+        return self
+
+
 class BaseMount(Record):
     analysis: Analysis
     interface_id: str
@@ -174,6 +190,8 @@ class Requirements(Record):
     rear_clearance: Annotated[float, Field(ge=0.3, le=10)] = 0.3
     rear_passages: Annotated[tuple[str, ...], Field(max_length=32)] = ()
     through_access_required: bool = False
+    defer_passages: bool = False  # Legacy projects retain required pre-build access.
+    fixture_openings: Annotated[tuple[FixtureOpening, ...], Field(max_length=32)] = ()
     interface_id: str | None = None
     mounting_hole_ids: tuple[str, ...] = ()
     mounting_confirmed: bool = False
@@ -415,7 +433,7 @@ class SheetBend(Record):
 
 
 class Plan(Record):
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] = 1
     source_hash: str
     interface_id: str
     composition: Composition
@@ -455,6 +473,8 @@ class Plan(Record):
                 raise ValueError("Operation references a missing body.")
             if op.kind == "fillet" and self.version < 10:
                 raise ValueError("Fillets require compiler version 10.")
+            if op.id.startswith("fixture-opening-") and self.version < 14:
+                raise ValueError("User-placed openings require compiler version 14.")
             if op.shape in ("quarter_bend", "bend_relief") and self.version < 13:
                 raise ValueError("Bent sheet requires compiler version 13.")
             if op.kind == "finish" and self.version < 11:

@@ -3,7 +3,7 @@
 import streamlit as st
 
 
-def render_display_controls(project, selecting):
+def render_display_controls(project, selecting, opening_mode=False):
     def key(name):
         return f"workspace-view-{project.id}-{name}"
 
@@ -17,10 +17,14 @@ def render_display_controls(project, selecting):
         ("compare", False),
     ):
         st.session_state.setdefault(key(name), default)
-    editing = st.session_state[key("edit")] and not selecting
-    preview_disabled = selecting or editing
+    editing = st.session_state[key("edit")] and not (selecting or opening_mode)
+    preview_disabled = selecting or editing or opening_mode
     with st.expander("Display settings", expanded=False):
-        if selecting:
+        if opening_mode:
+            st.caption(
+                "Opening placement shows the generated fixture. Finish placing openings to change the display."
+            )
+        elif selecting:
             st.caption(
                 "Selection tools show the uploaded part. Return to an assembly or fixture view to change the display."
             )
@@ -65,13 +69,14 @@ def render_display_controls(project, selecting):
         editing_dimensions = st.checkbox(
             "Edit fixture dimensions",
             key=key("edit"),
-            disabled=selecting or project.current is None,
+            disabled=selecting or opening_mode or project.current is None,
             help="Open the dimension editor. The uploaded part's measurements stay fixed.",
         )
         compare = st.checkbox(
             "Compare with previous revision",
             key=key("compare"),
             disabled=selecting
+            or opening_mode
             or editing_dimensions
             or not (project.current and project.current.parent),
             help="Overlay the parent of the displayed revision.",

@@ -129,7 +129,7 @@ def test_access_picker_ui_adds_measured_reference(monkeypatch):
     ).run()
     next(b for b in ui.button if b.label == "Load example").click().run()
     next(
-        b for b in ui.button if b.label == "Select openings / keep-clear areas"
+        b for b in ui.button if b.label == "Select source access features"
     ).click().run()
     p = ui.session_state["project"]
     next(s for s in ui.selectbox if s.label == "Access feature").select(

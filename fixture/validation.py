@@ -468,4 +468,24 @@ def validate(a, r, plan, bodies, cuts):
         from .sheet_metal import validate_sheet
 
         validate_sheet(a, r, plan, bodies, add)
+    if plan.version >= 14:
+        from .custom_openings import validate_openings
+
+        validate_openings(r, plan, bodies, add)
+    if (
+        r.through_access_required
+        and r.defer_passages
+        and not (
+            r.fixture_openings
+            or r.rear_passages
+            or any(s.intent == "through" for s in r.access_selections)
+        )
+    ):
+        add(
+            "Deferred cable opening",
+            "User may place an opening on the generated fixture in a later revision",
+            "Opening has not been added",
+            "not_evaluated",
+            units="design intent",
+        )
     return tuple(checks)

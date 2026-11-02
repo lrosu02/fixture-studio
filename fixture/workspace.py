@@ -4,6 +4,7 @@ import streamlit as st
 from .viewer import assembly_figure
 from .display_controls import render_display_controls
 from .mounting_picker import render_mounting_picker
+from .opening_controls import render_opening_view
 from .dimensions import dimension_controls, thickness_controls
 from .ui_theme import workspace_intro
 from .controls import (
@@ -24,6 +25,16 @@ def set_workspace_mode(mode, project):
     st.session_state.face_mode = mode == "face"
     st.session_state.pick_mode = mode == "holes"
     st.session_state.access_mode = mode == "access"
+    st.session_state.opening_mode = mode == "openings"
+    if mode == "openings":
+        for name, value in (
+            ("source", False),
+            ("fixture", True),
+            ("evidence", False),
+            ("edit", False),
+            ("compare", False),
+        ):
+            st.session_state[view_key(project, name)] = value
 
 
 def request_assembly(project, fixture_only=False):
@@ -82,7 +93,7 @@ def workspace(project, build):
         for button, label, mode, flag in (
             (face_button, "Select mounting face", "face", "face_mode"),
             (hole_button, "Select mounting holes", "holes", "pick_mode"),
-            (st, "Select openings / keep-clear areas", "access", "access_mode"),
+            (st, "Select source access features", "access", "access_mode"),
         ):
             button.button(
                 label,
@@ -92,11 +103,23 @@ def workspace(project, build):
                 type="primary" if st.session_state.get(flag) else "secondary",
             )
         st.caption(
-            "Openings and keep-clear areas reserve space for cables, tools or moving parts."
+            "Source access features reserve space around the uploaded part. "
+            "New fixture holes can be placed after the first build."
         )
     face_mode = st.session_state.get("face_mode", False)
     pick_mode = st.session_state.get("pick_mode", False)
     access_mode = st.session_state.get("access_mode", False)
+    opening_mode = st.session_state.get("opening_mode", False)
+    with st.container(key="fixture-opening-pending-" + p.id):
+        if (
+            p.current
+            and r.defer_passages
+            and r.through_access_required
+            and not r.fixture_openings
+            and not r.rear_passages
+            and not any(selection.intent == "through" for selection in r.access_selections)
+        ):
+            st.info("Cable opening not added yet. Use Add a fixture opening to place it.")
     selecting = pick_mode or face_mode or access_mode
     if selecting or p.current:
         views = st.columns(2)
@@ -106,6 +129,7 @@ def workspace(project, build):
             args=(p,),
             type="primary"
             if not selecting
+            and not opening_mode
             and not st.session_state.get(view_key(p, "edit"), False)
             and st.session_state.get(view_key(p, "source"), True)
             and st.session_state.get(view_key(p, "fixture"), True)
@@ -118,16 +142,24 @@ def workspace(project, build):
                 args=(p, True),
                 type="primary"
                 if not selecting
+                and not opening_mode
                 and not st.session_state.get(view_key(p, "edit"), False)
                 and not st.session_state.get(view_key(p, "source"), True)
                 and st.session_state.get(view_key(p, "fixture"), True)
                 else "secondary",
             )
+        if p.current:
+            st.button(
+                "Add a fixture opening",
+                on_click=set_workspace_mode,
+                args=("openings", p),
+                type="primary" if opening_mode else "secondary",
+            )
     if selecting and p.current:
         st.caption(
             "Selection view shows the uploaded part. Use View generated fixture to inspect the CAD."
         )
-    display = render_display_controls(p, selecting)
+    display = render_display_controls(p, selecting, opening_mode=opening_mode)
     source, fixture, evidence = (display[k] for k in ("source", "fixture", "evidence"))
     dimensions, envelopes = display["dimensions"], display["envelopes"]
     editing_dimensions, compare = display["editing_dimensions"], display["compare"]
@@ -145,6 +177,19 @@ def workspace(project, build):
     else:
         if editing_dimensions:
             dimension_controls(p, build)
+        elif p.current:
+            render_opening_view(
+                p,
+                build,
+                enabled=opening_mode,
+                source=source,
+                fixture=fixture,
+                evidence=evidence,
+                dimensions=dimensions,
+                envelopes=envelopes,
+                previous=previous,
+                on_done=lambda: set_workspace_mode("assembly", p),
+            )
         else:
             st.plotly_chart(
                 assembly_figure(
@@ -225,12 +270,12 @@ def workspace(project, build):
     with fabrication:
         manufacturing_controls(p)
         fillet_controls(p)
-        passage_controls(p)
     with advanced:
         st.caption(
             "Manual overrides and measured geometry. Most designs can use the controls above."
         )
         mounting_evidence_controls(p)
+        passage_controls(p)
         requirement_controls(p)
 
 

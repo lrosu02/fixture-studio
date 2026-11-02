@@ -39,6 +39,7 @@ class Changes(Record):
     rear_clearance: float | None = None
     rear_passages: tuple[str, ...] | None = None
     through_access_required: bool | None = None
+    defer_passages: bool | None = None
     interface_id: str | None = None
     mounting_hole_ids: tuple[str, ...] | None = None
     mounting_confirmed: bool | None = None
@@ -199,10 +200,19 @@ Use the user's location description to choose among the measured centers/extents
 if it is ambiguous ask which recess. Do not open unrelated pockets automatically.
 For highlight_ids use the rear-profile ID, not a generated rear-relief operation ID.
 An empty rear_passages list restores all selected profiles to measured-depth relief.
-For every explicit through wire/tool passage request, set through_access_required=true,
-even when profile selection still needs clarification. Do not leave this intent only in
-access text. The controller blocks generation until rear_passages or a through-intent
-access_selections entry identifies a measured opening. Preserve a confirmed choice from either UI.
+For every explicit through wire/tool passage request, set through_access_required=true.
+New projects defer cable-hole placement until after the first fixture is generated
+(defer_passages=true). Discuss routing needs early, but do not block the initial concept
+on the opening's position, size or source-profile selection. Tell the user to use
+Add fixture opening on the generated CAD: click a flat wall/base/rib side, choose a
+diameter and rebuild. This round through-hole does not need an opening in the source STEP.
+If a user says they want to place cable holes later, set defer_passages=true. Keep the
+required intent recorded; a deferred opening has not yet been built or validated.
+Set defer_passages=false only if the user explicitly requires the passage in this build;
+then generation requires rear_passages, through access_selections or fixture_openings.
+fixture_openings are user-positioned and must be preserved. Do not invent their positions,
+redirect them to a source feature, or claim that cable bend/connector fit is proven.
+Existing measured source clearances still apply in both phases.
 Use earlier user descriptions/images of the opening to resolve its location; do not ask again
 when the user already identified it. Set through_access_required=false only if they cancel it.
 This creates an exit path for that profile, not a bend-radius or moving-cable check.

@@ -6,6 +6,15 @@ This is a handoff specification for the implementation agent. The six brushless 
 
 ## Sheet-metal extension checkpoint — November 1, 2026
 
+**Post-build opening extension on `codex/click-through-openings`:** generated fixture
+surfaces accept exact mouse positions for sized circular through-holes, independent
+of source openings. Compiler 14 records bounded cuts, native edge/path checks,
+resize/remove revisions and STEP export. New projects may defer cable-hole placement
+until the first fixture exists, with unplaced access marked pending. Curved/sloped
+entry surfaces and noncircular openings remain outside this placement tool's scope.
+Verification: 273 full-suite Python tests and 20 JavaScript viewer tests passed,
+including native STEP void checks, resize/remove/restore and invalid-cut retention.
+
 **Follow-up on `codex/design-conversation-flow`:** guided initial operating-context
 questions now precede proposals; follow-ups and revisions share one clearly labeled
 composer. Separate fixture bodies use stable individual preview colors. Compiler 13

@@ -49,6 +49,12 @@ def load_part(data, name):
 
 
 def build(project, requirements=None, change="Generate reviewed proposal"):
+    opening_edit = bool(
+        requirements is not None
+        and project.current
+        and requirements.fixture_openings
+        != project.current.requirements.fixture_openings
+    )
     status = st.empty()
     try:
         generate_with_feedback(
@@ -63,7 +69,7 @@ def build(project, requirements=None, change="Generate reviewed proposal"):
     except Exception as error:
         project.error = f"{type(error).__name__}: {error}"
     if project.current:
-        request_assembly(project)
+        request_assembly(project, fixture_only=opening_edit)
     st.rerun()
 
 

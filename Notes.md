@@ -1,5 +1,58 @@
 # Engineering record
 
+## Click-placed fixture openings (2026-11-01)
+
+Implemented on `codex/click-through-openings` from `73ffed8`. User-positioned round
+through holes are revision operations on generated fixture bodies, independent of
+source-feature recognition. Requirements store bounded opening IDs, body IDs,
+fixture-frame centers, axis and diameter. UI events carry revision/context/sequence,
+body, triangle index and exact ray-hit point; the backend independently checks mesh
+membership, barycentric containment and a flat axis-aligned triangle. Picking and
+diameter previews perform no native CAD work and do not save requirements.
+
+Compiler 14 appends bounded SMLib cylindrical cuts after construction/finishing.
+Ordinary designs retain compiler 13; older compilers reject new opening records.
+Depth spans the fixture bounds and is recomputed on dimension changes. Only the
+selected fixture body is cut; independent full-depth intersection against every
+final fixture body rejects an exit path blocked by another panel. Before cutting,
+native intersection volume verifies a complete cylindrical plug, and a 0.5 mm
+annular land check rejects edge breakouts or overlap with existing openings. Both
+plug ends are sampled against the native surface, so a tessellation chord alone
+cannot authorize a curved entry/exit. The
+usual topology, mounting, weld-joint, sheet-thickness and bend checks remain active.
+The rim is a geometric implementation bound, not a structural or manufacturing rule.
+
+New projects default to deferred cable-opening placement. Required-but-unplaced
+access is recorded as pending/not evaluated, while measured source clearance remains
+active. Legacy projects keep their previous pre-build requirement until explicitly
+deferred in conversation. The model cannot invent user-picked fixture coordinates.
+Opening revisions preserve absolute fixture-frame positions; changing the mounting
+frame requires removing and reselecting them. Rebuilds use candidate requirements
+directly, preserving prior CAD and requirements when construction fails.
+
+Native coverage includes wall/base cuts in flat and bent sheet, X/Y/Z cut directions,
+multiple holes, diameter/thickness revisions, removal/restore, rejected edge placements,
+blocked paths, a deliberately blind cut, historical-compiler guards, STEP opening
+voids and reproducible design ZIPs. Small removed-volume comparisons use independently
+reloaded BReps with relative integration accuracy 1e-8, because subtracting default
+volume estimates for large bodies masks sub-mm³ changes. The deliberately blind
+cut test first proves early rejection, then bypasses only that guard in the test
+to exercise independent final-CAD validation. The 23-test opening/passage/bend run
+passed, followed by the tighter curved-entry check and updated fault-injection test.
+Full regression: `.venv\Scripts\python.exe -m pytest tests -q` passed all 273 tests
+in 456.52 seconds. All 20 JavaScript pointer/selection/opening tests passed. Browser
+checks use real native CAD with AI disabled; no new live-model call is claimed.
+The live browser placed a 12 mm opening at the actual clicked point, resized it
+to 16 mm and removed it. Clicks, dragging, zoom and diameter previews did not save
+or build CAD. Stable component containers preserve the scene/camera through tool
+toggles and rebuilding; nine affected UI/preview checks passed after that fix.
+The browser-downloaded 16 mm STEP matched the native export hash, reopened as one
+valid solid in OCCT, and had zero intersection with an independent full-depth
+16 mm cylindrical probe. Generated fixture-only view remains active after an
+opening edit so the source part does not obscure the result.
+An actual browser edge pick was rejected by the native cut guard; the last valid
+revision and its requirements remained unchanged and the UI reported the failure.
+
 ## Guided operating context and formed sheet (2026-11-01 follow-up)
 
 Work is isolated on `codex/design-conversation-flow` from `49aa465`. The startup

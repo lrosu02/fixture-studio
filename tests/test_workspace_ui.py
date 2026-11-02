@@ -45,7 +45,7 @@ def test_access_mode_highlights_immediately_and_preserves_mounting_choices(monke
     labels = {
         "face": "Select mounting face",
         "holes": "Select mounting holes",
-        "access": "Select openings / keep-clear areas",
+        "access": "Select source access features",
     }
     original = p.requirements
     for mode in ("face", "holes", "access", "holes", "access"):

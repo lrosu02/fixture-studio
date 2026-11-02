@@ -2,11 +2,35 @@ import json
 
 import cadquery as cq
 import pytest
+import streamlit as st
+from types import SimpleNamespace
 from streamlit.testing.v1 import AppTest
 
 from fixture.project import Project, ROOT
 from fixture.step_export import prepare_step
 from tests.test_geometry import ready
+
+
+@pytest.fixture(autouse=True)
+def fixture_preview_transport(monkeypatch):
+    def component(**kwargs):
+        data, key = kwargs["data"], kwargs["key"]
+        if st.session_state.get("test-preview-key") != data["geometry_key"]:
+            if data["figure"]:
+                st.session_state["test-preview-figure"] = json.loads(data["figure"])
+                st.session_state["test-preview-key"] = data["geometry_key"]
+                st.session_state[key] = {"geometry_loaded": data["geometry_token"]}
+            else:
+                st.session_state[key] = {
+                    "geometry_request": {
+                        "key": data["geometry_key"],
+                        "token": "test-" + data["geometry_key"],
+                    }
+                }
+                st.rerun()
+        return SimpleNamespace(picked=None)
+
+    monkeypatch.setattr("fixture.opening_controls.opening_component", lambda: component)
 
 
 def button(ui, label):
@@ -33,12 +57,12 @@ def app(project):
 
 def visible_meshes(ui):
     charts = ui.get("plotly_chart")
-    assert len(charts) == 1
-    return {
-        t["name"]
-        for t in json.loads(charts[0].proto.spec)["data"]
-        if t["type"] == "mesh3d"
-    }
+    figure = (
+        json.loads(charts[0].proto.spec)
+        if charts
+        else ui.session_state["test-preview-figure"]
+    )
+    return {t["name"] for t in figure["data"] if t["type"] == "mesh3d"}
 
 
 def test_thickness_saves_before_generation_and_recovers_invalid_input(monkeypatch):
@@ -72,7 +96,7 @@ def test_thickness_saves_before_generation_and_recovers_invalid_input(monkeypatc
     [
         "Select mounting face",
         "Select mounting holes",
-        "Select openings / keep-clear areas",
+        "Select source access features",
     ],
 )
 def test_generation_leaves_source_picker_and_displays_generated_mesh(mode):
@@ -112,7 +136,10 @@ def test_thickness_rebuild_and_restore_show_the_correct_real_cad():
         and second.metrics["volume_mm3"] > first.metrics["volume_mm3"]
     )
     assert second.plan.interface_id == first.plan.interface_id
-    assert set(second.meshes) <= visible_meshes(ui) and check(ui, "Generated fixture").value
+    assert (
+        set(second.meshes) <= visible_meshes(ui)
+        and check(ui, "Generated fixture").value
+    )
     shape = cq.importers.importStep(str(prepare_step(second))).val()
     assert shape.isValid() and shape.BoundingBox().zlen == pytest.approx(8, abs=0.01)
     button(ui, "Select mounting face").click().run()

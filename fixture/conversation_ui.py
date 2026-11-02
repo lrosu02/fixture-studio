@@ -105,6 +105,7 @@ def render_conversation(project, planner, build, ai_enabled=True):
         st.caption(
             "Tell us about the parts, motion and access needs before reviewing fixture concepts."
         )
+        st.caption("Cable openings can be placed on the fixture after the first build.")
         if not ai_enabled:
             st.caption(
                 "Offline mode saves your setup without calling an AI planner or generating CAD."
