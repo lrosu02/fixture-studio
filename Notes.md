@@ -69,6 +69,11 @@ The browser run verified first setup, generation blocked by unanswered questions
 one follow-up composer, setup edits without AI/CAD calls, explicit 3 mm generation,
 a 4 mm revision and stable teal/blue/orange part colors. The downloaded STEP
 contained three fixture-only bodies in millimetres and passed its adapter report.
+Restoring the older user project exposed stale pre-build questions when its snapshot
+had no saved stage. Legacy projects with current CAD now retain their review state;
+explicit saved clarification and first-build questions still resume normally.
+All 15 affected brief/conversation tests passed after that migration fix. The
+original project file remained unchanged throughout browser checks.
 
 ## Flat sheet assemblies, tabs and weld intent (2026-11-01)
 

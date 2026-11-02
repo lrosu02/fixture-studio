@@ -72,7 +72,11 @@ class Project:
         obj.stage = "presented" if obj.current else "analyzed"
         if data.get("stage") in ("clarifying", "proposing", "presented", "exported"):
             obj.stage = data["stage"]
-        elif ((obj.last_planner_attempt or {}).get("action") or {}).get("questions"):
+        elif not obj.current and (
+            (obj.last_planner_attempt or {}).get("action") or {}
+        ).get("questions"):
+            # Legacy snapshots did not save stage. With existing CAD, retain
+            # their review state rather than replaying a pre-build question.
             obj.stage = "clarifying"
         return obj
 

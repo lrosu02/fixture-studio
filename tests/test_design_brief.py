@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from fixture.design_brief import save_brief, started
@@ -105,3 +107,32 @@ def test_answer_edits_update_access_and_pending_questions_stop_build():
     assert p.last_planner_attempt["action"]["questions"] == ["Disc diameter?"]
     unlocked = patch_requirements(candidate, {"service_access": "None"})
     assert "Driver access" not in unlocked.access
+
+
+def test_resume_preserves_completed_legacy_design_and_explicit_clarification():
+    from fixture.ui_theme import conversation_questions
+
+    a, r = ready()
+    p = Project(a, r)
+    p.generate()
+    p.last_planner_attempt = {"action": {"questions": ["An earlier question"]}}
+    p.save()
+    path = ROOT / "artifacts" / p.id / "project.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data.pop("stage")
+    path.write_text(json.dumps(data), encoding="utf-8")
+    restored = Project.load(path)
+    assert restored.stage == "presented" and restored.current.id == p.current.id
+    assert not conversation_questions(restored)
+
+    data["stage"] = "clarifying"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    restored = Project.load(path)
+    assert conversation_questions(restored) == ("An earlier question",)
+
+    data.pop("stage")
+    data.update(active_id=None, revisions=[])
+    path.write_text(json.dumps(data), encoding="utf-8")
+    restored = Project.load(path)
+    assert restored.stage == "clarifying" and not restored.current
+    assert conversation_questions(restored) == ("An earlier question",)
