@@ -1,7 +1,21 @@
+from hashlib import sha256
+
 import numpy as np
 import plotly.graph_objects as go
 from .intake import get_interface, local_points
 from .render_mesh import display_indices
+
+
+SOURCE_COLOR = "#9ba9b9"
+
+
+def fixture_body_color(body_id):
+    """Stable body identity, independent of revision, mesh order or source visibility."""
+    if body_id in ("mounting-platform", "stock-0"):
+        return "#25afa3"
+    digest = sha256(("fixture-part:" + body_id).encode("utf-8")).digest()
+    hue = int.from_bytes(digest[:8], "big") / 2**64 * 360
+    return f"hsl({hue:.8f},{60 + digest[8] % 16}%,{58 + digest[9] % 10}%)"
 
 
 def hole_size_key(diameter):
@@ -85,14 +99,29 @@ def assembly_figure(
     if source:
         for n, p in enumerate(placements):
             add_mesh(
-                fig, analysis.mesh, "#9ba9b9", f"Source {n + 1}", points + np.array(p)
+                fig,
+                analysis.mesh,
+                SOURCE_COLOR,
+                f"Source {n + 1}",
+                points + np.array(p),
             )
     if revision and fixture:
         for name, mesh in revision.meshes.items():
-            add_mesh(fig, mesh, "#25afa3", name)
+            add_mesh(fig, mesh, fixture_body_color(name), name)
+    if source and revision and revision.requirements.base_mount:
+        from .existing_base import transform
+
+        r = revision.requirements
+        base = r.base_mount
+        frame = get_interface(base.analysis, base.interface_id)
+        origin, basis = transform(r, revision.plan)
+        points = local_points(base.analysis.mesh.vertices, frame) @ basis + origin
+        add_mesh(fig, base.analysis.mesh, "#7f8b99", "Existing base", points)
     if previous:
         for name, mesh in previous.meshes.items():
-            add_mesh(fig, mesh, "#f6a94b", "Previous " + name, opacity=0.18)
+            add_mesh(
+                fig, mesh, fixture_body_color(name), "Previous " + name, opacity=0.18
+            )
     if evidence and interface:
         colors = hole_size_colors(analysis)
         shown_sizes = set()
@@ -233,7 +262,12 @@ def assembly_figure(
             zaxis_title="Z · mm",
         ),
         uirevision=analysis.source_hash,
-        legend=dict(orientation="h"),
+        legend=dict(
+            orientation="h",
+            itemsizing="constant",
+            font=dict(size=12),
+            groupclick="toggleitem",
+        ),
     )
     return fig
 

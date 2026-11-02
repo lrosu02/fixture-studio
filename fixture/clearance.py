@@ -248,6 +248,11 @@ def fixture_regions(analysis, interface, requirements, placements, stock_ops):
     regions = placed_regions(
         analysis, interface, requirements.rear_clearance, placements
     )
+    from .manufacturing import is_sheet_metal
+
+    if is_sheet_metal(requirements.fabrication):
+        # Flat cut sheets cannot contain blind relief pockets.
+        selected = tuple(p.id for p in profiles)
     if not selected:
         return regions
     stocks = [op for op in stock_ops if op.kind in ("stock", "support")]

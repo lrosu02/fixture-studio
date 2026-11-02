@@ -13,11 +13,13 @@ def main():
         for name in (
             "app.py",
             "README.md",
+            "CHANGELOG.md",
             "Notes.md",
             "IMPLEMENTATION_PLAN.md",
             "requirements.lock",
             ".gitignore",
             ".gitattributes",
+            "FixtureStudio-demo.mp4",
         )
     ]
     for folder in ("fixture", "scripts", "tests", "samples", "demo", ".streamlit"):

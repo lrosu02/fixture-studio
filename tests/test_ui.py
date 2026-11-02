@@ -19,10 +19,15 @@ def test_upload_slice():
     assert app.session_state["project"].analysis.selected_bodies == (0, 1)
     assert not any(x.label == "Bodies representing one part" for x in app.multiselect)
     assert not any(x.label == "Analyze selected bodies" for x in app.button)
-    app.chat_input[0].set_value("A fixture for inspection").run()
+    assert not app.chat_input
+    next(x for x in app.text_area if x.label == "Fixture goal").set_value(
+        "A fixture for inspection"
+    )
+    next(b for b in app.button if b.label == "Save design brief").click().run()
     assert (
-        app.session_state["project"].messages[0]["content"]
-        == "A fixture for inspection"
+        app.session_state["project"]
+        .messages[0]["content"]
+        .startswith("Design brief: A fixture for inspection")
     )
 
 
@@ -101,9 +106,16 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
 
     def component(**kwargs):
         payloads.append(kwargs["data"])
-        return SimpleNamespace(picked=events.pop(0) if events else None)
+        event = events.pop(0) if events else None
+        if event:
+            event.setdefault("sequence", kwargs["data"]["sequence"] + 1)
+            if "hole_ids" in event:
+                event["hole_ids"] = tuple(
+                    dict.fromkeys((*kwargs["data"]["hole_ids"], *event["hole_ids"]))
+                )
+        return SimpleNamespace(picked=event)
 
-    monkeypatch.setattr("fixture.hole_picker.picker_component", lambda: component)
+    monkeypatch.setattr("fixture.mounting_picker.picker_component", lambda: component)
     app = AppTest.from_file(
         str(Path(__file__).resolve().parents[1] / "app.py"), default_timeout=45
     ).run()
@@ -119,7 +131,7 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
     )
     next(b for b in app.button if b.label == "Select mounting holes").click().run()
     assert not app.exception
-    picks = app.session_state["hole_picks"]
+    picks = app.session_state["mounting_picks"]
     assert (
         not picks.hole_ids
     )  # Default interface is not automatic consent to select every hole.
@@ -132,7 +144,7 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
     )
     app.run()
     assert not app.exception
-    assert app.session_state["hole_picks"].hole_ids == (interface.hole_ids[1],)
+    assert app.session_state["mounting_picks"].hole_ids == (interface.hole_ids[1],)
     another_size = next(
         h
         for h, d in zip(interface.hole_ids, interface.diameters)
@@ -142,43 +154,36 @@ def test_mouse_selection_apply_and_clear(monkeypatch):
         dict(context=picks.context, interface_id=interface.id, hole_ids=(another_size,))
     )
     app.run()
-    chosen = app.session_state["hole_picks"].hole_ids
+    chosen = app.session_state["mounting_picks"].hole_ids
     assert len(chosen) == 2
     assert any("Different measured hole sizes" in x.value for x in app.info)
     events.append(
         dict(context=picks.context, interface_id=interface.id, hole_ids=chosen)
     )
     app.run()
-    assert app.session_state["hole_picks"].hole_ids == chosen
-    assert (
-        payloads[-1] == payloads[-2] == payloads[-3]
-    )  # No mesh/component reset on additions.
+    assert app.session_state["mounting_picks"].hole_ids == chosen
+    assert payloads[-1]["figure"] == payloads[-2]["figure"]
+    assert payloads[-1]["context"] == payloads[-3]["context"]
+    # The first accepted click also highlights its face. Later additions and
+    # repeated events preserve the immutable figure, draft context and camera.
     next(
         x for x in app.multiselect if x.label == "Selected holes — remove with ×"
     ).unselect(another_size).run()
     chosen = (interface.hole_ids[1],)
-    assert app.session_state["hole_picks"].hole_ids == chosen
-    assert app.session_state["hole_picks"].context != picks.context
+    assert app.session_state["mounting_picks"].hole_ids == chosen
+    assert app.session_state["mounting_picks"].context != picks.context
     assert (
         payloads[-1]["context"] != picks.context
     )  # Explicit removal does reset the draft.
-    assert next(b for b in app.button if b.label == "Use these mounting holes").disabled
-    next(
-        c
-        for c in app.checkbox
-        if c.label == "These holes are on the stationary mounting face"
-    ).check().run()
-    next(b for b in app.button if b.label == "Use these mounting holes").click().run()
     assert not app.exception
     r = app.session_state["project"].requirements
     assert r.mounting_hole_ids == chosen and r.mounting_confirmed
-    assert not app.session_state["pick_mode"]
+    assert app.session_state["pick_mode"]
     next(b for b in app.button if b.label == "Select mounting holes").click().run()
     next(b for b in app.button if b.label == "Clear hole selection").click().run()
-    assert not app.session_state["hole_picks"].hole_ids
-    assert (
-        app.session_state["project"].requirements == r
-    )  # Clearing draft does not change accepted mounting.
+    assert not app.session_state["mounting_picks"].hole_ids
+    assert not app.session_state["project"].requirements.mounting_hole_ids
+    assert app.session_state["project"].requirements.part_attachment == "unselected"
 
 
 def test_start_design_questions_generate_feedback_and_no_repeat(monkeypatch):
@@ -243,9 +248,15 @@ def test_start_design_questions_generate_feedback_and_no_repeat(monkeypatch):
     assert not next(
         x for x in app.expander if x.label.startswith("Advanced")
     ).proto.expanded
-    next(x for x in app.text_area if x.label == "Design brief").set_value(
+    next(x for x in app.text_area if x.label == "Fixture goal").set_value(
         "Hold two of these parts for inspection."
     )
+    for label in (
+        "Moving or spinning parts",
+        "Tool and service access",
+        "Loads and forces",
+    ):
+        next(x for x in app.text_area if x.label == label).set_value("unknown")
     button("Start design").click().run()
     assert len(calls) == 1 and not reviews
     assert app.session_state["project"].current is None
@@ -267,7 +278,8 @@ def test_start_design_questions_generate_feedback_and_no_repeat(monkeypatch):
     next(x for x in app.selectbox if x.label == "Conversation mode").select(
         "Offline commands"
     ).run()
-    assert button("Start design").disabled
+    assert not any(b.label == "Start design" for b in app.button)
+    assert len(app.chat_input) == 1
 
 
 def test_saved_project_selection_survives_new_project_files():
@@ -304,7 +316,7 @@ def test_ui_new_structures_and_grouped_choices():
         "Offline commands"
     ).run()
     assert not app.exception
-    assert any(x.value == "Design choices" for x in app.subheader)
+    assert any(x.value == "Model preview" for x in app.subheader)
     assert not next(
         x for x in app.expander if x.label == "Advanced — mounting evidence"
     ).proto.expanded

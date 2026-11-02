@@ -118,7 +118,10 @@ def test_model_contract_timeouts_and_missing_facts():
         plan_turn(a, r, [], client=fake_client(error=TimeoutError("API timeout")))
     assert r.material is None and r.nominal_fastener is None
     incomplete = Requirements(purpose="continuous running", quantity=6)
-    assert 1 <= len(missing_questions(a, incomplete)) <= 3
+    questions = missing_questions(a, incomplete)
+    assert len(questions) > 3
+    assert any("manufacturing method" in q for q in questions)
+    assert any("concept assumptions" in q for q in questions)
     incomplete = incomplete.model_copy(
         update=dict(
             interface_id=r.interface_id, mounting_confirmed=True, clearance_diameter=3.5

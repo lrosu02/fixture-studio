@@ -67,12 +67,13 @@ def use_picked_holes(analysis, requirements, picks, stationary):
         h not in interface.hole_ids for h in picks.hole_ids
     ):
         raise ValueError("Selected holes must belong to one measured mounting face.")
-    return patch_requirements(
-        requirements,
-        {
-            "interface_id": interface.id,
-            "mounting_hole_ids": picks.hole_ids,
-            "mounting_confirmed": True,
-            "part_attachment": "screws",
-        },
-    )
+    changes = {
+        "interface_id": interface.id,
+        "mounting_hole_ids": picks.hole_ids,
+        "mounting_confirmed": True,
+        "part_attachment": "screws",
+    }
+    if interface.id != requirements.interface_id:
+        # Picking holes can also change the mounting frame, just like picking a face.
+        changes["envelopes"] = ()
+    return patch_requirements(requirements, changes)

@@ -1,99 +1,26 @@
 # Fixture Studio
 
-A local conversational tool for designing fixtures around an uploaded STEP part.
-OpenCASCADE measures the part; NVIDIA SMLib constructs the fixture's actual CAD.
-Review mounting evidence, clarify requirements, choose a plate, rails, L-bracket or bridge,
-generate geometry, revise it, and export a reproducible design record.
+A conversational CAD tool that turns an uploaded STEP part and a design brief into
+a fixture you can inspect, revise and export as STEP. CadQuery/OpenCASCADE measures
+the source; NVIDIA SMLib constructs the fixture through `usd-brep`.
 
-**Implemented and verified on Windows x64 / Python 3.12.10.** Both native kernels,
-the Streamlit workflow, revisions, native checks, USD BRep round trips and clean
-lockfile installation have been exercised. A real three-turn conversation using
-the local Codex CLI's **ChatGPT subscription sign-in** generated and revised a
-six-part fixture without an API key. The separate OpenAI API backend is implemented
-and tested with test doubles; no API-key-backed live call has been made.
+**[Watch the video demonstration](FixtureStudio-demo.mp4)** ·
+[Demo guide](demo/DEMO.md) · [Engineering notes](Notes.md)
 
-## Checkpoint — October 30, 2026
+![Motor and generated L-bracket](demo/motor-l-bracket.png)
 
-**Total project time so far: 3 hours 30 minutes (3.5 hours), reported by the user.**
-This is the cumulative checkpoint total, not an additional development interval.
+The final submission is on **`main`**. Motors are one example: mounting geometry,
+quantity and layout come from the uploaded part and the user's choices.
 
-- Working flow: STEP upload and measurement, mouse selection of mounting faces/holes,
-  conversational requirements, Start design, proposals, SMLib generation, AI feedback,
-  revisions/restore and verified STEP export.
-- Supported fixtures: plates, rails, ribbed L-brackets, bridges, and rectangular
-  locating trays with optional external-strap slots for parts without mounting holes.
-- Design controls include manufacturing method, screw-size suggestions, automatic
-  standard clearances, configurable base-hole counts and real through passages.
-- Verified examples include the supplied motor and IEC connector, unrelated synthetic
-  parts, and hole-free tray geometry. Latest full suite: **126 passing tests**, plus
-  **8 passing workflow tests** after the final prompt adjustment; Ruff F checks passed.
-- Public source is available on [GitHub](https://github.com/lrosu02/fixture-studio).
-  Credentials, private uploads and local projects are excluded.
+## Quick start
 
-Remaining: the continuous demo recording, a live API-key-backed test, and broader
-geometry/engineering capabilities. Contact remains sampled; operating strength and
-exact source-to-fixture BRep collision are not validated. The suggested next feature
-is selecting openings and keep-clear areas directly in 3D; it is not implemented yet.
-See the [plan checkpoint](IMPLEMENTATION_PLAN.md#implementation-checkpoint--october-30-2026)
-and [engineering record](Notes.md#checkpoint-and-total-time--october-30-2026).
-
-## Supported inputs and behavior
-
-- One STEP imported automatically as one complete part (up to 16 source solids), with
-  analytic planar mounting/support faces. Circular mounting holes are optional.
-- STEP units normalized to millimeters, relative body placements preserved,
-  source preview cached, stable measured feature IDs and candidate selection.
-- Coaxial inward cylindrical faces grouped to measure bores; selectable hole
-  subsets let you exclude ports. Modeled diameter is separate from thread size.
-- Mouse picking of detected hole rims/centers in the 3D STEP preview, including
-  ambiguous faces. Confirmed picks become the measured mounting pattern.
-- Matching **Select mounting face** and **Select mounting holes** buttons. Click
-  a measured planar surface to highlight it and show the fixture-side arrow,
-  review its detected holes, then apply. Rotating or repeating a click does not
-  deselect it. A face list is also available.
-- Hole-free faces support measured rectangular locating trays, optionally with
-  through slots for an external retaining strap. Retention is an explicit choice;
-  the app does not invent part holes or assume that a resting tray holds a part down.
-- One to 24 source instances in rows or grids; user-controlled gap, thickness,
-  margin, maximum width and requirement locks. Clearance holes default to ISO 273
-  medium per fastener size, with optional explicit overrides.
-- Common plates, open parallel rails, ribbed L-brackets and bridge supports;
-  clamp lands or base bolt holes, including perpendicular holes in L-bracket feet.
-- Adjustable mounting height, L-bracket base depth and optional triangular ribs.
-  Dimensions follow measured bounds; no motor pattern or quantity is hardcoded.
-- Configurable total base-hole count, separate from the part's mounting pattern.
-  Any positive integer is accepted, subject to geometric fit and the bounded CAD
-  operation budget. An unspecified L-bracket base grows deeper when needed.
-- Finite box access regions that cut real stock. Plates, L-brackets and bridges relieve
-  separate rear protrusions with measured cylindrical or convex-profile cuts,
-  while preserving the selected mounting contacts.
-- Conversation, relevant clarifications, proposal comparison, evidence highlighting,
-  native CAD generation, per-check results, revision comparison, restore and export.
-- Start design prepares an AI proposal from the brief and saved part context.
-  Generation automatically requests AI feedback, with at most one bounded correction.
-- Manufacturing method carried into the conversation, proposal guidance, saved
-  revisions and exports. No material, machine or slicer setup is requested.
-- Saved project snapshots can be resumed from the sidebar. All source solids are
-  kept together in their original relative placement; no manual body selection.
-
-This is a geometric concept tool. Contact is sampled, exact cross-kernel source
-collision is not evaluated, and operating performance is not certified.
-
-## Setup
-
-Clone the public [Fixture Studio repository](https://github.com/lrosu02/fixture-studio),
-or use the supplied project folder/submission archive. Install 64-bit CPython **3.12** and the
-[Microsoft Visual C++ Redistributable](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist).
-The NVIDIA wheel includes its SMLib and OpenUSD native libraries; no source build
-or OCCT-to-USD converter is required. Do not install another OpenUSD/`pxr` runtime
-into this environment.
-
-From PowerShell (skip the first two commands if already in the project folder):
+Verified on **Windows x64 with Python 3.12.10**. Install 64-bit Python 3.12 and the
+[Microsoft Visual C++ Redistributable](https://learn.microsoft.com/cpp/windows/latest-supported-vc-redist),
+then run in PowerShell:
 
 ```powershell
 git clone https://github.com/lrosu02/fixture-studio.git
 Set-Location fixture-studio
-python --version
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.lock
 .\.venv\Scripts\python.exe -m pip check
@@ -101,459 +28,111 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-Open [Fixture Studio](http://127.0.0.1:8501). The server binds to loopback by
-default. These commands were also exercised in a fresh `.venv-clean` environment.
-The `py` launcher on the development machine does not discover Python, so the
-instructions deliberately use `python`.
+Open **http://127.0.0.1:8501**. The pinned NVIDIA wheel includes SMLib and OpenUSD;
+do not install a second `pxr`/OpenUSD runtime into this environment. Restart the
+server after code updates; automatic source reload is disabled to keep active
+CAD sessions consistent.
 
-## Conversation provider
+The wheel can print missing `pxr.*` Python-module warnings during successful native
+USD I/O; the dependency proof checks the actual CAD round trip (details in Notes.md).
 
-**ChatGPT subscription (Codex CLI)** is the preferred backend when `codex` is on
-PATH. It uses supported CLI authentication and structured output, not desktop UI
-automation or extracted credentials. It consumes your subscription allowance and
-is subject to that plan's limits. The installed CLI tested here is
-`0.165.0-alpha.1.2`.
+### Choose an assistant
 
-```powershell
-codex --version
-codex login status
-# If needed, run codex login and complete ChatGPT sign-in yourself.
-.\.venv\Scripts\python.exe scripts\prove_subscription.py --full
-```
+| Mode | Setup | What to expect |
+| --- | --- | --- |
+| ChatGPT subscription (Codex CLI) | Install Codex CLI, run `codex login`, and verify `codex login status`. | Live planning and CAD feedback using subscription allowance. This integration has been exercised with real calls. |
+| OpenAI API | Set `OPENAI_API_KEY` in the launching environment; optionally set `OPENAI_MODEL`. | Separate API billing. Implemented with test-double coverage; a live API-key call has not been verified. |
+| Offline commands | No credential required. | Manual controls and a limited command parser; no conversational AI or AI review. |
 
-If discovery fails, set `FIXTURE_CODEX_PATH` to your installed `codex.exe`.
-`FIXTURE_CODEX_MODEL` optionally selects an available model; otherwise the CLI
-uses its default. Each request uses a fresh ephemeral read-only process with
-execution, apps, plugins, browser/computer control and multi-agent tools disabled.
-API-key login is rejected by this backend. No global Codex config is changed.
-See [authentication](https://learn.chatgpt.com/docs/auth) and
-[non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode).
+Select the mode in the sidebar. If Codex is not on PATH, set `FIXTURE_CODEX_PATH`
+to its executable. `.env` files are not loaded automatically. Live modes send
+measured features, requirements, conversation and rendered review images to OpenAI;
+they do not send the original STEP bytes. There is no automatic API fallback.
 
-**OpenAI API** is an optional independent backend. Set `OPENAI_API_KEY` in the
-launching environment and optionally `OPENAI_MODEL` (default `gpt-6-astra`), then
-select OpenAI API in the sidebar. This backend uses the Responses API, is
-separately metered and has no automatic fallback from subscription mode.
-Do not put credentials in source files. `.env` files are ignored by version
-control but are **not automatically loaded**.
+## Design workflow
 
-**Offline commands** uses a visibly labeled limited parser, with no model calls.
-Examples: `quantity 6 grid 3 columns`, `gap 20`, `more rear access with rails`,
-`plate`, `width 100`. Use the requirements form for other facts. Arbitrary prose
-is not fully interpreted in this mode.
+1. **Upload a STEP.** Select its mounting/support face and any mounting holes in
+   the 3D viewer. Selections save immediately. Parts without holes can use supported
+   nests, trays or cylindrical retention.
+2. **Describe the fixture.** In **Fixture goal**, enter the task, quantity, moving
+   components, loads and service access. Choose the manufacturing method and click
+   **Start design**. Answer the remaining questions together in the conversation.
+3. **Generate a proposal.** Review the proposed dimensions and assumptions, then
+   choose **Generate**. The app builds native CAD, checks it and requests AI feedback
+   in a live mode. One bounded correction may adjust unlocked concept dimensions.
+4. **Revise and add openings.** Use **Request a revision** or the thickness/dimension
+   controls. After the first build, **Add a fixture opening** lets you click a flat
+   fixture surface and choose a through-hole diameter. Changing fixture type keeps
+   opening sizes but asks you to place them again on the new shape.
+5. **Export STEP.** In the sidebar, select **Prepare STEP download**, then
+   **Download STEP (.step)**. Saved projects and revision history support resume
+   and restore; failed attempts retain the last valid fixture.
 
-All live backends send the measured feature summary, requirements and recent
-conversation to OpenAI. CAD review also sends rendered assembly/fixture views.
-Original STEP bytes and mesh arrays are not sent.
+## Supported capabilities
 
-## Start a design and receive AI feedback
+| Area | Available today |
+| --- | --- |
+| Mounting structures | Common plates, parallel rails, ribbed L-brackets and bridge supports; row/grid layouts for 1–24 copies of one part. |
+| Retention and bases | Hole-free trays, convex-envelope nests, cylindrical saddles/collars and split clamps; optional second STEP for an existing mounting base. |
+| Hardware and access | Standard screw-clearance defaults, configurable base-hole counts, counterbores, countersinks, nut pockets, measured clearances and user-placed round through-holes. |
+| Manufacturing | 3D printing and machining corner rules; sheet-metal panels with tab/slot allowances and welded joints; formed 90° L-bracket bends with separate ribs. |
+| Review and revisions | Persistent 3D selection, colored assembly parts, editable dimensions and locks, geometric checks, AI feedback, revision comparison and restore. |
 
-1. Upload a part, choose the manufacturing method and select/confirm mounting holes
-   when necessary. Choose **ChatGPT subscription (Codex CLI)** or **OpenAI API**.
-   For a flange or ambiguous mounting side, use **Select mounting face**, click the
-   contacting surface, review the orange fixture-side arrow and holes, and choose
-   **Use this mounting face**. Face changes clear old face-relative passage and
-   access-box choices; locked requirements remain protected.
-2. Enter the task in **Design brief** and click **Start design**. Leave the brief
-   blank to continue the saved conversation. The AI extracts stated facts and asks
-   up to three relevant questions at a time. Answer in the chat box.
-3. Review the mounting proposals and displayed concept dimensions. Accept their
-   assumptions when appropriate, then choose **Generate** for the chosen structure.
-   Start design itself prepares a proposal; it does not bypass this review step.
-4. The app generates real CAD, runs geometric checks and sends the attempted plan,
-   measured results and three rendered views to the AI. Its feedback appears below
-   the viewer and in the conversation. A failed attempt is reported as a failure,
-   not confused with the previous valid assembly.
-5. The AI may make **one** correction to an unlocked, default/AI-assumed gap,
-   margin or thickness, then rebuild and review once more. User-specified dimensions,
-   measured mounting features, clearances and other requirements cannot change in
-   this automatic step. Further changes require your feedback in chat.
+One uploaded STEP is treated as one part, preserving the relative positions of up
+to 16 solids. Measurements and exports use millimeters. The geometry engine uses
+validated data contracts and bounded operations; the AI does not execute arbitrary
+modeling code. A bridge has a horizontal mounting platform, while an L-bracket has
+an upright wall; switching between them can change the part's operating orientation.
 
-**Advanced — requirements and assumptions** is collapsed by default. Use it for
-manual overrides and locks; normal clarification happens in the conversation.
-Page refreshes do not trigger model calls or builds. Offline commands keeps its
-manual generation workflow with geometric checks and no AI review. Review errors
-or timeouts preserve generated CAD and are visibly marked incomplete.
+## Exports
 
-CAD saves use private staging files, native reopen checks and atomic publication.
-Transient save failures are retried at most three times with the same geometry.
-An incomplete or mismatching export cannot become a valid revision. Persistent
-file-save errors preserve prior CAD and ask you to retry Generate; they do not
-trigger AI changes to dimensions or consume an AI review call.
+**STEP contains the generated fixture solids only**, excluding the uploaded part
+and optional existing base. Separate welded panels remain separate solids in their
+assembled positions. It transfers the actual SMLib BRep through an OpenCASCADE
+writer, then reopens and checks the result; it is not a triangulated preview export.
 
-The product is intended for different fixture tasks and part types. Current CAD
-composition support includes plates, parallel rails, L-brackets and bridges around
-recognized planar/circular interfaces, plus locating trays on outer planar faces.
-Conformal nests, articulated clamps and
-arbitrary angled structures still require compiler extensions; the motor example does not define the product.
-AI feedback is a concept review, not structural or manufacturing certification.
+**Export CAD + design record** provides native USD BRep, requirements, bounded
+operations, measurements, validation and AI feedback. Prepare STEP first to include
+the `.step` and its verification report in the ZIP. Pending openings are listed but
+are absent from CAD until placed. Exports use the displayed saved revision, not
+unbuilt changes to requirements. Original private STEP files are excluded.
 
-To reproduce a real two-part sensor fixture and visual AI review using the existing
-ChatGPT sign-in (uses subscription allowance):
+## Reproduce and test
+
+This deterministic demo needs no AI credential. It generates a bent sheet-metal
+L-bracket, revises its thickness/joints, and prints the saved project, verified STEP
+and design ZIP paths under `artifacts`:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\prove_feedback.py
-```
-
-The recorded run is in [live-feedback-record.json](demo/live-feedback-record.json),
-and its CAD, checks, feedback and views are in [live-feedback-export.zip](demo/live-feedback-export.zip).
-
-## Reproduce the example
-
-1. Load `synthetic_motor.step`. It is original synthetic geometry, **not the
-   user's actual brushless motor**. The tool automatically selects the supported
-   outer face; inspect its four measured 4 mm bores and 34 x 22 mm pattern.
-2. In subscription mode, enter in **Design brief**: “I want a fixture for six of
-   these parts so they can run continuously. Keep it accessible and give it a clean
-   appearance.” Click **Start design**, then answer in chat.
-3. For this synthetic example only, confirm the stationary interface and four
-   holes; specify **3.5 mm fixture clearance**, **six instances**, **grid / three
-   columns**, **clamps**, and **machined solid stock concept**. Set operating
-   loads, nominal thread and engagement to **unknown**. State that rear
-   tool access is desired and that finite tool dimensions are unknown. Accept
-   the visible concept defaults (6 mm stock, 8 mm margin, 12 mm gap).
-4. Review the common plate and open-support proposals. Generate the plate.
-   Expect six source meshes on one teal SMLib body with 24 actual mounting holes.
-5. Request: “Revise it to open parallel supports for more rear tool access and
-   less material. Preserve all measured holes, six instances and the three-column
-   grid. Generate the revision.” Expect four separate rails and the same 24 holes.
-6. Toggle source/fixture/evidence/access, compare the previous revision, inspect
-   checks, and restore a revision if desired. Download **Export CAD + design record**.
-
-For a fully reproducible no-model run:
-
-```powershell
-.\.venv\Scripts\python.exe scripts\demo.py
+.\.venv\Scripts\python.exe scripts\demo_sheet_metal.py --bent
 .\.venv\Scripts\python.exe scripts\reproduce.py demo\example-export.zip artifacts\reproduced
+.\.venv\Scripts\python.exe -m pytest tests -q
 ```
 
-The demo plate volume is approximately **109,014.516 mm³**; the revised supports
-total **38,358.615 mm³**. The latter was rebuilt from the export in a clean
-environment. [Interactive assembly](demo/assembly.html) shows the actual
-tessellated BReps with a transparent previous-revision overlay.
-[Live subscription record](demo/live-subscription-record.json) contains the real
-planner outputs; [live export](demo/live-subscription-export.zip) contains CAD.
-The [demo guide](demo/DEMO.md) gives a 2–3 minute walkthrough.
-
-For an unrelated example, load `sensor_bracket.step`: three 5 mm holes with an
-unequal pattern. Use a confirmed 4.5 mm fixture clearance for that synthetic
-specimen. Geometry follows its measured interface, not the motor example.
-
-To add a real opening, enter this in **Advanced — requirements and assumptions → Clearance volumes (optional) → Clearance boxes (advanced JSON)**:
-
-```json
-[{"id":"rear-tool","minimum":[-4,-4,-8],"maximum":[4,4,1],"purpose":"Finite rear tool access","provenance":"user"}]
-```
-
-It creates an 8 x 8 mm through opening in 6 mm stock if contact patches permit.
-The check concerns fixture obstruction; source-part obstruction remains unevaluated.
-
-## Parts without mounting holes
-
-Load `hole_free_housing.step`, press **Select mounting face**, and select its flat
-bottom surface. Confirm **This is the surface that should contact the fixture**
-and press **Use this mounting face**. No hole selection is required.
-
-Under **Part retention**, choose **Locating tray — no hold-down** or
-**Locating tray with an external strap**, then **Apply part retention**.
-Walls follow the whole part's measured rectangular envelope, with editable defaults
-of 0.5 mm fit clearance and 3 mm wall thickness. Wall height defaults to the smaller
-of 5 mm and half the part height. These are concept dimensions, not load sizing.
-Strap mode requires its width and thickness and adds two full-depth slots with
-1 mm fit allowance. The strap itself is separate hardware and needs underside
-threading access. The conversation should confirm that crossing over the part is suitable.
-
-For the bundled housing, try: “Make a 3D-printed locating tray for one housing,
-resting upright during bench inspection. Leave the top open. Attach the tray to
-the bench with four M3 screws. No moving loads. Accept the displayed concept defaults.”
-Click **Start design**, review the proposal, and generate. Request a revision to
-increase part-to-wall clearance to 1 mm, then **Prepare STEP download**.
-The fixture has locating walls and base holes, with no invented part screw holes.
-
-The support face must be an outer plane with the whole part on its inward side.
-Rectangular trays do not follow arbitrary contours; clamps and conformal nests
-remain unsupported. Checks cover sampled face support, measured-envelope clearance,
-wall material and unobstructed strap slots. Holding force is not evaluated.
-Older saved analyses retain their original candidates; re-upload the original STEP
-to expose additional hole-free faces. Existing saved revisions remain available.
-
-## L-brackets and bridge supports
-
-Choose **L-bracket** or **Bridge support** in a conversational request or the
-advanced Structure selector. Mounting coordinates always come from the selected
-STEP interface; part count/layout remain user choices and clearances resolve automatically.
-The four families are in `fixture/structures.py`; every fixture primitive, sweep,
-union and cut executes in SMLib. CadQuery/OpenCASCADE measure the source and serialize
-the generated SMLib boundary representation to STEP; fixture operations are never replayed there.
-
-- **L-bracket:** a mounting wall, perpendicular rear foot and optional triangular
-  side ribs become one solid. `mount_height` is the measured interface origin above
-  the base top along +Y. `base_depth` is the foot extent behind the interface along
-  -Z. The USD stage and previews use Y-up. Base bores run along Y; part bores remain
-  along Z. No arbitrary-angle inference is made.
-- **Bridge:** a mounting platform joins two side legs and outboard feet. Height is
-  the interface plane above the base top along +Z. Feet are included in the maximum
-  width constraint. The open region beneath the platform provides rear access.
-- Unset dimensions are derived from measured bounds, thickness and margin, displayed
-  on proposals, and require acceptance as concept defaults. They do not establish
-  propeller clearance or load capacity. Describe propeller position, axis and desired
-  clearance in the conversation; nominal screw size does not establish stand height.
-- Rear protrusions are separated into connected patches of the clipped source
-  mesh. Each receives an enclosing cylinder or convex-profile swept cut, instead
-  of one box spanning every protrusion. All cuts are real SMLib geometry; mounting
-  holes and support regions remain protected. A genuine overlap still blocks
-  generation and explains when another interface or a stand-off design is needed.
-- **Rear protrusion clearance (mm)** in Advanced controls padding from 0.3 to
-  10 mm, with requirement locks and revisions. The 0.3 mm minimum accounts for
-  twice the source mesh chord tolerance. **View options → Access volumes** shows
-  these envelopes in purple. This is a conservative mesh approximation, not an
-  exact source/fixture collision bridge. Wire routing, tools and future moving
-  parts still need their own dimensions; existing STEP relief does not infer them.
-- Enhanced clearances are bounded to 32 patches per source and 48 vertices per
-  convex profile, with the overall operation limit still enforced. Exported
-  version-2 plans reproduce these cuts; historical version-1 plans retain their
-  original compiler behavior.
-- New version-3 plans permit clearance larger than a modeled thread/bore only while
-  retaining at least 1 mm to the sampled outer contact radius. Automatic sizes follow
-  the policy below; thread identity and engagement are not established by a measured opening.
-
-### Through passages and proposal variants
-
-Measured rear reliefs clear protrusions only to their measured depth; they can be
-blind pockets. To route wires through an existing recess, ask **“Make the lower
-rear recess a through passage and generate a revision.”** The conversation can
-select a measured profile by its supplied location without inventing coordinates.
-Alternatively, open **Wire and tool passages** under Design choices, choose the
-recess, **Apply through passages**, then Generate. Only selected profiles extend
-through the entire fixture in the mounting-normal direction. Their measured
-outlines stay unchanged; unselected shaft/other reliefs keep their original depth.
-Native checks test the complete passage for remaining fixture material, including
-after a thickness change. Cable bend radius and connector fit remain separate.
-
-Mounting proposals now include an open/ribbed L-bracket alternative and raised
-L-bracket/bridge variants when allowed by the saved constraints. Raised variants
-add twice the current stock thickness to the derived mounting height; they are
-offered only when height is unset and unlocked. These are distinct constructions
-within the four supported families. Locks, selected holes, passages and clearances
-are preserved, and infeasible candidates are omitted. Cards show the main tradeoff
-and dimensions; manufacturing notes and assumptions are in **Design details**.
-Buttons use readable names such as **Generate L-bracket**.
-
-AI replies now request short summaries. Full review findings remain in the saved
-record and collapsed feedback panel; long historical replies have **Read full
-response**. Validation details are also collapsed by default.
-
-Reproduce a real AI-planned two-sensor L-bracket, including visual AI feedback:
+Tests cover STEP measurement, native geometry, through-hole verification, revisions,
+failure recovery, exports and UI behavior. Live model calls are opt-in and are not
+part of the regression suite. With Node.js installed, run all viewer event checks:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\prove_structures.py
-.\.venv\Scripts\python.exe scripts\prove_feedback.py --structure l_bracket
-.\.venv\Scripts\python.exe scripts\reproduce.py demo\live-l_bracket-export.zip artifacts\reproduced-l-bracket
+node --test tests/test_picker_pointer.mjs tests/test_mounting_picker.mjs tests/test_opening_picker.mjs
 ```
 
-The live proof uses explicitly specified synthetic-demo dimensions (70 mm mounting
-height, 40 mm base depth) and a three-hole sensor pattern. Those numbers are test
-inputs, not defaults for the user's motor. See `demo/live-l_bracket-record.json`
-and `demo/live-l_bracket-export.zip`. `--structure bridge` runs the same live proof
-for a bridge (consumes subscription allowance).
+Additional deterministic examples and recorded live-call evidence are linked in
+the [demo guide](demo/DEMO.md). Sample provenance is in [samples/PROVENANCE.md](samples/PROVENANCE.md).
 
-## Manufacturing
+## Limits
 
-Open **Manufacturing** directly below hole selection in **Design choices**. Choose **3D printing**, **Machined stock**,
-**Other / custom**, or **unknown**, then click **Save manufacturing**. This section
-asks only for the method. Material, printer and slicer controls are removed.
+This is a fixture concept tool for the supported geometry families. Geometric
+validation does not establish strength, fatigue, vibration, thermal behavior,
+weld performance or a safe operating load. Source-to-fixture contact is sampled;
+exact cross-kernel collision checking is not provided.
 
-The conversation uses that method when comparing supported concepts. Printing
-guidance distinguishes a connected plate from separate rails that each need base
-attachment; machining guidance calls out straight cuts and workholding. Method
-selection does not automatically change thickness or verify strength, supports,
-build orientation or detailed manufacturability. The executor uses four bounded
-structure families; dimensions are concept choices, not a strength calculation.
+Mouse-placed openings currently support circular holes on flat, axis-aligned fixture
+faces with sufficient edge clearance. Arbitrary freeform fixtures, concave conformal
+nests, thread recognition, articulated clamps and mixed workpiece assemblies are
+outside scope. Sheet-metal export includes formed/assembled geometry, not unfolded
+blanks, DXF nesting or weld sizing. Native kernel process crashes are not fully isolated.
 
-Saving a method updates requirements without generating CAD. Generate a revision
-to include the method in that revision's export; exports always describe the
-selected generated revision. Fabrication can still be locked in **Advanced — requirements
-and assumptions**. Older project and revision records remain readable, including
-their historical material and print settings, which are no longer editable or
-sent as current manufacturing fields to the planner.
-
-## Exports and verification
-
-### Select mounting holes with the mouse
-
-1. Upload a STEP, then press **Select mounting holes** above the viewer.
-2. Drag to rotate the part until the intended mounting face is visible. Hole colors
-   identify measured bore sizes; the legend and hover labels show diameters in mm.
-   Click a rim or its large center target. Selected holes keep their size color,
-   gain a thicker rim and a white diamond center. Repeated clicks keep them selected.
-3. Select the remaining holes on that face. Other faces' selectors are hidden.
-   Use **×** in **Selected holes — remove with ×** to remove a hole explicitly;
-   **Clear hole selection** lets you start again on another face.
-4. Check **These holes are on the stationary mounting face**, then click
-   **Use these mounting holes**. The app records the measured IDs and your
-   confirmation, updates the conversation, and returns to the assembly view.
-
-Picks are a draft until applied. Clearing the draft leaves the accepted pattern
-and previous CAD revision intact. Applying a new pattern changes requirements;
-generate a revision to change existing CAD. Locked requirements remain enforced.
-The measured-hole list remains in collapsed **Advanced — mounting evidence** as
-an alternative to mouse picking. The optional **Clearance volumes** control is
-inside Advanced for space that wires, tools or moving parts need. The conversation
-can capture those dimensions instead of entering JSON.
-Only detected circular holes on planar faces can be picked; this does not add
-recognition of arbitrary openings or identify screw threads/engagement.
-
-The assembly view uses the same size colors. Diameter groups are displayed to
-0.001 mm, without changing measured geometry. The list selector also labels each
-hole's diameter. Load `mixed_hole_sizes.step` to try two 3 mm and two 5 mm bores
-on one mounting face. Colors represent measured openings, not nominal threads.
-Different measured sizes receive separate automatic clearances. The colors continue
-to identify source measurements; they do not claim to recognize threads.
-
-### Automatic fastener clearance
-
-New designs use **ISO 273 medium (normal) clearance** without asking for a diameter
-or a separate approval. For example, M3 → 3.4 mm, M4 → 4.5 mm, M5 → 5.5 mm and
-M6 → 6.6 mm. The pinned lookup is transcribed from page 2 of the
-[Albany County Fasteners metric clearance chart](https://www.albanycountyfasteners.com/media/6b/b8/g0/1764944339/clearance-hole-chart.pdf?ts=1764944339),
-verified 2026-10-30. It covers the published rows M1.6, M2, M2.5, M3, M4, M5, M6,
-M8, M10, M12, M14, M16, M20, M24 and M30. No network connection is needed at runtime.
-
-A stated metric fastener takes precedence. If no nominal size is known, each selected
-hole uses the largest supported nominal diameter no larger than its measured opening
-(0.05 mm measurement allowance). This is displayed and saved as an **assumption**,
-not thread recognition: a tapped/minor-diameter opening can need a different nominal.
-Base bores use the stated base fastener, otherwise the mounting nominal, otherwise
-the smallest assumed mounting size. Mixed 3/5 mm source openings therefore receive
-3.4/5.5 mm fixture bores when no nominal is specified.
-
-Advanced contains fine/medium/coarse fit and custom diameter overrides; zero means
-automatic. Existing explicit dimensions and locks are preserved. A mounting override
-applies to every selected hole; base clearance has its own override. Unsupported
-nominals are rejected rather than silently treated as metric. Source bores never change.
-The lookup adds no printer compensation and certifies neither threads nor fabrication
-tolerance or strength. Every new plan records sizes, basis, source and provenance in
-`fastener-clearances.json`. Version-1/2 exports retain their original compilation behavior.
-
-Below the saved mounting-hole selection, **Proposed screw size** offers a selector
-for each measured diameter group. A 3 mm group suggests **M3** and **#4**, plus
-**Other** and **Automatic / blank**. Suggestions describe potential nominal sizes,
-not identified threads. Apply screw sizes to save; Generate to change CAD. Groups
-can use different metric/inch screws. Other accepts a nominal and optional custom
-clearance; blank retains automatic selection. A global explicit clearance remains
-active unless cleared in Advanced; a per-group custom clearance takes precedence.
-
-Numbered-inch clearances use page 1 of the same supplier chart (supported #0–#6,
-#8, #10, #12), converted with 25.4 mm/in. For #4, normal clearance is 0.1285 in =
-3.2639 mm. The inch values are labeled **ACF inch-series chart**, not ISO 273.
-Version-4 introduced per-group screw choices and through-passage intent.
-Version-5 added an explicit total base-hole count. New version-6 plans center the
-extra hole in odd L-bracket patterns; historical versions 1–5 retain their original
-generation rules.
-
-Ask, for example, “Keep the L-bracket, use four M3 base screws and make the lower
-wire recess a through opening. Generate the revision.” The count refers to the
-fixture-to-base connection, not the measured part holes. It can also be edited in
-Advanced using **Total base mounting holes** (zero restores the automatic default).
-Four holes form a rectangle on an L-bracket foot. Five retains those four corners
-and adds a hole in their center. Other odd L-bracket counts use symmetric outer
-pairs plus a center hole, with a spacing check. Rails, plates and bridge feet keep
-their attachment lands; a hole is never placed in an unsupported central gap. Each
-separate foot/rail needs at least one hole. Generated positions are for a mating
-base drilled to match; arbitrary pre-existing base patterns are not yet supported.
-Explicit depth/width constraints are preserved. Infeasible spacing or the
-256-operation CAD budget produces an error instead of reducing the requested count.
-Results and validation distinguish **part holes** from **base holes**.
-
-An explicit request to open a measured rear recess through is recorded separately
-from access prose. Until its profile is selected, generation is blocked and the
-app asks which recess. Once selected, the cut spans the fixture depth and a native
-intersection check rejects any remaining obstruction. Existing projects with
-access text alone need a conversation revision to capture this structured intent.
-
-The viewer uses the Plotly JavaScript shipped in the pinned Python package and
-Streamlit's component bridge. No CDN, extra frontend build or API credits are needed.
-Clicks run an isolated Streamlit fragment: they do not rebuild proposals or exports.
-The immutable mesh JSON is cached, additions retain the browser draft/camera, and
-all marker changes share one Plotly redraw. Removal/reset invalidates stale clicks.
-The Deploy button is hidden; viewing options are collapsed.
-Preview shading now separates vertices across creases over 30 degrees, preventing
-wall/bore/rib normals from making flat faces look dented. Curved tessellation stays
-smooth. This changes shading indices only, not triangle coordinates or exported CAD,
-and also fixes the display of older saved revisions. Display topology is cached.
-
-### STEP and design record downloads
-
-After generating, use **Prepare STEP download** in the sidebar, then **Download STEP
-(.step)**. This exports the selected generated revision's **fixture solids only**, in
-millimeters, without the uploaded part. A connected bracket is one solid; separate
-rails remain separate solids in the same STEP file. Unsaved requirements do not
-change an existing revision's export. Restore an older revision to export that geometry.
-
-The STEP contains analytic plane/cylinder surfaces, rational NURBS edges and solid
-topology transferred from the actual SMLib USD BRep. It is not the viewer mesh or a
-second construction of the operation plan. OpenCASCADE writes the STEP and reopens
-it; validity, face/solid counts, bounds, adaptive volume and area are compared with
-SMLib before the download is offered. Conversion is bounded to the currently generated
-surface families; an unsupported representation fails explicitly and retains native CAD.
-
-**Export CAD + design record** downloads a ZIP. It includes `fixture.usda` (real SMLib USD BRep, millimeter stage units),
-`plan.json`, `requirements.json`, `manufacturing.json`, `validation.json`, `revision.json`,
-`source-analysis.json` (hash, measured evidence and preview mesh), and `README.txt`.
-It also contains `ai-feedback.json` for that revision, plus `review.png` when views
-were rendered. Old revisions without reviews export an empty feedback list.
-It does not include the private STEP file. Reproduction deterministically
-recompiles the saved requirements and refuses a mismatching operation plan.
-Once STEP is prepared, the ZIP also includes `fixture.step` and its `step-export.json`
-verification report. `fastener-clearances.json` records the current plan's standard
-sizes or overrides (empty for historical plans). File hashes are checked before a
-prepared STEP is reused or offered in a download.
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-```
-
-Tests cover unrelated STEP patterns, transform invariance, whole-file multi-body
-import, ambiguity, quantity/layout, native geometry and mesh volume, access
-cuts, composition changes, locks, failure recovery, export and the full UI flow.
-Subscription calls are opt-in via the proof script, not part of the regression
-suite. Tests use explicit test doubles for malformed AI output and API timeouts.
-The original clean-environment run passed **25 tests**. The latest full run passed
-**126 tests in 136.68 seconds**. Coverage includes arbitrary base counts, centered
-odd-hole layouts, face selection with and without holes, missing-hole rejection,
-locating trays and strap slots, through passages, independent STEP probes,
-revision/restore and legacy reproduction.
-Pointer-event tests run when Node.js is available. Subsequent
-verification is recorded in Notes.md. Below, the supplied D3536 motor is shown
-mounted on its generated ribbed L-bracket in Fixture Studio. Gray is the imported
-motor; teal is the fixture:
-
-![D3536 motor mounted on a generated ribbed L-bracket in Fixture Studio](demo/motor-l-bracket.png)
-
-## Limits and remaining deliverables
-
-The supplied IEC connector was mounted through the live face-selection and AI
-workflow. The resulting plate has two connector holes, five M3 base holes and a
-measured rear-body through cutout. Its STEP reopened as one valid solid with zero
-obstruction through that cutout. The supplied D3536 motor STEP has also been imported
-through the app, and a reinforced
-L-bracket with two measured rear reliefs was generated through its normal workflow.
-One project was revised through the live conversation to retain four motor
-holes, add four M3 base holes (automatic 3.4 mm clearance), and open the lower cable
-recess fully through. Its STEP reopened as one valid solid: all four base bores and
-the entire swept cable profile have zero measured obstruction. A subsequent
-five-hole project also passed STEP checks with four corners plus a centered fifth
-hole, preserving its ribs and through cable opening. The earlier project
-with explicit 3.2 mm clearances remains unchanged. Native geometry/contact/relief/export
-checks and export reproduction passed. The private projects, STEP source and motor
-exports are excluded from the submission archive. Propeller placement,
-connector/bend-radius fit and operating strength remain unvalidated.
-A continuous 1–3 minute screen recording has not been captured;
-the delivered artifacts are an executable demo, real live-call record, and
-interactive assembly. No live API-key integration was claimed.
-
-No arbitrary NURBS recognition, thread recognition, automatic imported-topology repair,
-conformal nests, full assembly browser, sheet-metal unfolding, casting analysis,
-structural/thermal/vibration verification or exact source-to-fixture BRep collision.
-Rails require separated support rows; otherwise use the plate. Native modeling
-runs in-process, so native process crashes have no isolation/recovery guarantee.
-See [Notes.md](Notes.md) for check methods, architecture, provenance and next work.
+See [Notes.md](Notes.md) for architecture, decisions and verification evidence,
+[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for acceptance criteria, and
+[CHANGELOG.md](CHANGELOG.md) for historical checkpoints.

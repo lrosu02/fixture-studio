@@ -90,15 +90,22 @@ def test_face_ids_confirmation_frame_reset_and_locks():
             )
 
 
-def test_face_button_select_confirm_and_cancel(monkeypatch):
+def test_face_button_immediate_selection_and_mode_switch(monkeypatch):
     from streamlit.testing.v1 import AppTest
 
     events = []
 
     def component(**kwargs):
-        return SimpleNamespace(picked=events.pop(0) if events else None)
+        event = events.pop(0) if events else None
+        if event:
+            event.setdefault("sequence", kwargs["data"]["sequence"] + 1)
+            if "hole_ids" in event:
+                event["hole_ids"] = tuple(
+                    dict.fromkeys((*kwargs["data"]["hole_ids"], *event["hole_ids"]))
+                )
+        return SimpleNamespace(picked=event)
 
-    monkeypatch.setattr("fixture.face_picker.picker_component", lambda: component)
+    monkeypatch.setattr("fixture.mounting_picker.picker_component", lambda: component)
     app = AppTest.from_file(
         str(Path(__file__).resolve().parents[1] / "app.py"), default_timeout=45
     ).run()
@@ -107,25 +114,20 @@ def test_face_button_select_confirm_and_cancel(monkeypatch):
     original = project.requirements
     next(b for b in app.button if b.label == "Select mounting face").click().run()
     assert not app.exception
-    picks = app.session_state["face_picks"]
+    picks = app.session_state["mounting_picks"]
     interface = next(
         i for i in project.analysis.interfaces if i.id == original.interface_id
     )
     events.append(dict(context=picks.context, interface_id=interface.id))
     app.run()
-    assert next(b for b in app.button if b.label == "Use this mounting face").disabled
-    next(
-        c
-        for c in app.checkbox
-        if c.label
-        == "This is the mounting surface and the selected holes are for fasteners"
-    ).check().run()
-    next(b for b in app.button if b.label == "Use this mounting face").click().run()
-    assert not app.exception and not app.session_state["face_mode"]
+    assert not app.exception
     saved = app.session_state["project"].requirements
-    assert saved.mounting_confirmed and saved.mounting_hole_ids == interface.hole_ids
-    next(b for b in app.button if b.label == "Select mounting face").click().run()
-    next(b for b in app.button if b.label == "Cancel face selection").click().run()
+    assert saved.mounting_confirmed and saved.mounting_hole_ids == ()
+    assert saved.part_attachment == "unselected"
+    assert not any(b.label == "Use this mounting face" for b in app.button)
+    next(b for b in app.button if b.label == "Select mounting holes").click().run()
+    assert not app.session_state["mounting_picks"].hole_ids
+    next(b for b in app.button if b.label == "View assembly").click().run()
     assert not app.exception and app.session_state["project"].requirements == saved
 
 
@@ -173,6 +175,6 @@ def test_plate_rear_relief_is_versioned(tmp_path):
 
     a, r, profile = shallow_source(tmp_path)
     plate = r.model_copy(update={"composition": "plate", "rear_passages": (profile,)})
-    assert compile_plan(a, plate).version == 8
+    assert compile_plan(a, plate).version == 13
     with pytest.raises(ValueError, match="version 7"):
         compile_plan(a, plate, compiler_version=6)

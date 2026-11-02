@@ -8,6 +8,8 @@ from .contracts import (
     Requirements,
     PrintSettings,
     HoleFastenerChoice,
+    FixtureOpening,
+    HardwareChoice,
     MM_TOL,
     MAX_OPS,
 )
@@ -20,12 +22,54 @@ from .clearance import fixture_regions, footprint_distance
 
 def patch_requirements(current, changes, origin="user"):
     changes = dict(changes)
+    if "fixture_openings" in changes:
+        changes["fixture_openings"] = tuple(
+            FixtureOpening.model_validate(o) for o in changes["fixture_openings"]
+        )
+    if changes.get("composition", current.composition) != current.composition:
+        openings = changes.get("fixture_openings", current.fixture_openings)
+        if openings:
+            changes["fixture_openings"] = tuple(
+                o.model_copy(update={"needs_placement": True}) for o in openings
+            )
+            # The new shape must exist before its surfaces can be picked.
+            if changes.get("through_access_required", current.through_access_required):
+                changes.setdefault("defer_passages", True)
+    if {"cable_routing", "service_access"}.intersection(
+        changes
+    ) and "access" not in changes:
+        cable = changes.get("cable_routing", current.cable_routing)
+        service = changes.get("service_access", current.service_access)
+        # Legacy free-text access stays visible until replaced explicitly.
+        if "service_access" not in changes and current.service_access is None:
+            service = current.access
+        changes["access"] = (
+            "\n".join(
+                f"{label}: {value}"
+                for label, value in (
+                    ("Cable routing", cable),
+                    ("Tool/service access", service),
+                )
+                if value
+            )
+            or None
+        )
+    for key in ("part_hardware", "base_hardware"):
+        if key in changes:
+            changes[key] = HardwareChoice.model_validate(changes[key])
+    if "fabrication" in changes and changes["fabrication"] != current.fabrication:
+        changes.setdefault("manufacturing_features", True)
     if changes.get("part_attachment", current.part_attachment) != "screws":
         changes.setdefault("mounting_hole_ids", ())
         changes.setdefault("hole_fasteners", ())
     if changes.get("interface_id", current.interface_id) != current.interface_id:
+        if current.fixture_openings and changes.get("fixture_openings") != ():
+            raise ValueError(
+                "Remove fixture openings before changing the mounting frame, then place them on the rebuilt fixture."
+            )
         changes.setdefault("rear_passages", ())
         changes.setdefault("hole_fasteners", ())
+        changes.setdefault("access_selections", ())
     elif "mounting_hole_ids" in changes and "hole_fasteners" not in changes:
         selected = set(changes["mounting_hole_ids"])
         changes["hole_fasteners"] = tuple(
@@ -93,6 +137,26 @@ def missing_questions(a, r, automatic_clearance=True):
         questions.append(
             "How many parts should it hold, and is footprint or individual access more important?"
         )
+    if (
+        r.brief_answers_recorded or r.motion_loads is None
+    ) and r.moving_components is None:
+        questions.append(
+            "Will anything move or rotate, what is attached, and what space must remain clear? Unknown is accepted for a concept."
+        )
+    if r.brief_answers_recorded and r.service_access is None:
+        questions.append(
+            "Which tools, plugs or surfaces must remain reachable? Say none or unknown if appropriate."
+        )
+    if r.motion_loads is None and (
+        r.brief_answers_recorded or r.moving_components is not None
+    ):
+        questions.append(
+            "What loads and directions should the fixture support? Unknown is accepted for a concept."
+        )
+    if r.access is None and not r.brief_answers_recorded:
+        questions.append(
+            "Which tools or surfaces need assembly or service access? Say none or unknown if appropriate."
+        )
     if not r.interface_id or not r.mounting_confirmed:
         questions.append(
             "Select and confirm the surface that should contact the fixture. Select fastener holes only if the part will be screwed down."
@@ -102,15 +166,20 @@ def missing_questions(a, r, automatic_clearance=True):
         interface and not interface.hole_ids and r.part_attachment == "screws"
     ):
         questions.append(
-            "How should the part be retained: resting in a locating tray, or held with an external strap through tray slots?"
+            "How should the part be retained: an open saddle, axial collar, or split clamp?"
+            if interface and interface.support_kind == "cylinder"
+            else "How should the part be retained: a locating tray, convex contour nest, or an external strap?"
         )
     if r.part_attachment == "strap" and (not r.strap_width or not r.strap_thickness):
         questions.append(
             "What are the width and thickness of the retaining strap (mm), and may it cross over the part?"
         )
+    if r.part_attachment == "split_clamp" and not r.retention_fastener:
+        questions.append("Which screw size should join the split clamp halves?")
     if (
         r.part_attachment != "screws"
         and r.surroundings == "bolt"
+        and r.base_mount is None
         and not (r.bench_fastener or r.bench_hole_diameter)
     ):
         questions.append("What screw size should attach the tray to its base?")
@@ -118,12 +187,10 @@ def missing_questions(a, r, automatic_clearance=True):
         questions.append(
             "What fixture clearance-hole diameter should be used (mm)? Nominal thread and engagement may remain unknown."
         )
-    if r.motion_loads is None:
-        questions.append(
-            "Will anything move or rotate, what is attached, and what space must remain clear? Unknown is accepted for a concept."
-        )
     if r.surroundings == "unknown":
-        questions.append("Will the fixture be clamped or bolted to its surroundings?")
+        questions.append(
+            "Will the fixture be clamped, bolted, or left free floating with no external attachment?"
+        )
     if (
         not automatic_clearance
         and r.surroundings == "bolt"
@@ -136,19 +203,23 @@ def missing_questions(a, r, automatic_clearance=True):
         questions.append(
             "Which manufacturing method should the design use, and are thickness constraints known?"
         )
-    if r.access is None:
-        questions.append(
-            "Which ports, cables, tools or surfaces need access? Give finite clearance dimensions when known."
+    if (
+        r.through_access_required
+        and not r.defer_passages
+        and not (
+            any(not o.needs_placement for o in r.fixture_openings)
+            or r.rear_passages
+            or any(s.intent == "through" for s in r.access_selections)
         )
-    if r.through_access_required and not r.rear_passages:
+    ):
         questions.append(
-            "Choose the measured rear recess for the requested through wire/tool opening; a blind relief does not satisfy through access."
+            "Select the opening or measured rear recess for the requested through wire/tool path; a blind relief does not satisfy through access."
         )
     if not r.assumptions_accepted:
         questions.append(
             "Review and accept the visible concept assumptions, or replace the defaults."
         )
-    return questions[:3]
+    return questions
 
 
 def proposals(a, r):
@@ -170,9 +241,14 @@ def proposals(a, r):
                 composition=composition,
                 title=title
                 or (
-                    {"cradle": "Locating tray", "strap": "Strap-retained tray"}.get(
-                        r.part_attachment
-                    )
+                    {
+                        "cradle": "Locating tray",
+                        "strap": "Strap-retained tray",
+                        "nest": "Contoured nest",
+                        "saddle": "Cylindrical saddle",
+                        "collar": "Locating collar",
+                        "split_clamp": "Split clamp",
+                    }.get(r.part_attachment)
                     or STRUCTURES[composition][0]
                 ),
                 rationale=rationale
@@ -180,10 +256,16 @@ def proposals(a, r):
                     {
                         "cradle": "Measured rectangular locating walls; open above, with no hold-down.",
                         "strap": "Measured locating walls and through slots for your external strap.",
+                        "nest": "Convex footprint follows the measured part outline.",
+                        "saddle": "Measured cylindrical seat, open above.",
+                        "collar": "Closed cylindrical seat for axial installation.",
+                        "split_clamp": "Measured cylindrical seat with a removable cap and joining holes.",
                     }.get(r.part_attachment)
                     or STRUCTURES[composition][1]
                 ),
-                surroundings="Extended end lands for clamps."
+                surroundings="No attachment to surroundings; part mounting remains as selected."
+                if r.surroundings == "none"
+                else "Extended end lands for clamps."
                 if r.surroundings != "bolt"
                 else "Clearance holes in the base attachment lands; the mating base pattern must match these generated positions.",
                 unresolved=unresolved,
@@ -236,7 +318,70 @@ def proposal_requirements(requirements, proposal):
     return patch_requirements(requirements, changes)
 
 
-def compile_plan(a, r, require_ready=True, compiler_version=8):
+def compile_plan(a, r, require_ready=True, compiler_version=None):
+    from .manufacturing import is_sheet_metal
+    from .custom_openings import add_openings
+
+    if compiler_version is None:
+        compiler_version = (
+            15
+            if any(o.needs_placement for o in r.fixture_openings)
+            else 14
+            if r.fixture_openings
+            else 13
+        )
+    if any(o.needs_placement for o in r.fixture_openings) and compiler_version < 15:
+        raise ValueError("Openings awaiting placement require compiler version 15.")
+    if r.fixture_openings and compiler_version < 14:
+        raise ValueError("User-placed openings require compiler version 14.")
+
+    if is_sheet_metal(r.fabrication):
+        if compiler_version not in (12, 13, 14, 15):
+            raise ValueError("Sheet assemblies require compiler version 12 or later.")
+        from .sheet_metal import compile_sheet
+
+        plan = compile_sheet(a, r, require_ready, min(compiler_version, 13))
+        return add_openings(r, plan.model_copy(update={"version": compiler_version}))
+    if compiler_version < 9:
+        if (
+            r.access_selections
+            or r.base_mount
+            or r.manufacturing_features
+            or r.part_hardware.style != "none"
+            or r.base_hardware.style != "none"
+            or r.part_hardware.driver_diameter
+            or r.base_hardware.driver_diameter
+        ):
+            raise ValueError(
+                "Extended access, base, hardware and manufacturing choices need compiler version 9."
+            )
+        return _compile_plan(a, r, require_ready, compiler_version)
+    if compiler_version not in (9, 10, 11, 12, 13, 14, 15):
+        raise ValueError("Unsupported compiler version.")
+    from .access import add_access
+    from .existing_base import add_base
+    from .hardware import add_hardware
+    from .process_geometry import add_process
+    from .shaped_retention import compile_retention, MODES
+
+    plan = (
+        compile_retention(a, r, require_ready)
+        if r.part_attachment in MODES
+        else _compile_plan(a, r, require_ready, 8)
+    )
+    plan = plan.model_copy(update={"version": compiler_version})
+    plan = add_base(a, r, plan)
+    plan = add_hardware(a, r, plan)
+    plan = add_access(a, r, plan)
+    plan = add_process(a, r, plan)
+    if compiler_version >= 10:
+        from .fillets import add_rib_fillets
+
+        plan = add_rib_fillets(r, plan)
+    return add_openings(r, plan)
+
+
+def _compile_plan(a, r, require_ready=True, compiler_version=8, allow_sheet=False):
     if compiler_version not in (1, 2, 3, 4, 5, 6, 7, 8):
         raise ValueError("Unsupported compiler version.")
     if r.bench_hole_count is not None and r.bench_hole_count > MAX_OPS:
@@ -249,9 +394,17 @@ def compile_plan(a, r, require_ready=True, compiler_version=8):
         raise ValueError(
             "A base hole count requires bolted attachment to surroundings."
         )
-    if r.through_access_required and not r.rear_passages:
+    if (
+        r.through_access_required
+        and not r.defer_passages
+        and not (
+            any(not o.needs_placement for o in r.fixture_openings)
+            or r.rear_passages
+            or any(s.intent == "through" for s in r.access_selections)
+        )
+    ):
         raise ValueError(
-            "Select the measured rear recess for the required through wire/tool opening before generating."
+            "Select the opening or measured rear recess for the required through wire/tool path before generating."
         )
     if r.rear_passages and (
         compiler_version < 4
@@ -270,7 +423,11 @@ def compile_plan(a, r, require_ready=True, compiler_version=8):
         )
     if r.fabrication and any(
         w in r.fabrication.lower()
-        for w in ("sheet metal", "unfold", "casting", "cast ")
+        for w in (
+            ("unfold", "casting", "cast ")
+            if allow_sheet
+            else ("sheet metal", "unfold", "casting", "cast ")
+        )
     ):
         raise ValueError(
             "This executor supports solid stock, machining concepts or printing concepts. Select a supported route; unfolding and casting are not implemented."

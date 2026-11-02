@@ -77,7 +77,18 @@ def validate(a, r, plan, bodies, cuts):
         max_error = max(
             max_error, float(np.linalg.norm(center - np.array(c["center"])))
         )
-        for z in (-r.thickness * 0.1, -r.thickness * 0.5, -r.thickness * 0.9):
+        stem_low, stem_high = -r.thickness, 0.0
+        if plan.version >= 9:
+            from .hardware import stem_range
+
+            stem_low, stem_high = stem_range(
+                r.part_hardware,
+                next(v for v in required if v.feature_id == c["feature"]),
+                stem_low,
+                stem_high,
+                "low",
+            )
+        for z in (stem_low + (stem_high - stem_low) * f for f in (0.1, 0.5, 0.9)):
             # Three circular sections verify native bore wall locations/axis,
             # independent of the recorded cut arguments.
             for theta in np.linspace(0, 2 * math.pi, 12, endpoint=False):
@@ -254,9 +265,20 @@ def validate(a, r, plan, bodies, cuts):
                     op.origin[k] - foot.origin[k] - op.size[0] / 2,
                     foot.origin[k] + foot.size[k] - op.origin[k] - op.size[0] / 2,
                 )
+            stem_low, stem_high = foot.origin[axis], foot.origin[axis] + foot.size[axis]
+            if plan.version >= 9:
+                from .hardware import stem_range
+
+                stem_low, stem_high = stem_range(
+                    r.base_hardware,
+                    next(v for v in required if v.feature_id == "base"),
+                    stem_low,
+                    stem_high,
+                    "low" if r.base_hardware.style == "nut_pocket" else "high",
+                )
             for fraction in (0.15, 0.5, 0.85):
                 center = np.array(op.origin)
-                center[axis] = foot.origin[axis] + foot.size[axis] * fraction
+                center[axis] = stem_low + (stem_high - stem_low) * fraction
                 _, distance = sm.get_closest_point(bodies[op.target], tuple(center))
                 error = max(error, abs(distance - op.size[0] / 2))
                 for theta in np.linspace(0, 2 * math.pi, 12, endpoint=False):
@@ -282,6 +304,7 @@ def validate(a, r, plan, bodies, cuts):
             )
         if (
             plan.version >= 6
+            and r.base_mount is None
             and plan.composition == "l_bracket"
             and expected_base_count % 2
         ):
@@ -397,7 +420,11 @@ def validate(a, r, plan, bodies, cuts):
         validate_tray(a, r, plan, bodies, add)
     add(
         "Surrounding attachment",
-        "Clamp lands or drilled bench holes generated; surrounding equipment not imported",
+        "No external attachment requested; operating stability not evaluated"
+        if r.surroundings == "none"
+        else "Measured base holes aligned; exact base/fixture collision not evaluated"
+        if r.base_mount
+        else "Clamp lands or drilled bench holes generated; surrounding equipment not imported",
         r.surroundings,
         "inconclusive",
         units="relationship",
@@ -421,4 +448,44 @@ def validate(a, r, plan, bodies, cuts):
         len(bodies),
         units="bodies",
     )
+    if plan.version >= 9:
+        from .access import validate_access
+        from .existing_base import validate_base
+        from .shaped_retention import validate_retention
+        from .hardware import validate_hardware
+        from .process_geometry import validate_process
+
+        validate_access(a, r, plan, bodies, add)
+        validate_base(r, plan, bodies, add)
+        validate_retention(a, r, plan, bodies, add)
+        validate_hardware(a, r, plan, bodies, add)
+        validate_process(a, r, plan, bodies, add)
+    if plan.version >= 10:
+        from .fillets import validate_fillets
+
+        validate_fillets(r, plan, bodies, add)
+    if plan.version >= 12:
+        from .sheet_metal import validate_sheet
+
+        validate_sheet(a, r, plan, bodies, add)
+    if plan.version >= 14:
+        from .custom_openings import validate_openings
+
+        validate_openings(r, plan, bodies, add)
+    if (
+        r.through_access_required
+        and r.defer_passages
+        and not (
+            any(not o.needs_placement for o in r.fixture_openings)
+            or r.rear_passages
+            or any(s.intent == "through" for s in r.access_selections)
+        )
+    ):
+        add(
+            "Deferred cable opening",
+            "User may place an opening on the generated fixture in a later revision",
+            "Opening has not been added",
+            "not_evaluated",
+            units="design intent",
+        )
     return tuple(checks)

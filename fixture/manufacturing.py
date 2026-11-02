@@ -1,13 +1,18 @@
 """Manufacturing method and proposal guidance. Legacy print profiles remain readable."""
 
-from .planning import patch_requirements, missing_questions
-
 FDM = "3D printing"
 CUSTOM = "Other / custom"
+SHEET_METAL = "Sheet metal — tabs & welding"
+
+
+def is_sheet_metal(fabrication):
+    return "sheet metal" in (fabrication or "").lower().replace("-", " ")
 
 
 def manufacturing_guidance(fabrication, composition):
     method = (fabrication or "").lower()
+    if is_sheet_metal(fabrication):
+        return "Sheet construction uses separate cut panels or a continuous bent L-bracket with welded ribs. Tabs/slots or butt welds join separate parts. Review material/tooling, stock tolerances and welding distortion; weld strength is not calculated."
     if "print" in method:
         return (
             "Printing concept: each disconnected rail is a separate printed part and needs its own base attachment."
@@ -24,32 +29,31 @@ def manufacturing_guidance(fabrication, composition):
 
 
 def manufacturing_record(r):
+    from .process_geometry import policy
+
     return {
         "fabrication": r.fabrication,
         "design_guidance": manufacturing_guidance(r.fabrication, r.composition),
         "status": "Manufacturing method for concept design; detailed manufacturability is not evaluated.",
+        "geometry_policy": policy(r),
     }
 
 
 def save_manufacturing(p, fabrication):
+    from .planning import patch_requirements
+    from .selection_ui import save_selection
+
     old = p.requirements
     changes = {"fabrication": fabrication} if old.fabrication != fabrication else {}
+    if not old.manufacturing_features:
+        changes["manufacturing_features"] = True
     updated = patch_requirements(old, changes)
     unknowns = [k for k in updated.unknowns if k != "fabrication"]
     if fabrication is None or fabrication.strip().lower() == "unknown":
         unknowns.append("fabrication")
-    p.requirements = updated.model_copy(update={"unknowns": tuple(unknowns)})
-    if changes:
-        p.messages.append(
-            {
-                "role": "user",
-                "content": "Manufacturing method: "
-                + (fabrication or "not specified")
-                + ".",
-            }
-        )
-    p.stage = (
-        "clarifying" if missing_questions(p.analysis, p.requirements) else "proposing"
+    return save_selection(
+        p,
+        updated.model_copy(update={"unknowns": tuple(unknowns)}),
+        p.highlights,
+        "Manufacturing method: " + (fabrication or "not specified") + ".",
     )
-    p.error = None
-    p.save()

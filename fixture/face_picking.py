@@ -47,7 +47,8 @@ def use_picked_face(analysis, requirements, picks, hole_ids, confirmed):
         part_attachment="screws"
         if hole_ids
         else requirements.part_attachment
-        if requirements.part_attachment in ("cradle", "strap")
+        if requirements.part_attachment
+        in ("cradle", "strap", "nest", "saddle", "collar", "split_clamp")
         else "unselected",
     )
     if interface.id != requirements.interface_id:
@@ -84,6 +85,8 @@ def face_surface(analysis, interface):
 
 
 def face_label(interface):
+    if interface.support_kind == "cylinder":
+        return f"Cylindrical face {interface.face_ref + 1} · Ø{2 * interface.support_radius:g} mm"
     if not interface.hole_ids:
         return f"Face {interface.face_ref + 1} · no circular holes"
     sizes = ", ".join(

@@ -1,6 +1,8 @@
 [server]
 address = "127.0.0.1"
 maxUploadSize = 30
+# Restart deliberately after verified updates; live CAD sessions hold typed records.
+fileWatcherType = "none"
 
 [browser]
 gatherUsageStats = false
@@ -11,3 +13,7 @@ toolbarMode = "minimal"
 [theme]
 base = "dark"
 primaryColor = "#25afa3"
+backgroundColor = "#0d141b"
+secondaryBackgroundColor = "#17242f"
+textColor = "#edf3f7"
+font = "sans serif"

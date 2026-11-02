@@ -286,6 +286,58 @@ def analyze_bytes(data: bytes, name: str, selected: tuple[int, ...] | None = Non
                 area_mm2=face.Area(),
             )
         )
+    # Analytic outside cylinders get a measured tangent support frame. This is
+    # explicitly cylindrical contact, never fabricated planar-face evidence.
+    for fi, face in enumerate(part.Faces()):
+        if face.geomType() != "CYLINDER":
+            continue
+        surf = face._geomAdaptor()
+        cyl = surf.Cylinder()
+        u0, u1, _, _ = face._uvBounds()
+        if abs(u1 - u0 - 2 * math.pi) > 1e-5:
+            continue
+        axis = np.array(cyl.Axis().Direction().Coord())
+        center = np.array(cyl.Location().Coord())
+        point = np.array(face.positionAt(0.5, 0.5).toTuple())
+        radial = point - center - axis * np.dot(point - center, axis)
+        if np.dot(radial, np.array(face.normalAt(cq.Vector(*point)).toTuple())) <= 0:
+            continue
+        vs, ts = face.tessellate(0.15)
+        points = np.array([v.toTuple() for v in vs])
+        along = (points - center) @ axis
+        z = np.array(cyl.XAxis().Direction().Coord())
+        y = axis
+        x = np.cross(y, z)
+        origin = center + axis * (along.min() + along.max()) / 2 - z * cyl.Radius()
+        basis = np.array([x, y, z])
+        transform = np.eye(4)
+        transform[:3, :3] = basis
+        transform[:3, 3] = -basis @ origin
+        interfaces.append(
+            Interface(
+                id=f"cylinder-interface-{fi}",
+                face_ref=fi,
+                origin=tuple(origin),
+                x=tuple(x),
+                y=tuple(y),
+                z=tuple(z),
+                hole_ids=(),
+                centers=(),
+                diameters=(),
+                boundary=_wire_points(face.outerWire()),
+                exclusions=(),
+                contact_radii=(),
+                contact_valid=(),
+                contact_ok=True,
+                confidence="Measured complete outer cylinder; tangent frame for a saddle, collar or split clamp. Confirm the supported surface and access.",
+                source_to_local=tuple(map(tuple, transform)),
+                face_mesh=Mesh(vertices=tuple(map(tuple, points)), triangles=tuple(ts)),
+                area_mm2=face.Area(),
+                support_kind="cylinder",
+                support_radius=cyl.Radius(),
+                support_length=float(along.max() - along.min()),
+            )
+        )
     return Analysis(
         source_name=Path(name).name,
         source_hash=hashlib.sha256(data).hexdigest(),

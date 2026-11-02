@@ -1,7 +1,8 @@
 import json
 import streamlit as st
 from .contracts import Envelope, HoleFastenerChoice
-from .manufacturing import FDM, CUSTOM, save_manufacturing
+from .manufacturing import FDM, CUSTOM, SHEET_METAL, is_sheet_metal, save_manufacturing
+from .sheet_controls import sheet_controls
 from .planning import patch_requirements, missing_questions
 from .structures import STRUCTURES
 from .clearance import passage_options
@@ -19,9 +20,29 @@ def retention_controls(p):
         "screws": "Screws through selected part holes",
         "cradle": "Locating tray — no hold-down",
         "strap": "Locating tray with an external strap",
+        "nest": "Contoured nest — convex envelope",
+        "saddle": "Cylindrical saddle — open above",
+        "collar": "Closed locating collar — axial installation",
+        "split_clamp": "Split clamp with removable cap",
     }
-    options = ["unselected", *(["screws"] if raw.hole_ids else []), "cradle", "strap"]
-    st.markdown("**Part retention**")
+    options = (
+        ["unselected", "saddle", "collar", "split_clamp"]
+        if raw.support_kind == "cylinder"
+        else [
+            "unselected",
+            *(
+                ["screws"]
+                if raw.hole_ids
+                and (r.mounting_hole_ids or r.part_attachment == "screws")
+                else []
+            ),
+            "cradle",
+            "strap",
+            "nest",
+        ]
+    )
+    if raw.hole_ids and "screws" not in options:
+        st.caption("Select mounting holes in the 3D view to use screw mounting.")
     key = p.id + str(hash(r.model_dump_json()))
     choice = st.selectbox(
         "How should the part be held?",
@@ -30,9 +51,9 @@ def retention_controls(p):
         format_func=labels.get,
         key="retention-" + key,
     )
-    if choice in ("cradle", "strap"):
+    if choice in ("cradle", "strap", "nest", "saddle", "collar", "split_clamp"):
         st.caption(
-            "Rectangular walls follow the measured part envelope. An open tray has no hold-down; straps are separate hardware. Wall/fit values below are editable concept defaults."
+            "Support geometry follows measured source envelopes. Open trays/saddles have no hold-down. Nests use a convex footprint; collars need axial installation. Wall/fit dimensions are concept defaults, not strength validation."
         )
         clearance = st.number_input(
             "Part-to-wall clearance (mm)",
@@ -59,6 +80,20 @@ def retention_controls(p):
             or None
         )
         width, thickness = r.strap_width, r.strap_thickness
+        length = r.retention_length
+        fastener = r.retention_fastener
+        if choice in ("saddle", "collar", "split_clamp"):
+            length = (
+                st.number_input(
+                    "Cylindrical support length (mm; 0 = derive)",
+                    0.0,
+                    2000.0,
+                    float(length or 0),
+                )
+                or None
+            )
+        if choice == "split_clamp":
+            fastener = st.text_input("Clamp joining screw size", fastener or "") or None
         if choice == "strap":
             width = (
                 st.number_input(
@@ -86,7 +121,7 @@ def retention_controls(p):
     if choice != "unselected" and st.button("Apply part retention"):
         try:
             changes = {"part_attachment": choice}
-            if choice in ("cradle", "strap"):
+            if choice in ("cradle", "strap", "nest", "saddle", "collar", "split_clamp"):
                 changes.update(
                     composition="plate",
                     locating_clearance=clearance,
@@ -94,6 +129,8 @@ def retention_controls(p):
                     locating_height=height,
                     strap_width=width,
                     strap_thickness=thickness,
+                    retention_length=length,
+                    retention_fastener=fastener,
                 )
             p.requirements = patch_requirements(r, changes)
             p.messages.append(
@@ -104,7 +141,15 @@ def retention_controls(p):
                     + ". "
                     + (
                         f"Wall clearance {clearance:g} mm, thickness {wall:g} mm, height {height or 'derived'}; strap width {width}, thickness {thickness} mm."
-                        if choice in ("cradle", "strap")
+                        if choice
+                        in (
+                            "cradle",
+                            "strap",
+                            "nest",
+                            "saddle",
+                            "collar",
+                            "split_clamp",
+                        )
                         else ""
                     ),
                 )
@@ -143,11 +188,10 @@ def screw_size_controls(p):
             f"Screw size · Ø{size} mm ({len(holes)} holes)",
             options,
             index=options.index(default),
-            format_func=lambda v: (
+            format_func=lambda v, choices=tuple(choices): (
                 v
                 if v
-                else "Automatic / blank"
-                + (f" — suggested {choices[0]}" if choices else "")
+                else "Automatic" + (f" — suggested {choices[0]}" if choices else "")
             ),
             key=widget_key,
         )
@@ -364,8 +408,11 @@ def requirement_controls(p):
             )
             changes["surroundings"] = st.selectbox(
                 "Attachment to surroundings",
-                ["unknown", "clamp", "bolt"],
-                index=["unknown", "clamp", "bolt"].index(r.surroundings),
+                ["unknown", "clamp", "bolt", "none"],
+                index=["unknown", "clamp", "bolt", "none"].index(r.surroundings),
+                format_func=lambda value: (
+                    "None — free floating" if value == "none" else value
+                ),
             )
             changes["bench_hole_diameter"] = (
                 st.number_input(
@@ -398,6 +445,7 @@ def requirement_controls(p):
             locks = st.multiselect(
                 "Lock requirement values",
                 [
+                    "purpose",
                     "quantity",
                     "layout",
                     "columns",
@@ -420,8 +468,20 @@ def requirement_controls(p):
                     "rear_clearance",
                     "rear_passages",
                     "through_access_required",
+                    "fixture_openings",
                     "mounting_hole_ids",
                     "fabrication",
+                    "sheet_joint_style",
+                    "sheet_construction",
+                    "sheet_bend_radius",
+                    "sheet_slot_clearance",
+                    "sheet_tab_width",
+                    "sheet_tab_count",
+                    "sheet_root_gap",
+                    "moving_components",
+                    "cable_routing",
+                    "service_access",
+                    "motion_loads",
                 ],
                 default=[k for k in r.locks if k not in ("material", "print_settings")],
             )
@@ -483,16 +543,32 @@ def requirement_controls(p):
 def manufacturing_controls(p):
     r = p.requirements
     key = f"manufacturing-{p.id}-{hash(r.model_dump_json())}"
-    with st.expander("Manufacturing", expanded=r.fabrication is None):
+    locked = "fabrication" in r.locks
+    with st.expander("How the fixture will be made", expanded=r.fabrication is None):
         st.caption(f"Saved method: {r.fabrication or 'not specified'}")
-        processes = [None, "unknown", FDM, "Machined stock", CUSTOM]
-        current = FDM if r.fabrication == "3D printing (FDM/FFF)" else r.fabrication
+        processes = [None, "unknown", FDM, "Machined stock", SHEET_METAL, CUSTOM]
+        current = (
+            FDM
+            if r.fabrication == "3D printing (FDM/FFF)"
+            else SHEET_METAL
+            if is_sheet_metal(r.fabrication)
+            else r.fabrication
+        )
         process = st.selectbox(
             "Manufacturing method",
             processes,
-            index=processes.index(current) if current in processes else 4,
-            format_func=lambda v: "Not specified" if v is None else v,
+            index=processes.index(current)
+            if current in processes
+            else processes.index(CUSTOM),
+            format_func=lambda v: (
+                "Choose a method"
+                if v is None
+                else "Decide later"
+                if v == "unknown"
+                else v
+            ),
             key=key + "-process",
+            disabled=locked,
         )
         if process == CUSTOM:
             process = (
@@ -500,15 +576,74 @@ def manufacturing_controls(p):
                     "Custom manufacturing method",
                     current if current not in processes else "",
                     key=key + "-custom-process",
+                    disabled=locked,
                 ).strip()
                 or None
             )
         st.caption(
             "The method guides design proposals. Detailed manufacturing validation remains outside this concept tool."
         )
-        if st.button("Save manufacturing", key=key + "-save"):
+        if r.manufacturing_features and r.fabrication in (
+            "3D printing",
+            "Machined stock",
+        ):
+            st.caption(
+                "Printing adds chamfers to exposed base corners. Machining rounds corners "
+                "and adds cutter relief. Adjust these dimensions in Advanced."
+            )
+        if locked:
+            st.caption(
+                "The manufacturing method is locked. Unlock fabrication before changing it."
+            )
+        if st.button("Save manufacturing", key=key + "-save", disabled=locked):
             try:
                 save_manufacturing(p, process)
-                st.rerun()
-            except ValueError as error:
+                from .selection_ui import rerun_selection
+
+                rerun_selection()
+            except (ValueError, OSError) as error:
+                st.error(str(error))
+    sheet_controls(p)
+
+
+def fillet_controls(p):
+    r = p.requirements
+    if is_sheet_metal(r.fabrication):
+        return
+    with st.expander("Rib-to-base fillets", expanded=False):
+        st.caption(
+            "Round the inward joints on ribbed L-brackets. Applies when you generate or rebuild."
+        )
+        key = f"fillets-{p.id}-{r.auto_rib_fillets}-{r.rib_fillet_radius}"
+        enabled = st.checkbox(
+            "Automatic rib fillets", r.auto_rib_fillets, key=key + "-enabled"
+        )
+        radius = st.number_input(
+            "Fillet radius (mm; 0 = automatic)",
+            0.0,
+            2.0,
+            float(r.rib_fillet_radius or 0),
+            step=0.1,
+            key=key + "-radius",
+            disabled=not enabled,
+        )
+        st.caption(
+            "Automatic radius: up to 1.5 mm and one quarter of thickness, reduced for smaller brackets. Other edges stay unchanged."
+        )
+        if st.button("Save fillet settings", key=key + "-save"):
+            try:
+                from .selection_ui import save_selection, rerun_selection
+
+                updated = patch_requirements(
+                    r,
+                    {"auto_rib_fillets": enabled, "rib_fillet_radius": radius or None},
+                )
+                save_selection(
+                    p,
+                    updated,
+                    p.highlights,
+                    f"Rib fillets: {'automatic' if enabled else 'off'}; radius {radius or 'derived'}.",
+                )
+                rerun_selection()
+            except (ValueError, OSError) as error:
                 st.error(str(error))

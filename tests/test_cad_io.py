@@ -54,7 +54,12 @@ def test_round_trip_mismatch_never_publishes(tmp_path, monkeypatch):
         native([sm.primitives.create_box((0, 0, 0), 1, 1, 1)], filename)
 
     monkeypatch.setattr(sm.usd, "export_breps", corrupt)
-    with pytest.raises(cad_io.CadExportError, match="round trip"):
+    monkeypatch.setattr(
+        cad_io,
+        "_isolated_export",
+        lambda bodies: target.read_text().replace("#usda", "#invalid"),
+    )
+    with pytest.raises(cad_io.CadExportError):
         cad_io.export_verified([sm.primitives.create_box((0, 0, 0), 2, 3, 4)], target)
     assert len(calls) == 3 and target.read_bytes() == previous
 
@@ -74,6 +79,7 @@ def test_save_failure_keeps_last_revision_and_skips_ai_repairs(monkeypatch):
         pytest.fail("A storage failure must not request AI dimensional repair.")
 
     monkeypatch.setattr(sm.usd, "export_breps", incomplete)
+    monkeypatch.setattr(cad_io, "_isolated_export", lambda bodies: "#usda 1.0\n")
     result = generate_with_feedback(p, reviewer, "Test double")
     assert result.id == previous.id and len(p.revisions) == 1
     assert (
@@ -85,6 +91,65 @@ def test_save_failure_keeps_last_revision_and_skips_ai_repairs(monkeypatch):
     assert p.feedback[-1].review is None and p.feedback[-1].build.revision_id is None
     restored = Project.load(ROOT / "artifacts" / p.id / "project.json")
     assert restored.current.id == previous.id and restored.feedback == p.feedback
+
+
+def test_isolated_native_recovery_preserves_actual_through_hole(tmp_path, monkeypatch):
+    body = sm.booleans.boolean_difference(
+        sm.primitives.create_box((0, 0, 0), 30, 20, 6),
+        sm.primitives.create_cylinder((15, 10, -1), 5, 8),
+    )
+    target = tmp_path / "fixture.usda"
+    attempts = []
+
+    def header_only(bodies, filename):
+        attempts.append(filename)
+        Path(filename).write_text("#usda 1.0\n")
+
+    monkeypatch.setattr(sm.usd, "export_breps", header_only)
+    # The subprocess uses the real native exporter and binary SMLib BRep input.
+    cad_io.export_verified([body], target)
+    assert len(attempts) == 3
+    (restored,) = sm.usd.import_breps(str(target))
+    assert restored.volume() == pytest.approx(body.volume(), abs=0.01)
+    assert restored.face_count() == body.face_count()
+    void = sm.booleans.boolean_intersection(
+        restored, sm.primitives.create_cylinder((15, 10, -1), 5, 8)
+    )
+    assert abs(void.volume()) < 0.01
+
+
+def test_isolated_mismatch_and_timeout_keep_previous_file(tmp_path, monkeypatch):
+    import subprocess
+
+    target = tmp_path / "fixture.usda"
+    wrong = tmp_path / "wrong.usda"
+    body = sm.primitives.create_box((0, 0, 0), 10, 12, 8)
+    cad_io.export_verified([body], target)
+    cad_io.export_verified([sm.primitives.create_box((0, 0, 0), 1, 1, 1)], wrong)
+    old = target.read_bytes()
+    monkeypatch.setattr(
+        sm.usd,
+        "export_breps",
+        lambda bodies, path: Path(path).write_text("#usda 1.0\n"),
+    )
+    monkeypatch.setattr(cad_io, "_isolated_export", lambda bodies: wrong.read_text())
+    with pytest.raises(cad_io.CadExportError, match="round trip"):
+        cad_io.export_verified([body], target)
+    assert target.read_bytes() == old
+
+    def timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired("native export", 30)
+
+    monkeypatch.undo()
+    monkeypatch.setattr(
+        sm.usd,
+        "export_breps",
+        lambda bodies, path: Path(path).write_text("#usda 1.0\n"),
+    )
+    monkeypatch.setattr(cad_io.subprocess, "run", timeout)
+    with pytest.raises(cad_io.CadExportError, match="timed out"):
+        cad_io.export_verified([body], target)
+    assert target.read_bytes() == old
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows file-sharing semantics")

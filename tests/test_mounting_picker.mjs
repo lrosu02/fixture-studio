@@ -1,0 +1,196 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+
+const helpers = (await readFile(new URL('../fixture/face_picker.js',import.meta.url),'utf8')).split('export default function')[0];
+const source = await readFile(new URL('../fixture/mounting_picker.js',import.meta.url),'utf8');
+const renderer = (await import('data:text/javascript;base64,'+Buffer.from(helpers+source).toString('base64'))).default;
+const tick = () => new Promise(resolve => setImmediate(resolve));
+class Surface {
+    dataset = {};
+    listeners = new Map();
+    addEventListener(name,fn) { if (!this.listeners.has(name)) this.listeners.set(name,new Set()); this.listeners.get(name).add(fn); }
+    removeEventListener(name,fn) { this.listeners.get(name)?.delete(fn); }
+    fire(name,event) { for (const fn of this.listeners.get(name) || []) fn(event); }
+    on(name,fn) { this.addEventListener(name,fn); }
+    contains(target) { return target === this; }
+    closest() { return null; }
+    count() { return [...this.listeners.values()].reduce((n,set)=>n+set.size,0); }
+}
+async function harness({defer=false, request=false, manyFaces=false}={}) {
+    const plot = new Surface(), win = new Surface(), status = {}, sent = [], draws = [];
+    let creates=0,purges=0,finish;
+    const traces = ['a','b','c','d'].map(hole_id=>({
+        meta:{interface_id:'face-a',hole_id},line:{color:'#56b4e9',width:5},
+        marker:{color:['#56b4e9'],symbol:['circle']},text:'Click to select'
+    }));
+    traces.push({type:'mesh3d',x:[-1,1,1,-1],y:[-1,-1,1,1],z:[0,0,0,0],i:[0,0],j:[1,2],k:[2,3],meta:{pick_kind:'face',interface_id:'face-a'}});
+    if(manyFaces) for(let n=0;n<200;n++) {
+        const id=n===0?'face-a':`face-${n}`;
+        traces.push({type:'scatter3d',x:[n,n+1],y:[0,0],z:[0,0],meta:{outline_for:id},line:{color:'#ffb454'}});
+        traces.push({type:'scatter3d',x:[n,n],y:[0,1],z:[0,1],meta:{direction_for:id},line:{color:'#ffb454'}});
+        traces.push({type:'cone',x:[n],y:[1],z:[1],u:[0],v:[0],w:[1],meta:{direction_for:id}});
+    }
+    win.Plotly = {newPlot:()=>{creates++;return defer?new Promise(resolve=>{finish=resolve;}):Promise.resolve();},
+        update:async(...args)=>{draws.push(args);
+            if(args[2]['scene.camera']) plot._fullLayout.scene.camera=args[2]['scene.camera'];
+        }, purge:()=>{purges++;}, Plots:{resize:()=>{}}};
+    globalThis.window=win;
+    globalThis.ResizeObserver=class {observe(){} disconnect(){}};
+    let data={figure:JSON.stringify({data:traces,layout:{scene:{}}}),source_key:'sample',context:'epoch-1',mode:'holes',sequence:0,interface_id:null,hole_ids:[]};
+    const parentElement={querySelector:s=>s.includes('status')?status:plot};
+    const figure = data.figure, transport = [];
+    if(request) data.figure = null;
+    let cleanup;
+    function render(updates={}) {
+        data={...data,...updates};
+        cleanup=renderer({parentElement,data,setStateValue:(key,v)=>key==='picked'?sent.push(v):transport.push([key,v])});
+    }
+    function pointer(type,x=20,y=20,extra={}) {
+        (type==='pointerdown'?plot:win).fire(type,{clientX:x,clientY:y,button:0,target:plot,...extra});
+    }
+    function click(hole='a') {
+        pointer('pointermove');
+        plot.fire('plotly_hover',{points:[{data:traces.find(t=>t.meta.hole_id===hole)}]});
+        pointer('pointerdown');pointer('pointerup');
+    }
+    render(); await tick();
+    return {plot,win,status,sent,draws,render,click,pointer,figure,transport,cleanup:()=>cleanup(),finish:()=>finish(),counts:()=>({creates,purges})};
+}
+
+test('geometry handshake transfers the mesh only on an actual scene mount',async()=>{
+    const h=await harness({request:true});
+    assert.equal(h.transport[0][0],'geometry_request');
+    const token=h.transport[0][1];
+    h.render({mode:'face'});assert.equal(h.transport.length,1);
+    h.render({figure:h.figure,geometry_token:token,mode:'holes'});await tick();
+    assert.deepEqual(h.transport[1],['geometry_loaded',token]);
+    const scene=h.plot.dataset.sceneId;
+    h.click('a');h.render({figure:null,geometry_token:null,sequence:1,interface_id:'face-a',hole_ids:['a']});
+    h.render({mode:'face'});h.render({mode:'holes'});h.click('b');
+    assert.deepEqual(h.sent.at(-1).hole_ids,['a','b']);
+    assert.equal(h.plot.dataset.sceneId,scene);
+    assert.ok(Number(h.plot.dataset.updateBytes)<400);
+    assert.deepEqual(h.counts(),{creates:1,purges:0});
+    h.cleanup();h.render({figure:null});
+    assert.equal(h.transport.at(-1)[0],'geometry_request');
+    assert.notEqual(h.transport.at(-1)[1],token);
+    h.cleanup();
+});
+
+test('hundreds of candidate faces share only three rendered evidence traces',async()=>{
+    const h=await harness({manyFaces:true});
+    assert.equal(h.plot.dataset.renderedTraces,'9'); // four holes + three evidence + two access traces
+    h.click('a');await tick();
+    const first=h.draws.at(-1)[1];
+    assert.ok(first.x.some(v=>JSON.stringify(v)==='[0,1]'));
+    h.render({mode:'face',context:'new-face',interface_id:'face-199',hole_ids:[]});await tick();
+    assert.ok(h.draws.at(-1)[1].x.some(v=>JSON.stringify(v)==='[199,200]'));
+    assert.deepEqual(h.counts(),{creates:1,purges:0});
+    h.cleanup();
+});
+
+test('rapid clicks and stale acknowledgements keep the complete selection',async()=>{
+    const h=await harness();
+    h.click('a');h.click('b');
+    assert.deepEqual(h.sent.at(-1).hole_ids,['a','b']);
+    // Streamlit renders again on the SAME element, without cleanup on updates.
+    h.render({sequence:1,interface_id:'face-a',hole_ids:['a']});
+    h.click('c');
+    assert.deepEqual(h.sent.at(-1).hole_ids,['a','b','c']);
+    h.render({sequence:2,interface_id:'face-a',hole_ids:['a','b']});
+    h.click('d');h.click('a');
+    assert.equal(h.sent.length,4);
+    assert.deepEqual(h.sent.at(-1).hole_ids,['a','b','c','d']);
+    await tick();
+    assert.deepEqual(h.counts(),{creates:1,purges:0});
+    assert.equal(h.win.count(),4);
+    h.cleanup();assert.equal(h.win.count(),0);
+    assert.deepEqual(h.counts(),{creates:1,purges:1});
+});
+
+test('face/hole mode switches preserve the scene, camera and unsent acknowledgement state',async()=>{
+    const h=await harness();
+    const camera={eye:{x:2,y:3,z:1}};
+    h.plot._fullLayout={scene:{camera}};
+    h.click('a');
+    for(let n=0;n<12;n++) {h.render({mode:'face'});h.render({mode:'holes'});}
+    h.click('b');await tick();
+    assert.deepEqual(h.plot._fullLayout.scene.camera,camera);
+    assert.deepEqual(h.sent.at(-1).hole_ids,['a','b']);
+    assert.equal(h.sent.length,2);
+    assert.deepEqual(h.counts(),{creates:1,purges:0});
+    assert.equal(h.win.count(),4);
+    h.cleanup();
+});
+
+test('openings share the scene and keep mounting picks through stale access acknowledgements',async()=>{
+    const h=await harness();
+    h.click('a');h.click('b');
+    const camera={eye:{x:2,y:3,z:1}};
+    h.plot._fullLayout={scene:{camera}};
+    const scene=h.plot.dataset.sceneId;
+    const access={mode:'access',access_context:'access-1',access_sequence:0,access_selected:null,
+        access_ids:['hole:c','hole:d'],access_token:'disks-1',access_geometry:JSON.stringify([
+            {meta:{pick_kind:'face',interface_id:'hole:c'},x:[0,1,0],y:[0,0,1],z:[0,0,0],i:[0],j:[1],k:[2]}
+        ])};
+    h.render(access);await tick();
+    assert.deepEqual(h.transport.at(-1),['access_geometry_loaded','disks-1']);
+    h.click('c');h.click('d');
+    const picks=h.transport.filter(([key])=>key==='access_picked');
+    assert.deepEqual(picks.map(([,v])=>v.feature_id),['hole:c','hole:d']);
+    h.render({access_geometry:null,access_sequence:1,access_selected:'hole:c'});
+    h.click('d'); // A stale server snapshot cannot revert to C and emit D twice.
+    assert.equal(h.transport.filter(([key])=>key==='access_picked').length,2);
+    h.render({mode:'face'});h.render({mode:'holes'});h.click('c');
+    assert.deepEqual(h.sent.at(-1).hole_ids,['a','b','c']);
+    h.render({mode:'access',access_context:'access-2',access_sequence:0,access_selected:'hole:c'});
+    h.click('d');
+    assert.deepEqual(h.transport.at(-1),['access_picked',{context:'access-2',sequence:1,feature_id:'hole:d'}]);
+    await tick();
+    assert.deepEqual(h.plot._fullLayout.scene.camera,camera);
+    assert.equal(h.plot.dataset.sceneId,scene);
+    assert.deepEqual(h.counts(),{creates:1,purges:0});
+    assert.equal(h.win.count(),4);
+    h.cleanup();
+});
+
+test('a live WebGL wheel zoom takes priority over stale layout camera during redraw',async()=>{
+    const h=await harness();
+    const live={eye:{x:.75,y:.8,z:.5},center:{x:0,y:0,z:0},up:{x:0,y:0,z:1}};
+    h.plot._fullLayout={scene:{camera:{eye:{x:2,y:2,z:2}},_scene:{getCamera:()=>live}}};
+    h.click('a');await tick();
+    assert.deepEqual(h.draws.at(-1)[2]['scene.camera'],live);
+    assert.equal(h.plot.dataset.cameraBeforeRedraw,h.plot.dataset.cameraAfterRedraw);
+    h.render({mode:'face'});await tick();
+    assert.deepEqual(h.plot._fullLayout.scene.camera,live);
+    assert.deepEqual(h.counts(),{creates:1,purges:0});
+    h.cleanup();
+});
+
+test('explicit removal uses a new epoch and can reselect the removed hole',async()=>{
+    const h=await harness();h.click('a');h.click('b');
+    h.render({context:'epoch-2',sequence:0,interface_id:'face-a',hole_ids:['a']});
+    h.click('b');
+    assert.deepEqual(h.sent.at(-1),{context:'epoch-2',sequence:1,interface_id:'face-a',hole_ids:['a','b']});
+    h.render({context:'epoch-3',sequence:0,interface_id:'face-a',hole_ids:[]});
+    h.click('c');assert.deepEqual(h.sent.at(-1).hole_ids,['c']);
+    h.cleanup();
+});
+
+test('rotation, cancellation and right clicks cannot change selected holes',async()=>{
+    const h=await harness();h.click('a');
+    h.pointer('pointerdown');h.pointer('pointermove',60,20);h.pointer('pointerup',60,20);
+    h.pointer('pointerdown');h.win.fire('pointercancel',{});h.pointer('pointerup');
+    h.pointer('pointerdown',20,20,{button:2});h.pointer('pointerup',20,20,{button:2});
+    assert.equal(h.sent.length,1);h.cleanup();
+});
+
+test('updates during initial WebGL setup do not create duplicate scenes or handlers',async()=>{
+    const h=await harness({defer:true});
+    h.render({mode:'face'});h.render({mode:'holes'});h.render({interface_id:'face-a',hole_ids:['a']});
+    h.finish();await tick();h.click('b');
+    assert.deepEqual(h.sent.at(-1).hole_ids,['a','b']);
+    assert.deepEqual(h.counts(),{creates:1,purges:0});
+    assert.equal(h.win.count(),4);h.cleanup();
+});

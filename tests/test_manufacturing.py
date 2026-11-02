@@ -31,7 +31,9 @@ def test_method_persists_in_revisions_and_legacy_records_still_load():
         assert "print_settings" not in record and "material" not in record
         assert "single printed part" in record["design_guidance"]
     second = p.generate()
-    assert first.plan == second.plan
+    assert first.plan != second.plan
+    assert first.plan.parameters["manufacturing_geometry"].startswith("45 degree")
+    assert second.plan.parameters["manufacturing_geometry"].startswith("Rounded")
     p.restore(first.id)
     restored = Project.load(ROOT / "artifacts" / p.id / "project.json")
     assert restored.requirements.fabrication == FDM
@@ -111,6 +113,10 @@ def test_manufacturing_ui_only_asks_method(monkeypatch):
     control("button", "Save manufacturing").click().run()
     assert not app.exception
     assert app.session_state["project"].requirements.fabrication == FDM
+    # New projects enter through the guided brief before showing proposals/chat.
+    control("selectbox", "Conversation mode").select("Offline commands").run()
+    control("text_area", "Fixture goal").set_value("Inspection fixture")
+    control("button", "Save design brief").click().run()
     assert any("single printed part" in x.value for x in app.caption)
     monkeypatch.setattr(
         "fixture.subscription.subscription_turn",

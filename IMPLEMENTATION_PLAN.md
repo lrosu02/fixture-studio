@@ -1,8 +1,91 @@
 # AI fixture design tool implementation plan
 
+## Final submission checkpoint — November 2, 2026
+
+The completed application and the user-recorded `FixtureStudio-demo.mp4` are
+consolidated on `main`, preserving the feature and video histories. The recording
+deliverable is complete. README.md is now the concise reviewer entry point;
+CHANGELOG.md preserves the dated development updates, and Notes.md retains the
+engineering evidence and known limitations. The submission package includes both
+the video and changelog. Older checkpoints below describe their state at the time.
+
+Final checks: 307 Python tests, 20 JavaScript viewer tests, the native dependency
+proof, bent-sheet generation/revision with verified STEP, and saved-plan
+reproduction passed. Detailed evidence and the verification scope are in Notes.md.
+
 Build a conversational CAD tool that accepts an existing STEP part, learns what the user needs to do with it, proposes mounting approaches, and generates an editable fixture using NVIDIA SMLib. The user reviews the result, requests changes, and exports real CAD geometry.
 
 This is a handoff specification for the implementation agent. The six brushless motors are a demonstration scenario, not a fixed product configuration. The application must derive its mounting interface, quantity, layout, and fixture construction from the uploaded geometry and conversation. No motor dimensions, mounting patterns, or six-position layouts belong in the general application logic.
+
+## Sheet-metal extension checkpoint — November 1, 2026
+
+**Opening relocation / revision follow-up:** after changing fixture type, retain
+saved opening sizes and require new mouse locations on the generated shape, as
+requested by the user. Compiler 15 records pending openings without cutting stale
+positions; placement, removal, restore and export state remain explicit. Bridge
+orientation is explained before generation. Disable live module reload for the
+running app and validate feedback data across model-class boundaries. The actual
+four-collar row→grid revision was reproduced and exported successfully on a copy.
+
+**Conversation/export follow-up:** show the entire currently relevant question
+checklist, reuse saved answers, and make the Generate button sufficient when ready.
+Standalone generation invitations no longer block proposals. Persistent native
+save failures receive one isolated, verified SMLib serialization recovery; the
+user's recorded 10 mm opening passed native and reopened STEP checks through it.
+
+**Setup follow-up:** cable routing is no longer an initial brief field or required
+clarification. Users add cable holes after the first build with the fixture opening
+tool. Existing routing facts and explicit through-access requirements are retained.
+
+**Post-build opening extension on `codex/click-through-openings`:** generated fixture
+surfaces accept exact mouse positions for sized circular through-holes, independent
+of source openings. Compiler 14 records bounded cuts, native edge/path checks,
+resize/remove revisions and STEP export. New projects may defer cable-hole placement
+until the first fixture exists, with unplaced access marked pending. Curved/sloped
+entry surfaces and noncircular openings remain outside this placement tool's scope.
+Verification: 273 full-suite Python tests and 20 JavaScript viewer tests passed,
+including native STEP void checks, resize/remove/restore and invalid-cut retention.
+
+**Follow-up on `codex/design-conversation-flow`:** guided initial operating-context
+questions now precede proposals; follow-ups and revisions share one clearly labeled
+composer. Separate fixture bodies use stable individual preview colors. Compiler 13
+adds a continuous 90° wall/base bend and curve-fitted welded ribs for L-brackets,
+with typed bend records, native thickness/bend/interference checks and analytic STEP
+export. Original cut-panel construction remains available and historical compiler-12
+exports retain their behavior. Formed geometry does not establish tooling feasibility,
+produce an unfolded blank or calculate weld strength. Details and test evidence are
+in the current README/Notes sections; the checkpoint below describes the preceding
+flat-panel implementation.
+
+Follow-up acceptance: **258 Python regression tests** and **15 JavaScript viewer
+tests** passed. Native formed-sheet tests cover gauge/radius revisions, retained
+mounting holes, through openings, STEP cylindrical surfaces, ZIP reproduction and
+rejection of a deliberately filled square corner. A separate copy of the saved
+two-motor project also passed with three bodies and all twelve mounting holes.
+
+The user authorized a tabs-and-welding manufacturing option. Work is isolated on
+`codex/sheet-metal-tabs-welding` from `ac9000e`. Compiler 12 builds separate flat
+sheet panels with integral locating tabs and through slots, or weld-only butt
+joints, for the four screw-mounted structure families. Part patterns remain measured;
+sheet geometry contains no motor-specific dimensions or mounting decisions.
+
+Delivered controls select the method, sheet thickness, joint style, per-side slot
+clearance, tab width/count and root gap. The AI's typed edit contract exposes the
+same choices. Native validation checks panel thickness, panel interference, tabs,
+slots and remaining slot/weld lands in addition to the existing hole/access checks.
+Separate assembled panel solids export to verified STEP, and the reproducible
+design ZIP contains a panel/joint schedule. A deterministic synthetic demo exercises
+generation, thickness/joint revision, STEP reopening and ZIP reproduction.
+
+Boundaries: flat 0.5–12 mm sheets and plain through fastener holes; no bend unfolding,
+kerf compensation, DXF nesting, weld beads/sizing, hole-free sheet retention or
+structural weld validation. The adjustable 0.15 mm-per-side default is a fabrication
+concept allowance, not a universal standard. Detailed decisions and verification
+are recorded in README.md and Notes.md. Earlier checkpoints below remain historical.
+
+Acceptance evidence: **234 full-suite tests passed**, plus one added native imported-base
+integration test and **15 JavaScript viewer tests**. The live browser exercised method
+selection, atomic joint saves, generation and verified four-panel STEP download.
 
 ## Implementation checkpoint — October 30, 2026
 
@@ -42,6 +125,125 @@ no live-key verification; the live integration uses ChatGPT subscription sign-in
 
 Repository: [Fixture Studio](https://github.com/lrosu02/fixture-studio).
 Detailed verification and time provenance: [Notes.md](Notes.md#checkpoint-and-total-time--october-30-2026).
+
+## Features 1–6 delivery checkpoint — October 30, 2026
+
+The user subsequently authorized these six additions and a rollback branch.
+Work is on `feature/fixture-tools-1-6`, created from the `3a66d5c`
+3h30m baseline. This feature work has not been merged into `main`. No newer cumulative time estimate is asserted. The candidate list
+above is historical; the table below is the current delivered scope.
+
+| Order | Delivered behavior | Acceptance evidence |
+| --- | --- | --- |
+| 1 | Mouse-selected measured openings and finite keep-clear areas | Through cuts survive thickness revisions; missing cuts and damaged contacts are rejected. Stale/pointer-drag events do not alter picks. |
+| 2 | Second STEP base and measured attachment pattern | Rotated/offset base patterns align in real STEP; base reference is shown but excluded from fixture CAD; ZIP reproduction and restore tested. |
+| 3 | Convex contour nests, cylindrical saddles/collars, split clamps | Native cavity and required material checks; separate caps; transformed/repeated cylinder test and analytic STEP export. |
+| 4 | On-model parameter labels and lock-aware rebuilds | Click-event test, actual Streamlit thickness revision, source-measurement preservation and lock/invalid-edit rejection. |
+| 5 | Counterbores, 90° countersinks, nut pockets and finite tool access | Manufacturer profiles or explicit dimensions; native void/sidewall/floor checks; conical STEP topology verified. Base stock accounts for head recesses. |
+| 6 | Geometry rules for printing and machining | Chamfered or rounded exposed base corners and rectangular-opening cutter relief; all four structure families tested; method/geometry preserved in revision exports. |
+
+Validation: final complete suite **165 passed in 220.87 s**, plus **4 dimension/
+pointer cases passed in 16.68 s** after the live click-selection fix. Earlier native
+targeted verification passed 34 cases; these are overlapping runs.
+The combined connector, clamp and nest demos all exported STEP and reproduced from
+their ZIPs. A live ChatGPT-subscription revision changed connector part seats to
+countersinks, preserved selected base/access data and received an accepted concept
+review. The API-key provider still has no live-key verification.
+
+Compiler version 9 and analysis version 3 extend the bounded contracts. Old
+compiler versions keep their implementations; new fields default to inactive for
+old records. STEP adapter version 2 transfers analytic cones in addition to the
+existing planes/cylinders, without rebuilding fixture geometry in OpenCASCADE.
+The 256-operation, 64-body and 24-instance limits still apply.
+
+Limits: nests use a conservative convex envelope, cylindrical retention requires
+complete analytic outer cylinders, and nut pockets require an assembled cover for
+axial capture. Manufacturing rules do not prove build orientation, cutter access
+everywhere or physical performance. Exact source/base-to-fixture collision and
+load/preload/thermal/vibration analysis remain outside scope. Mixed different
+workpieces in one fixture was not part of the approved six additions. The continuous
+demo recording remains outstanding; executable demos and live records are available.
+
+## Selection and planner reliability follow-up — October 30, 2026
+
+Measured access references now share a catalog between AI context and validation;
+rejected decisions retain diagnostics and preserve existing requirements/CAD.
+Explicit free-floating attachment is supported. Face/hole choices save directly,
+without a second confirmation, and persist across selection categories. A face
+does not implicitly select its holes. Workspace-only mode changes avoid rerunning
+the surrounding app; dependent design controls update together and Generate checks
+the latest saved requirements before any build. Synthetic examples are collapsed.
+
+Verification: **184 tests passed in the full run**, followed by **48 passing
+affected integration cases** after final UI fixes, with real-browser selection
+and rerun-counter checks. The private planner case was checked locally; its live
+AI replay was blocked and is not claimed. Details and remaining limits are in
+Notes.md. The user-reported 3h30m checkpoint remains historical; no new cumulative
+duration is asserted.
+
+## Thickness and preview follow-up — October 31, 2026
+
+A visible fixture-thickness control saves the user's value and rebuilds on request
+through the existing revision pipeline. Generated and restored CAD now exits
+source-only selection mode, with direct fixture-only and assembly view buttons.
+The focused 17-case check covers actual native thickness changes and STEP re-import,
+all three selection modes, locked/invalid edits, restore and failed-build recovery.
+See README and Notes for usage and verification. No new cumulative time is asserted.
+
+## UI simplification follow-up — November 1, 2026
+
+Optional controls are grouped into Mounting, Fabrication and Advanced tabs, with
+details and secondary proposals collapsed. Thickness and generated-preview access
+remain visible. Eager tab rendering preserves saved controls within the workspace
+fragment; CAD/planning/storage contracts are unchanged. The affected 26-case UI
+set passed, followed by seven overlapping app checks after proposal grouping.
+Synthetic browser checks verified selection, first manufacturing edit, pending
+thickness and fixture-only visibility without unintended builds or AI calls.
+No new cumulative development time is asserted.
+
+## Persistent mounting selection follow-up — November 1, 2026
+
+Face/hole selection now uses one persistent scene and a stable camera. Ordered,
+cumulative browser state prevents delayed saves from dropping newer picks; explicit
+removal and incompatible-face changes remain supported. Regression checks cover the
+actual component update lifecycle without an intervening unmount, plus saved-state
+ordering and mode transitions. Verification details are in Notes.md. No new
+cumulative development duration is asserted.
+
+## Selection and dimension clarity / corner correction — November 1, 2026
+
+- [x] Highlight the active face, hole or opening selection tool immediately.
+- [x] Reuse one persistent scene for all three selection categories; preserve camera
+  and mounting picks, and reject delayed access events.
+- [x] Group display settings by objects, overlays and editing/comparison; show the
+  current conversation step and collapse older dialogue/technical activity.
+- [x] Replace floating dimension markers with a clear panel and fixed caption;
+  explain settings, built vs pending values, automatic defaults and locks.
+- [x] Compiler 11: finish joined L-bracket exterior corners continuously through
+  base, wall and ribs, with native residual-material validation and verified STEP.
+- [x] Preserve historical compiler output and test the real saved NEMA17 case in
+  an independent project, including eight part holes and four base holes.
+
+The above UI work was coordinated with UI Man. Detailed evidence and limitations
+are in Notes.md; existing designs require a new revision to receive CAD changes.
+
+## Large-part selection and rib fillets follow-up — November 1, 2026
+
+Mounting selection requests immutable viewer geometry once per browser mount;
+subsequent events carry selection IDs. Source meshes are not decimated. Candidate
+face meshes remain available for ray tests, while only the selected outline and
+direction arrow are rendered. Compact cached geometry serialization preserves the
+existing atomic project-save format and reduces repeated save work.
+
+Compiler **10** adds a bounded native SMLib edge-fillet operation for the two
+inward L-bracket rib/base joints. Default radius is min(1.5 mm, thickness/4), further
+bounded by available joint space. Fabrication controls and conversational changes
+can disable it or specify a bounded radius. Versions 1–9 retain their geometry.
+STEP adapter **3** transfers SMLib's zero-angle cone representation as an exact
+cylinder. Native material/void sampling, existing hole/passage checks, USD reopening,
+STEP reopening and bundle reproduction cover the extension. Detailed evidence and
+remaining native-kernel limitations are recorded in Notes.md; no new cumulative
+development duration is asserted.
 
 **Product scope**
 

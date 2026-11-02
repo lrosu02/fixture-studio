@@ -1,15 +1,790 @@
 # Engineering record
 
+## Final submission consolidation (2026-11-02)
+
+The final application revision (`d59a882`, from `codex/click-through-openings`)
+is merged with the user's video upload (`b947315`) on `main`. The merge preserves
+both histories and the exact uploaded `FixtureStudio-demo.mp4` bytes. No fixture
+runtime behavior changed during this submission pass.
+
+README.md is reduced from 905 to 138 lines, with the video, setup, current workflow,
+supported features, STEP export and limitations first. Dated development checkpoints
+are retained in CHANGELOG.md; the demo guide now links the completed recording and
+describes the current controls. Earlier notes about an outstanding recording are
+historical. The submission ZIP builder now includes the video and changelog.
+
+Final verification on the merged submission: **307 Python tests passed in
+513.62 seconds**, and all **20 JavaScript viewer tests passed**. `pip check`
+reported no broken requirements. The documented dependency proof passed native
+USD save/reopen checks; the bent-sheet demo generated both revisions and verified
+STEP, with three final panels and no failed geometry checks. Reproduction of the
+bundled example rebuilt four SMLib bodies successfully. The existing NVIDIA
+`pxr.*` Python-module warnings remain documented; native I/O completed normally.
+
+The submission archive was checked for current code/document hashes, unchanged
+video bytes and exclusion of environments, credentials and private project data.
+Local evidence is under `artifacts/final-submission-*`; these checks made no live
+model calls. This pass used the installed pinned environment, rather than claiming
+a new clean-environment installation. The earlier clean install remains recorded
+below.
+
+## Reposition openings after type changes; stable revision records (2026-11-01)
+
+The saved sheet-metal L-bracket-to-bridge attempt in project
+042f0872285d4d5fb145005459ab1b2f carried a 10 mm opening centered at
+Y=-31.8204 mm onto a bridge platform starting at Y=-34.5 mm. Its circle extended
+2.3204 mm beyond the edge. The native rejection was correct. The user explicitly
+chose to place openings again on the new fixture instead of enlarging stock.
+
+`FixtureOpening.needs_placement` preserves IDs, diameters and reference coordinates
+while suppressing obsolete cuts. Composition changes mark retained openings pending;
+direct generation callers receive the same normalization. Compiler 15 represents
+pending opening state and records not-evaluated checks/counts; compilers 1–14 retain
+their prior geometry behavior and reject pending state. Required passages become
+deferred for this intentional new-shape-first workflow, with locks still enforced.
+Pending records do not count as completed through paths. Replacing a selected opening
+keeps its ID and list order, and old revisions remain immutable. Same-type edits keep
+locations. Failed placement preserves the draft and previous CAD. Exports warn that
+pending openings are absent. Automatic review repairs start from the normalized
+attempt requirements so they cannot resurrect an obsolete opening position.
+
+The bridge still uses a horizontal platform (Z up), while the L-bracket has an upright
+wall (Y up). This is now explained on proposals and in model instructions; orientation
+is not silently changed to claim compliance with the user's horizontal-shaft brief.
+The independent bridge verification is a geometry test, not an orientation-matching
+replacement for that brief: five welded bodies, four part holes and four base holes,
+then a separately picked 10 mm passage with 0.0 mm³ residual in reopened STEP.
+
+The subsequent four-collar revision exposed a distinct Streamlit reload problem:
+FeedbackRecord rejected a BuildFeedback from an older module/class identity.
+The same-name/different-class failure is reproduced in a regression test. The local
+server now uses fileWatcherType=none and explicit restarts after code updates.
+Planner, review and feedback records cross the workflow boundary as validated data.
+An independent copy of the actual collar project successfully revised row→2×2 grid,
+retained twelve part holes and its four selected center passages, and exported STEP.
+The original user project was unchanged by these verification runs. Native evidence:
+`artifacts/bridge-reposition-repro/report.json` (ignored local artifact).
+
+Verification: 40 native opening/sheet/structure tests passed; 26 record-boundary,
+feedback and question tests passed; 34 app/conversation/reposition tests passed;
+seven opening-controls UI tests passed (suites overlap). The actual collar STEP
+was also checked independently: each of four 8 mm center cylinders had 0.0 mm³
+remaining fixture material. The historical pending bridge export reproduced with
+compiler 15, while restored earlier revisions retained their placed openings.
+
+## Batched questions and opening export recovery (2026-11-01)
+
+Removed the deterministic three-question truncation and expanded planner/reviewer
+question records to 24 items. Prompts request all relevant unanswered facts together,
+reuse recorded answers, and reserve follow-up turns for newly revealed dependencies.
+The UI displays the complete checklist and omits duplicate question lines from the
+short reply while preserving the original transcript. A conservative full-string
+filter removes standalone Generate permission invitations from both new decisions
+and restored UI state; dimension/conditional/design questions remain blockers.
+Removing a permission prompt never triggers an automatic build.
+
+The actual opening failure on project b5443f182e5b4d24ac7bae926866dcbb was three
+OpenUSD SafeOutputFile rename denials on Windows, each leaving only a USD header.
+The recorded 10 mm opening compiled successfully in a standalone process and five
+worker-thread reproductions. The application log does not identify which process
+held the file, so this is not attributed to a specific watcher or antivirus.
+After existing bounded retries, export recovery serializes the unchanged SMLib
+BReps to binary native files, exports them in a fresh hidden Python process in OS
+temporary storage, and verifies the returned USD against the original solids.
+Publication uses a separate sibling file and atomic replacement. Recovery is
+limited to one process with a 30-second timeout. No CAD parameters, locks, source
+selection, or geometry operations change, and a failed recovery preserves prior CAD.
+
+The user's exact failed opening was reproduced on a separate project with all
+three parent-process saves deliberately failed. Isolated recovery succeeded;
+STEP reopened in OCCT with eight part holes, four base holes and the requested
+10 mm opening. Intersection with its full-depth cylinder was 0.0 mm³; all native
+checks passed. The original project was unchanged. Evidence is in ignored
+`artifacts/hole-export-repro/recovery-report.json`.
+
+Verification: 64 focused backend/native tests passed; the integrated application,
+review, question and UI suite passed 41 tests; the final question-deduplication/UI
+suite passed 26 tests (these suites overlap). Coverage includes isolated recovery,
+true hole voids, corrupt exports/timeouts retaining old files, unchanged saved
+requirements, grouped questions and genuine follow-up blockers. Live ChatGPT
+subscription checks returned six relevant questions in one round for incomplete
+setup and a question-free proposal for completed setup. Provider calls used copies
+of requirements and did not change the user's project.
+
+## Cable routing moved out of setup (2026-11-01)
+
+Removed the Cable routing field from the guided brief and saved-brief editor.
+Deterministic clarification and AI startup instructions no longer request routing
+before the first design. The post-build opening tool remains the entry point for
+cable holes. Existing or volunteered routing facts remain saved and available to
+the planner; an unspecified cable route no longer appears as an unanswered brief
+item. Explicit through-access requirements and CAD checks are unchanged.
+
+Verification: 29 focused guided-brief, conversation UI, application UI and workflow
+tests passed. They cover proposing without cable answers, preservation of saved
+routing facts, edits/resume, and existing generation/revision behavior.
+Ten UI clarity tests also passed after updating the welcome guidance. Live browser
+verification confirmed the removed field and retained post-build opening tool;
+the user's saved project remained unchanged.
+
+## Click-placed fixture openings (2026-11-01)
+
+Implemented on `codex/click-through-openings` from `73ffed8`. User-positioned round
+through holes are revision operations on generated fixture bodies, independent of
+source-feature recognition. Requirements store bounded opening IDs, body IDs,
+fixture-frame centers, axis and diameter. UI events carry revision/context/sequence,
+body, triangle index and exact ray-hit point; the backend independently checks mesh
+membership, barycentric containment and a flat axis-aligned triangle. Picking and
+diameter previews perform no native CAD work and do not save requirements.
+
+Compiler 14 appends bounded SMLib cylindrical cuts after construction/finishing.
+Ordinary designs retain compiler 13; older compilers reject new opening records.
+Depth spans the fixture bounds and is recomputed on dimension changes. Only the
+selected fixture body is cut; independent full-depth intersection against every
+final fixture body rejects an exit path blocked by another panel. Before cutting,
+native intersection volume verifies a complete cylindrical plug, and a 0.5 mm
+annular land check rejects edge breakouts or overlap with existing openings. Both
+plug ends are sampled against the native surface, so a tessellation chord alone
+cannot authorize a curved entry/exit. The
+usual topology, mounting, weld-joint, sheet-thickness and bend checks remain active.
+The rim is a geometric implementation bound, not a structural or manufacturing rule.
+
+New projects default to deferred cable-opening placement. Required-but-unplaced
+access is recorded as pending/not evaluated, while measured source clearance remains
+active. Legacy projects keep their previous pre-build requirement until explicitly
+deferred in conversation. The model cannot invent user-picked fixture coordinates.
+Opening revisions preserve absolute fixture-frame positions; changing the mounting
+frame requires removing and reselecting them. Rebuilds use candidate requirements
+directly, preserving prior CAD and requirements when construction fails.
+
+Native coverage includes wall/base cuts in flat and bent sheet, X/Y/Z cut directions,
+multiple holes, diameter/thickness revisions, removal/restore, rejected edge placements,
+blocked paths, a deliberately blind cut, historical-compiler guards, STEP opening
+voids and reproducible design ZIPs. Small removed-volume comparisons use independently
+reloaded BReps with relative integration accuracy 1e-8, because subtracting default
+volume estimates for large bodies masks sub-mm³ changes. The deliberately blind
+cut test first proves early rejection, then bypasses only that guard in the test
+to exercise independent final-CAD validation. The 23-test opening/passage/bend run
+passed, followed by the tighter curved-entry check and updated fault-injection test.
+Full regression: `.venv\Scripts\python.exe -m pytest tests -q` passed all 273 tests
+in 456.52 seconds. All 20 JavaScript pointer/selection/opening tests passed. Browser
+checks use real native CAD with AI disabled; no new live-model call is claimed.
+The live browser placed a 12 mm opening at the actual clicked point, resized it
+to 16 mm and removed it. Clicks, dragging, zoom and diameter previews did not save
+or build CAD. Stable component containers preserve the scene/camera through tool
+toggles and rebuilding; nine affected UI/preview checks passed after that fix.
+The browser-downloaded 16 mm STEP matched the native export hash, reopened as one
+valid solid in OCCT, and had zero intersection with an independent full-depth
+16 mm cylindrical probe. Generated fixture-only view remains active after an
+opening edit so the source part does not obscure the result.
+An actual browser edge pick was rejected by the native cut guard; the last valid
+revision and its requirements remained unchanged and the UI reported the failure.
+
+## Guided operating context and formed sheet (2026-11-01 follow-up)
+
+Work is isolated on `codex/design-conversation-flow` from `49aa465`. The startup
+brief and chat no longer compete: an initial form collects goal/quantity, moving
+components, cables, tool/service access and loads, followed by one state-dependent
+answer/discussion/revision composer. New nullable context fields are included in
+the typed planner contract and saved requirements. Empty answers remain unspecified;
+explicit unknown/none remain user facts. A legacy-default-false brief marker enables
+the detailed setup questions without making older CAD exports unreproducible.
+New guided briefs prioritize motion/routing/access before mounting/manufacturing.
+The existing generic access field is synchronized with the new access answers.
+
+`design_brief.save_brief` validates all edits, respects locks and atomically saves
+requirements/transcript/stage. A failed save rolls back those changes. Starting an
+AI design invokes planning once after this save; offline saves do not invoke a fake
+planner. Editing setup neither calls the model nor generates CAD. Actual AI questions
+keep the workflow in clarification and block generation. Conversation stage is saved
+and restored, and current-revision review questions appear in the same answer box.
+UI Man implemented and exercised the frontend with explicitly simulated planner/
+reviewer adapters; real AI wrappers were forbidden in that browser harness.
+
+Fixture preview colors derive from stable body IDs, independent of mesh order and
+revision/source visibility. Source and base references are gray. This is presentation
+only and does not alter native geometry or claim STEP appearance metadata.
+
+Compiler 13 adds a bounded 90° annular sheet-stock primitive and a matching constant-
+thickness gusset corner cutter. For the bent L route, the straight wall/base flanges
+are trimmed at tangent lines and united through the annular bend in SMLib. One blank
+therefore becomes one valid native solid; the separately welded gussets fit its inner
+curve, respecting the selected root gap. The wall/base weld/tabs disappear. Gusset
+tabs/slots are regenerated on the remaining flat base land. Generated base holes are
+distributed within that land without changing count; measured imported base holes
+are never relocated. Out-of-land holes or cuts into the bend fail native validation.
+
+Inside radius defaults to sheet thickness as an editable concept assumption, with
+outside radius = inside radius + thickness. This is not a material-independent
+manufacturing standard: [air bending depends on material and tooling](https://sendcutsend.com/faq/how-do-you-bend-parts/).
+The supported route is L-brackets only, optional ribs, 90°. No K-factor/unfolding,
+flat-pattern/DXF production, springback, tooling collision, minimum-flange tooling
+qualification or weld strength is asserted. Legacy cut-and-weld designs keep their
+existing route and compiler-12 reproduction; the new option requires version 13.
+
+Native checks compare the complete formed bend against the expected annular region
+using a symmetric difference. This detects a square filled corner, missing radius,
+wrong thickness or an access cut crossing the bend. Straight flange portions and
+flat ribs retain the normal-overlap thickness checks, mounting/access checks, weld
+lands and panel-interference checks. Through profiles are recomputed after forming;
+testing the saved two-motor STEP exposed stale clearance extents from the old wider
+flat-foot outline, which were corrected without changing the measured profile.
+
+A separate copy of the saved NEMA17 fixture generated three valid formed/welded
+bodies, eight part holes, four base holes and four through rear profiles, with no
+failed checks. STEP reopened successfully; original user project/revision data was
+preserved. Synthetic tests cover inside/outside cylindrical STEP radii, optional ribs,
+nonzero root gaps, gauge/radius revisions, ZIP reproduction, invalid-bend rejection,
+last-valid retention, and deliberate square-corner corruption. The deterministic
+`scripts/demo_sheet_metal.py --bent` reproduces a public synthetic example.
+
+Verification: `.venv\Scripts\python.exe -m pytest tests -q` passed all 258 tests
+in 402.39 seconds. All 15 JavaScript viewer tests passed. Focused follow-up tests
+confirmed the final through-cut metadata and compiler-12 compatibility; the new
+count assertion also passed. The native demo exercised both initial generation
+and a 3-to-4 mm sheet revision, with three STEP solids and no failed checks.
+Browser conversation checks use a simulated planner/reviewer with real native CAD;
+they do not establish a new live-model integration result.
+The browser run verified first setup, generation blocked by unanswered questions,
+one follow-up composer, setup edits without AI/CAD calls, explicit 3 mm generation,
+a 4 mm revision and stable teal/blue/orange part colors. The downloaded STEP
+contained three fixture-only bodies in millimetres and passed its adapter report.
+Restoring the older user project exposed stale pre-build questions when its snapshot
+had no saved stage. Legacy projects with current CAD now retain their review state;
+explicit saved clarification and first-build questions still resume normally.
+All 15 affected brief/conversation tests passed after that migration fix. The
+original project file remained unchanged throughout browser checks.
+
+## Flat sheet assemblies, tabs and weld intent (2026-11-01)
+
+Implemented on `codex/sheet-metal-tabs-welding`, branched from `ac9000e` for rollback.
+Compiler 12 reuses the measured placements and mounting patterns, then replaces
+monolithic L-bracket/bridge support unions with separate constant-thickness panels.
+Small explicit SMLib box unions make integral tabs; matching oversized box cuts make
+through slots. Wall/base and rib/base joints are tabbed; rib/wall seams are butt joints.
+Bridge legs have tabs into the platform and feet. Weld-only joints omit all locators.
+Flat plates and rails are also accepted. Panel names, thickness axes, joint references,
+seam endpoints, root gaps and tab/slot IDs are bounded typed records in the plan.
+Temporary tab bodies are consumed by their owner, while final panels remain separate.
+
+The initial scope is flat cut-and-weld assembly, not bend unfolding. All construction
+remains in SMLib. OCCT only measures input and transfers/reopens generated STEP.
+The existing 256-operation/64-body/24-instance limits still apply. Compiler versions
+1–11 preserve earlier non-sheet behavior. Sheet plans require version 12; arbitrary
+code/coordinates from the model are still prohibited. Five bounded sheet requirement
+edits are exposed to the existing planner; no new live model invocation was needed
+to implement this feature. UI Man supplied the manufacturing/joint controls and
+browser QA, with lock-aware atomic saves and no CAD/AI calls until generation.
+
+Slot allowance defaults to 0.15 mm per side, not a standards claim. This is a
+metric concept starting point near the typical thin-sheet values discussed in
+[SendCutSend's tab/slot guidance](https://sendcutsend.com/blog/mastering-tab-and-slot-design-for-efficient-metal-fabrication/).
+Their [tolerance formula](https://sendcutsend.com/blog/designing-sheet-metal-parts-with-tab-and-slots/)
+also accounts for actual stock-thickness and cutting tolerances; those are not
+measured by this app. There is no hidden kerf compensation. Tabs terminate flush
+at the receiving panel's outside face; 0.01 mm overlap at the tab root makes the
+native union robust. Default end/gap lands depend on sheet thickness and allowance.
+The receiving base/platform grows locally to preserve closed slots. Explicit width,
+depth and tab choices fail when they cannot fit instead of silently changing them.
+An unspecified L-bracket base can grow to accommodate tabs, as with base screws.
+
+Sheet rear reliefs use the measured outline but become through cuts across the
+assembly. A bounded multi-target relief retains one source feature ID while cutting
+each panel, so the existing independent coverage checks still apply. Other selected
+access cuts also reach the separate bodies. Cuts that leave nonprismatic panels,
+damage tabs or remove required lands fail recoverably. Recessed fastener seats,
+driver pockets and hole-free sheet retention are explicitly unsupported initially.
+The user selects 0.5–12 mm thickness; switching fabrication does not erase saved
+fillet or joint choices. The irrelevant solid-corner dimension is hidden for sheet.
+
+Validation regenerates the expected joint tools from saved requirements, then
+checks native retained tab volumes, complete slot voids and a 1 mm material border
+after all cuts. Pairwise native intersections reject panel overlap. Two translated
+normal-overlap volume checks detect nonuniform sheet thickness/blind pockets; this
+is a sampled prismatic check, not a formal general-purpose sheet recognition solver.
+SMLib volume quadrature uses relative accuracy 1e-8 for this check, as default
+quadrature was insufficient around several curved base bores. Sampled seam lands
+must remain on both mating panels at the recorded root gap. Existing mounting,
+base-hole, access and export checks remain in force. Weld size, material/process,
+bead shape, assembly sequence, distortion and structural capacity are not solved.
+
+STEP preserves separate assembled solids; the design ZIP adds `sheet-metal.json`
+with a panel/joint schedule and explicit welding notes. No separate flat DXF/CAM
+files are advertised. `scripts/demo_sheet_metal.py` generates and exports a 3 mm
+ribbed bracket and a 4 mm/three-tab/root-gap revision from the permitted synthetic
+sample. Both include four panels and five joints, with no failed geometry checks.
+Additional tests cover all four families, weld-only joints, sheet revisions,
+native failure injection, automatic through reliefs, a second part with six
+instances, lock/limit rejection, STEP reopening and deterministic ZIP reproduction.
+Browser QA also found a settings-tab reset on manufacturing save; a stable public
+Streamlit tab key now preserves the active group across the pending-revision notice.
+
+Verification: `python -m pytest tests -q` passed **234 tests in 368.19 seconds**.
+A subsequent focused imported-base/sheet-stock expansion test passed separately
+(added after full-suite collection). Both viewer JavaScript suites passed **15 tests**;
+Ruff F checks and `git diff --check` passed. The browser generated four native sheet
+panels, prepared/reopened STEP with four matching OCCT solids, and preserved selected
+holes. Joint-only saves did not call CAD or AI; switching to weld-only retained the
+saved tab settings. Evidence is under ignored `artifacts/sheet-metal-20261101/`
+and `artifacts/ui-sheet-20261101/`. No live AI call was made for the sheet feature.
+
+No new cumulative development-time estimate is asserted for this extension.
+
+## Persistent access selection, dimension clarity and joined corners (2026-11-01)
+
+Opening selection still mounted its own component after the face/hole viewer was
+made persistent. It now uses the same component, key, source geometry and camera.
+Only two reusable access traces are added: combined aperture outlines and one
+selected surface. Measured face meshes already present for ray picking are reused.
+A separate sequence/context protects access drafts from delayed events; selecting
+an opening does not alter mounting holes. Access saves use the same atomic selection
+transaction and workspace fragment as other picks. All three selection buttons
+derive primary styling from callback-updated mode state, including the first click.
+
+UI Man supplied grouped display controls, the current-step conversation card and
+the revised dimension panel. Display labels explain what is shown; unavailable
+controls explain why. The dimension panel separates built and saved values,
+explains each editable setting, resolves automatic corner sizes, and puts locks
+under an expander. Arbitrary 3D dimension markers were removed in favor of a fixed
+2D design-setting caption. Legacy click payloads cannot overwrite manual choices.
+The full message transcript remains intact; only its presentation is grouped.
+
+The screenshot's small bracket corner ledge was real geometry. Compiler 10 finished
+the base footprint before joining square wall/rib stock, leaving material above
+the cut corners. Compiler 11 adds a bounded SMLib intersection of the complete
+bracket with an extended finished-footprint outline. It retains all through cuts
+and fillets. An independent native intersection with the expected removed corner
+regions detects a missing finish. Printing chamfers and machined round corners
+are both covered. Older compiler versions keep the historical behavior.
+
+The latest saved two-motor NEMA17 case was rebuilt in a separate project. Expected
+corner-removal regions contained 264.1229 mm³ of material before the fix and 0 mm³
+afterward. Its exported STEP re-imported as one valid solid, with eight part holes,
+four base holes and no failed geometry checks. Original project/revisions were
+preserved. Evidence is under ignored `artifacts/ui-selection-20261101/`.
+
+Live large-STEP QA retained one scene across holes → openings → face → holes, even
+after rotating the camera; the whole-app run counter remained 1. Opening mode sent
+about 5 KB of state after its one-time overlay transfer, instead of resending the
+7.55 MB source. A measured mode redraw was 579 ms on this machine; initial mesh
+loading and WebGL redraw still take time. Geometry correctness checks do not
+establish load capacity or global manufacturability.
+
+Follow-up browser testing caught a subtler camera issue: retaining the scene did
+not always retain a live wheel zoom during a trace-only restyle. Selection updates
+now capture the current native Plotly camera and update highlights and camera in
+one [Plotly.update call](https://plotly.com/javascript/plotlyjs-function-reference/#plotlyupdate).
+The pinned Plotly scene camera accessor is also used by its own save-camera code;
+layout camera is the fallback. Browser diagnostics record before/after camera
+values, and a JS regression covers a live camera differing from saved layout.
+
+Final live QA on the real STEP confirmed zoom/rotation before and after an opening
+mode change matched within floating-point precision, with one scene and a 523 ms
+redraw. Clicking the removed fourth mounting hole restored all four immediately;
+clicking a measured face in opening mode selected Face 329 without changing them.
+UI Man independently tested display/conversation controls, pending 6 → 8 mm edits,
+lock/unlock and an explicit native rebuild on a synthetic project. All checks passed
+and no AI request was needed for these UI tests. Screenshots/counters are in
+`artifacts/ui-clarity-20261101/`.
+
+Verification: 213 Python cases covered. The final complete run passed 212 and found
+one assertion still expecting capitalized “Thickness”; the actual caption is
+“Fixture thickness”. After correcting that assertion, the affected dimension,
+workspace and transport suite passed 15/15, including native rebuilds. The two
+joined-corner fault-injection cases passed for printing and machining; the complete
+manufacturing suite passed 12/12. Both JS interaction suites passed 15/15. Ruff F
+checks and `git diff --check` passed. No unresolved test failures remain.
+
+## Large STEP selection performance and automatic rib fillets (2026-11-01)
+
+The user's saved stepper project exposed costs missed by the earlier persistent
+viewer fix: 154,854 preview triangles, 199 candidate interfaces and a 29 MB pretty
+JSON project. Every selection still transmitted about 7.55 million characters of
+viewer geometry and serialized the full source/revision meshes. Encoding the source
+analysis alone took 1.71 s. Separate candidate meshes and hundreds of hidden arrows
+also caused Plotly to recalculate many traces; a live mode change took 2,513 ms.
+
+The component now requests immutable geometry using a per-mount nonce and acknowledges
+delivery. Updates carry only mode/selection/context/sequence; a browser reload requests
+geometry again. Cumulative local picks still take precedence over older acknowledgements.
+Candidate meshes remain in the ray-test catalog, but the original mesh is rendered
+once, with three reusable selected-face evidence traces. The stepper view now has
+20 rendered traces. No CAD or preview simplification was applied. Stable scene IDs,
+four retained hole selections and the unchanged full-app rerun counter were verified
+in the real browser. Measured redraws were 294–389 ms, and updates were 288–309
+characters. These are local observations, not hardware-independent performance guarantees.
+
+Project persistence retains the existing JSON schema and atomic temporary-file
+replacement. Frozen analysis/revision records cache their compact JSON by identity;
+replacing a record invalidates its cache. The code must continue replacing these
+records, not mutating nested dictionaries in place. A separate copy of the real
+stepper analysis saved in 98.2 ms cold, then 23.2–25.4 ms warm (11.22 MB on disk).
+The user's original project was not modified for benchmarking. Local probes and
+screenshots are under ignored `artifacts/fillet-selection-20261101/`.
+
+Compiler 10 derives the two inward straight rib/base edges from compiled bracket
+dimensions and uses `usd_brep.fillets.fillet_edges` on handles belonging to the same
+current BRep. It never chooses arbitrary imported-part edges or exposes unrestricted
+kernel commands to the planner. The operation is bounded to two Z-axis segments,
+the existing workspace/operation limits, and radius ≤2 mm. The default is
+min(1.5 mm, thickness/4), also limited by root length and available width. The
+Fabrication controls and validated AI change schema support disable/override.
+Legacy compiler versions keep their previous geometry; newly generated revisions
+use the default-on option even when continuing an old project.
+
+SMLib's fillet call can mutate its input, so before/after volume is captured before
+the call. The result must remain one manifold solid with added root material.
+Finishing occurs after structural unions and before all hardware/access cuts;
+existing native passage and mounting checks remain authoritative. Independent small
+material/void probes at three root stations detect absent rounding; explicitly
+requested reliefs are excluded and incomplete sampling is reported inconclusive.
+These checks establish sampled geometry, not root stress or fatigue resistance.
+
+The pinned SMLib exporter describes these constant-radius blend surfaces as cones
+with zero semi-angle. OCCT rejects a zero-angle `Geom_ConicalSurface`; STEP adapter
+3 transfers that analytic surface as a cylinder, retaining topology and exact NURBS
+edges. No fixture construction moved to OCCT. Filleted fixtures were exported,
+reopened as valid STEP solids with the expected blend radii, and reproduced from ZIP.
+The implementation uses the installed NVIDIA API; upstream constraints remain in
+[NVIDIA's known issues](https://github.com/NVIDIA-Omniverse/usd-brep/blob/main/KNOWN_ISSUES.md).
+
+Native limitation: a 2 mm fillet followed by a base-hole Boolean failed for one
+transformed motor test; filleting after those cuts also failed. The same input passed
+at 0.5, 1.0, 1.5 and 1.9 mm. The 1.5 mm concept default avoids that tested boundary;
+there is no silent radius retry that would override an explicit dimension. Kernel
+failures preserve the previous valid revision. General edge blends, wall/rib blends,
+and arbitrary freeform fillet surfaces remain outside this extension.
+
+Verification: **201 Python tests passed in 296.29 s** with
+`.venv\Scripts\python.exe -m pytest tests -q`. Initial broad collection without
+`tests` encountered duplicate copied repositories under ignored artifacts; the
+explicit project test directory resolves that collection issue. Targeted runs
+(25 structure/STEP/workspace cases and six fillet/transport cases) overlap this
+suite. **13 JavaScript pointer/component cases passed**, covering delivery/remount,
+rapid picks, delayed acknowledgements, mode transitions, explicit removal, shared
+face traces and ray picking. Ruff F checks and `git diff --check` passed.
+
+A separate copy of the user's actual stepper project also generated two R1.5 mm
+root fillets, passed every evaluated geometry check, and exported verified STEP
+(`7f9394b59ef04dbdb3235a8fb3f3117f/24aaa0fb51b1`, ignored local artifacts).
+The browser exercised real mouse additions from two to four holes, retained the
+selection across face/hole modes, and selected a hole-free face using the new shared
+outline. No live AI call was needed; no new cumulative development time is asserted.
+
 Fixture Studio implements the concept in IMPLEMENTATION_PLAN.md: a reusable
 conversational fixture tool, with a synthetic six-part case as a demonstration.
 No dimensions, quantities, bolt circles or mounting conclusions from the sample
 are embedded in general application logic. Sample-specific values live in the
 sample generator, test fixtures and demo scripts only.
 
+## Persistent mounting selection (2026-11-01)
+
+The previous face/hole tools mounted different components. Each component render
+also called Plotly.newPlot and registered pointer listeners again. Inspection of
+Streamlit 1.66.1's installed BidiComponent runtime showed that update renders do
+not invoke the returned unmount cleanup. Thus ordinary acknowledgements could
+rebuild the scene and accumulate stale handlers; fake tests had incorrectly
+modeled updates as cleanup followed by mounting a fresh plot.
+
+The workspace now mounts one keyed face/hole component at a stable position. Its
+controller lives on the plot DOM element and updates in place. One handler set
+and one WebGL scene remain until unmount/source replacement. Only changed feature
+overlays are restyled. Explicit axis ranges and a fixed aspect ratio prevent
+selected-face arrows from changing the apparent scale. The same ray tests remain
+in use for measured surface picking; no CAD measurement or construction changed.
+
+Each browser click immediately sends persistent cumulative selection state with a
+context epoch and increasing sequence. Backend callbacks validate and save before
+rendering dependent controls. Older acknowledgements do not overwrite pending
+local clicks; older/replayed events cannot replace newer saved selections. Explicit
+list edits, clear, external requirement changes, failed saves and project changes
+reset the epoch. Mode changes do not. Existing lock checks and save rollback apply.
+A different face intentionally clears incompatible holes. Source geometry and
+accepted CAD revisions remain unchanged until normal generation.
+
+Verification: 57 affected Python tests passed in 145.17 s (workspace, app UI,
+face/hole selection, retention, thickness/preview, selected access and existing
+base). Eleven Node pointer/component cases passed, including rapid clicks across
+stale acknowledgements, twelve consecutive mode switches, explicit removal/reset,
+rotation/cancellation and updates during asynchronous WebGL setup. Ruff F checks
+and diff whitespace checks passed. An isolated browser session exercised real
+mixed-size hole clicks, switching modes while a save was pending, explicit list
+removal and preserved feature highlights; the surrounding app-run counter remained
+at one. The final fixed-aspect viewer preserved screen positions on the first pick.
+A final outline-only selected face in hole mode avoids overlapping face shading;
+the nine workspace tests and five new lifecycle tests passed again after that
+display refinement.
+No AI call was required for this fix. Large STEP files still require their initial
+mesh load; this change removes reconstruction between mounting face/hole modes,
+not all processing costs or all other viewer transitions.
+
+## UI simplification (2026-11-01)
+
+The user requested fewer settings visible at once. UI Man grouped controls into
+Mounting, Fabrication and Advanced tabs, collapsed optional import/assistant/history
+sections, moved overlays and model metrics into display/detail sections, and kept
+fixture thickness plus assembly/fixture-only views prominent. The first two mounting
+proposals remain visible; additional concepts are expandable. Existing projects use
+the conversation without an always-visible starting brief.
+
+All tab contents are still rendered within the existing workspace fragment. Hidden
+controls retain their values and callbacks; there is no lazy-render/default-reset
+path. No native geometry, planning, schema or storage contract changed. Picking
+remains immediate, thickness changes still require an explicit rebuild, and exports
+remain associated with the displayed revision. Main-process restart is needed when
+Streamlit has cached older imported modules; saved projects remain on disk.
+
+Verification: **26 affected UI tests passed in 121.83 s** across workspace,
+thickness/preview, dimensions, hardware controls and app workflows. After the final
+proposal grouping, the overlapping app UI set passed **7 tests in 51.19 s**.
+Ruff F checks and diff whitespace checks passed. Isolated synthetic/offline browser
+checks confirmed that group navigation caused no app rerun, native generation or
+AI calls; removing a hole then making the first fabrication edit preserved three
+selected holes. Fixture-only view remained available, and changing thickness from
+6 to 8 mm saved the requirement while retaining the 6 mm CAD until explicit rebuild.
+
+## Thickness control and generated preview (2026-10-31)
+
+The missing generated preview came from leaving the source-only selection mode
+active after a build. The workspace now watches active revision changes and
+consumes explicit assembly-view requests before creating its widgets. Successful
+builds, restored revisions and failed rebuilds with retained CAD leave the picker
+and enable fixture visibility. The explicit View generated fixture action also
+hides the uploaded part; View assembly restores both. Ordinary selection-mode
+changes remain within the workspace fragment.
+
+Fixture thickness is visible below the viewer. Its callback uses the same
+lock-aware requirement patching and atomic-save rollback as direct selections;
+it records user provenance so automatic AI corrections cannot override it.
+Changing the value does not invoke AI or construction. An explicit rebuild uses
+the existing revision/check/review pipeline and reports when the visible CAD is
+still at the old thickness. The uploaded source geometry is unchanged.
+
+Focused verification: **17 tests passed in 74.50 s**, including immediate save,
+invalid-input and save-failure rollback, locked values, generation from each of
+the three pickers, fixture-only/assembly views, real SMLib thickness revision,
+STEP re-import with the expected 8 mm stock thickness, revision restore and
+last-valid preview after an injected construction failure. These tests use
+synthetic parts and offline review; no live AI result is asserted for this update.
+The affected UI, feedback, rendered mesh and selected-access regression set also
+passed **23 tests in 67.25 s**. Ruff F checks and formatting checks passed.
+An isolated browser session with the synthetic motor also verified generation
+from face/hole selection, fixture-only viewing, saving 8 mm while keeping the
+6 mm preview, then rebuilding real CAD with the same four measured holes and
+no failed checks. Switching selection/assembly/fixture views caused no additional
+builds, exports or AI calls.
+
+## Features 1–6 implementation and verification (2026-10-30)
+
+Subsequent selection UX update: direct face/hole choices save immediately; no second
+confirmation checkbox or Apply action is needed. Explicit selections persist across
+category switches. A new face starts without screw holes, and clearing every hole
+sets retention to unselected rather than invoking the legacy empty-pattern fallback.
+Old saved screw projects remain loadable. Locks and failed saves preserve accepted
+requirements; changing the actual face clears old-frame regions, including when
+that change comes from selecting holes. Previous CAD revisions remain immutable.
+
+The viewer/mode controls and explicit design-choice settings now live in a
+workspace fragment. Category switches leave the surrounding app alone; proposals
+and conversation refresh on the next relevant full-app interaction. Selection
+does not invoke AI or native construction. Selected face outlines and hole markers
+remain visible in the other picker. Examples remain available in a collapsed
+Try an example section. A mixed-hole regression also exposed and fixed a Python
+closure that could format one hole group's automatic size using another group's
+suggestion.
+
+Integration checking reproduced a first-edit loss in manufacturing controls outside
+the fragment: their requirement-dependent widget keys were stale after local picks.
+Moving the remaining design settings into the same fragment fixes that transition.
+Generate buttons now recheck current requirements on click and stop before CAD/AI
+when information is missing, so an earlier disabled button cannot trap a now-ready
+selection. The app rereads requirements after rendering the workspace to account
+for picker events processed during that same run.
+
+Verification: full suite **184 passed in 239.98 s**, then the final affected
+integration set **48 passed in 117.51 s** after the display/settings/Generate
+fixes. These are overlapping runs. The final face-outline/access display set also
+passed 11 cases. Real-browser instrumentation showed one outer app, proposal and
+STEP-intake run throughout face/hole/access switching, consecutive clicks, repeated
+clicks, removal and clearing. Only explicit edits saved requirements; no AI or
+native generation ran during those selection operations.
+
+Final browser integration also verified that incomplete Generate requests stop
+before CAD/AI, the first manufacturing edit persists, and a subsequent explicit
+Generate produces a real SMLib revision using the one selected synthetic-sample
+hole and saved printing method with no failed checks. Switching face/hole/assembly
+views afterwards left all app/proposal/build/export counters unchanged. Two focused
+freshness/manufacturing cases passed again after this final integration adjustment.
+
+Planner follow-up (same date): `access_options` offered `hole:`, `face:` and
+`rear:` references, while response validation only accepted unprefixed source and
+rear-profile IDs. A valid highlighted access choice could therefore reject the
+whole decision. The reported original rejected reply was not retained, so its exact
+offending ID cannot be recovered. The mismatch was reproduced locally against the
+saved analysis without changing the project or contacting a model.
+
+The context and validator now share a measured-reference catalog. Both legacy IDs
+and offered namespaces are accepted; invented highlights and invalid access choices
+still fail before changing requirements. Display highlights normalize to source IDs.
+Lock errors are no longer swallowed during reference validation. Local project JSON
+retains the latest validated action, timestamp and rejection reason, and planning
+failures enter the conversation for follow-up. Raw provider output is not logged.
+Older snapshots without this optional diagnostic field still load.
+
+The same report requested no attachment to surrounding equipment. Requirements and
+the planner now represent this explicitly as `surroundings=none`, while retaining
+part mounting screws. Proposals and checks no longer describe it as a clamped
+fixture. The check remains inconclusive about operating stability. Planner context
+also lists the available pinned hardware sizes so unsupported countersinks can be
+clarified rather than given invented head dimensions.
+
+New local regression coverage includes all offered reference namespaces, invalid
+IDs, locks, atomic failure/retry, diagnostic persistence, legacy loading, Start
+design reruns, and a synthetic two-bolt free-floating fixture. The latter generates
+real SMLib countersinks plus a measured shaft passage and independently verifies
+that the opening is unobstructed in exported STEP. A live replay of the private
+project was blocked by automatic approval review; no successful live replay is
+claimed for this fix.
+
+Verification before the subsequent picker UI changes: the full local suite passed
+**178 tests in 222.52 s**, followed by **1 additional Start design UI test in 9.82 s**.
+Ruff F checks passed. The app restarted and its localhost health endpoint returned
+HTTP 200. The private project's file hash was unchanged by the read-only check.
+
+The expansion branch is `feature/fixture-tools-1-6`, based on `3a66d5c` (the
+rollback baseline). An independent remote `main` commit, `d50ad96`, updates only
+the README demo screenshot; this feature work does not overwrite it or merge into
+`main`. The user authorized the six additions and continued
+implementation without intermediate permission requests. No new cumulative hours
+were supplied; the 3h30m checkpoint below remains a historical baseline.
+
+Compiler version 9 adds measured access references, an immutable second-base
+analysis/pattern, shaped retention, hardware seats and manufacturing rules.
+Analysis version 3 exposes complete outside cylindrical faces with measured
+radius/length and an attachment frame. The existing planar path and historical
+compiler versions 1–8 remain available. Bounded operations still enforce positive
+finite dimensions, provenance, references, dependency order, 256 operations,
+64 bodies and at most 24 repeated source parts.
+
+Selected access geometry is rederived from measured references on every revision.
+Through extents cover all final stock, including axis-oriented cylindrical stock.
+Side-face keep-clear volumes are finite conservative boxes. Cylindrical surfaces
+are retention candidates, not falsely treated as planar through-opening picks.
+Independent native intersection probes reject blind/obstructed passages and existing
+contact/material checks reject destructive openings. Exact source collision remains
+unevaluated; these are mesh-derived or analytic envelopes with explicit tolerances.
+
+Existing bases retain original analysis and selected face/holes in requirements and
+revisions. A rigid in-plane rotation/translation maps those holes to fixture base
+lands. Single stock/foot extents can grow when dimensions are not constrained, and
+now include both bore edge distance and hardware head/nut sidewall allowance.
+The combined demo caught the earlier bore-only allowance: a valid countersink
+needed more land than its through hole. The corrected rule preserves the measured
+pattern and rejects explicit width/depth or upright conflicts. Base meshes appear
+in assembly/review views; fixture-only STEP excludes both source and base.
+Absent an explicit nominal fastener, base clearance defaults now use the selected
+base openings instead of the part's inferred screw size. The base still uses one
+common screw size; individual mixed base hardware is a remaining limitation.
+
+Contour nests use a conservative convex whole-part footprint with fit allowance,
+not arbitrary concave reconstruction. Saddles/collars/split clamps use a complete
+measured outside cylinder and a finite axial support length, rejecting other source
+geometry that protrudes into that region. Split clamps add separate caps and two
+joining bores per part. Native cavity and independent expected-material coverage
+checks catch missing cavities, walls and caps. Adaptive SMLib volume integration
+(`relative_accuracy=1e-8`) avoids false collar-coverage failures from quadrature.
+These checks do not establish grip, friction, preload, seating or load capacity.
+
+On-model dimension labels expose allowed design parameters, not pixel-derived
+measurements. The browser distinguishes a deliberate click from orbiting; stale
+contexts and unknown fields are rejected. Edits and locks use the existing patch
+and generate/check/review workflow. A Windows cp1252 failure uncovered by the UI
+test prevented saving a Unicode revision title; project/revision JSON now explicitly
+uses UTF-8. Failed builds retain the last valid CAD.
+UI Man's final real-browser test caught a second interaction bug: a prior dropdown
+choice could override a model click, and Plotly 3D can report click before pointer
+release. The editor now applies validated clicks to one context-keyed widget state
+and captures hover/click candidates until a verified no-drag pointer release.
+Regression tests cover choosing margin then clicking thickness, both click event
+orders, hover selection and drag rejection. Labels were shortened; hover retains
+the full parameter names.
+The component registration cache now takes the JavaScript source as an explicit
+key, so a changed browser handler is actually loaded without a server-wide restart.
+Final live 8501 check passed: after selecting margin, one click on the amber Stock
+marker selected stock thickness and its 10 mm value. The saved project hash did not
+change. Loading the cylindrical specimen and saved hardware controls also passed.
+Final conversation integration also accepts a new measured through-access selection
+as satisfying `through_access_required`; users do not need to select the same opening
+again in the older rear-passage list. Keep-clear-only selections do not satisfy it.
+
+Hardware profiles are pinned manufacturer data, verified on 2026-10-30:
+
+- Counterbores: [Bossard BN 3 / ISO 4762](https://www.tme.eu/Document/03d4301a0ba62459eae87221acaaf1ae/BN3.pdf), with the [BN 7 profile](https://www.tme.eu/Document/67ebf699b890027d3f20c4b656db275b/BN7-FR.pdf) and [Würth M6 data](https://eshop.wuerth.si/00976-55) cross-checking cap-head sizes. Built-in sizes M3/M4/M5/M6.
+- Countersinks: [Bossard BN 616 / DIN 7991](https://www.tme.eu/Document/8d07529a1413d6e53f44b64cc7bb02f5/BN616-IT.pdf), a legacy 90° profile, M3/M4/M5/M6/M8. The manufacturer's warning against generic ISO 10642 substitution is preserved.
+- Hex nuts: [Bossard BN 629 / DIN 934](https://media.distrelec.com/Web/Downloads/_t/ds/1241613_eng_tds.pdf), legacy M3/M4/M5/M6/M8 dimensions. These are not mislabeled as modern ISO 4032 dimensions.
+
+Fit allowances are project assumptions, not standard values: head diameter +0.5 mm,
+nut flats +0.3 mm and cylindrical/nut depth +0.2 mm. Explicit dimensions override
+them. Unknown profiles require dimensions. Part seats enter from the back; base
+heads from above and base nut pockets from below. Native probes verify the seat
+void, 1 mm sidewall and 1 mm floor independently. Nut pockets resist rotation;
+axial capture requires the mating base or an external cover. The tool does not
+design an unrequested cover or validate thread engagement. Optional driver access
+uses a user diameter and finite reach, clears fixture obstructions, and is checked
+without claiming exact source/tool collision.
+
+The SMLib cone primitive was proved with exported analytic cone origin/axis/reference
+direction/radius/semi-angle data. STEP adapter version 2 transfers that exact conical
+surface and existing rational edges/topology into OpenCASCADE. Native/STEP solid and
+face counts, bounds, adaptive volume and area must match before publication. This
+extends serialization only: no fixture construction moved into CadQuery/OCP.
+
+Manufacturing geometry is enabled for new projects and when an old project's method
+is saved/changed; absent fields in old records default to disabled. Printing uses
+45° exterior base-footprint chamfers. Machining uses SMLib box/cylinder unions for
+rounded exterior corners plus circular run-out at rectangular access-cut corners.
+The default corner size is min(2 mm, thickness/3), visible/editable as a concept
+parameter. Existing contact, retention and hardware checks remain active, plus
+independent native corner/cutter and screw-web checks. Required adjacent uprights
+and ribs may cover a base corner. No material/printer/slicer settings were added.
+No universal machining or printing feasibility claim is made.
+
+UI Man worked in the same checkout under an agreed presentation boundary: theme,
+workflow/empty-state guidance, read-only summaries, layout and hardware controls.
+Widget labels/keys/handlers and backend priority were preserved. Desktop and 390px
+narrow layouts were checked in a separate preview process; only the main coding
+chat restarted the production 8501 app after schema updates. No merge into main.
+
+Verification performed:
+
+- Final complete suite after through-selection/base-default integration:
+  **165 passed in 220.87 s**. Final dimension/UI/pointer regression after the live
+  click fix: **4 passed in 16.68 s**. These runs overlap; no count is summed.
+- `python -m pytest tests -q --disable-warnings`: **161 passed in 213.96 s**.
+- Final targeted native checks after head-web/floor refinements, including new
+  transformed/repeated-cylinder and cylinder-bound tests: **34 passed in 71.53 s**.
+  These overlap the full run; they are not 195 distinct tests.
+- UI Man's focused UI/pointer run: 8 passed; UI/dimensions/access/base/pointer:
+  18 passed; hardware controls plus existing UI: 9 passed. These are overlapping.
+- `scripts/demo_extensions.py`: connector L-bracket, split clamp and contour nest
+  generated with zero failed native checks, exported analytic STEP and deterministically
+  rebuilt from ZIP. Connector thickness revision preserved the measured base and
+  full-depth opening. Outputs are under ignored `artifacts/features-demo`.
+- `scripts/prove_extensions_feedback.py`: real existing ChatGPT subscription, no
+  API-key fallback. Model revised connector part counterbores to countersinks;
+  generation and image-backed review completed with outcome **accepted**. The saved
+  measured base/access selections were asserted unchanged. Live records/ZIP are in
+  the same ignored artifact directory; no new live-key API test is claimed.
+
+Remaining: exact source/base collision, arbitrary/concave conformal nests, articulated
+clamps, mixed workpieces, general fabrication analysis, physical performance and the
+continuous video recording. No dependency change or additional runtime package was
+needed for these six features. New source specimens are original and redistributable.
+
 ## Checkpoint and total time — October 30, 2026
 
 **Cumulative project time reported by the user: 3 hours 30 minutes (3.5 hours).**
-This is the current total through the working, publicly published baseline. It
+This is the supplied total at the working, publicly published baseline. It
 supersedes earlier statements that a total had not been supplied. Historical timed
 intervals below describe subsets of the work; do not add them to this cumulative
 total. A breakdown between human effort, agent execution and waiting was not supplied.

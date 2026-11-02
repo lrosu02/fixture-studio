@@ -11,7 +11,9 @@ from .face_picking import (
     face_picker_figure,
     face_label,
 )
-from .planning import missing_questions
+from .selection_ui import selection_signature, save_selection, rerun_selection
+from .picking import HolePicks
+from .viewer import hole_picker_figure
 
 
 @st.cache_resource
@@ -29,13 +31,65 @@ def picker_component():
 
 
 @st.cache_data(max_entries=8, show_spinner=False)
-def picker_geometry(source_hash, _analysis):
+def picker_geometry(source_hash, _analysis, hole_ids=()):
     figure = face_picker_figure(_analysis)
+    if hole_ids:
+        selected_face = next(
+            i.id for i in _analysis.interfaces if set(hole_ids) <= set(i.hole_ids)
+        )
+        holes = hole_picker_figure(
+            _analysis, HolePicks(interface_id=selected_face, hole_ids=hole_ids)
+        )
+        for trace in holes.data:
+            if trace.meta and trace.meta.get("hole_id") in hole_ids:
+                figure.add_trace(trace)
     return figure.to_json()
+
+
+def begin_face_selection(project):
+    r = project.requirements
+    st.session_state.face_picks = FacePicks(
+        interface_id=r.interface_id if r.mounting_confirmed else None
+    )
+    st.session_state.face_pick_signature = selection_signature(project)
+    st.session_state.pop("face_pick_error", None)
+
+
+def _commit_face(project, picks, holes=None):
+    r = project.requirements
+    if holes is None:
+        holes = r.mounting_hole_ids if picks.interface_id == r.interface_id else ()
+    updated = use_picked_face(project.analysis, r, picks, tuple(holes), True)
+    changed = save_selection(
+        project,
+        updated,
+        (picks.interface_id, *holes),
+        f"3D mounting selection: face {picks.interface_id}; explicit screw holes: {', '.join(holes) or 'none'}.",
+    )
+    st.session_state.face_picks = picks
+    st.session_state.face_pick_signature = selection_signature(project)
+    return changed
+
+
+def _choose_from_list(project, key, holes=False):
+    try:
+        picks = st.session_state.face_picks
+        if holes:
+            _commit_face(project, picks, st.session_state[key])
+        else:
+            _commit_face(project, FacePicks(interface_id=st.session_state[key]))
+        st.session_state.pop("face_pick_error", None)
+    except (ValueError, OSError) as error:
+        begin_face_selection(project)
+        st.session_state.face_pick_error = str(error)
 
 
 @st.fragment
 def face_picker_controls(project):
+    render_face_picker(project)
+
+
+def render_face_picker(project):
     a, r = project.analysis, project.requirements
     if a.version == 1:
         st.info(
@@ -46,27 +100,21 @@ def face_picker_controls(project):
             "No planar support faces were found. Curved-face-only mounting is not supported yet."
         )
         return
-    signature = (
-        project.id,
-        r.interface_id,
-        r.mounting_hole_ids,
-        r.mounting_confirmed,
-        r.part_attachment,
-    )
-    if st.session_state.get("face_pick_signature") != signature:
-        st.session_state.face_picks = FacePicks(interface_id=r.interface_id)
-        st.session_state.face_pick_signature = signature
-        st.session_state.pop("face_pick_error", None)
+    if st.session_state.get("face_pick_signature") != selection_signature(project):
+        begin_face_selection(project)
     picks = st.session_state.face_picks
     st.caption(
-        "Click the flat surface that should contact the fixture. Drag to rotate; clicking again keeps it selected. Orange shows the selected face and the side where the fixture will sit."
+        "Click the flat surface that should contact the fixture. Drag to rotate; clicking again keeps it selected. Choices save immediately. Orange shows the selected face and fixture side; selected holes remain marked."
     )
     result = picker_component()(
         data=dict(
-            figure=picker_geometry(a.source_hash + ":" + str(a.version), a),
+            figure=picker_geometry(
+                a.source_hash + ":" + str(a.version), a, r.mounting_hole_ids
+            ),
             context=picks.context,
             view_key=project.id,
             interface_id=picks.interface_id,
+            selected_hint="Mounting face saved. Drag to rotate or choose another feature.",
         ),
         key="face-picker-" + project.id,
         on_picked_change=lambda: None,
@@ -74,89 +122,54 @@ def face_picker_controls(project):
     )
     if result.picked:
         try:
-            picks = pick_face(a, picks, result.picked)
-            st.session_state.face_picks = picks
+            chosen = pick_face(a, picks, result.picked)
+            changed = _commit_face(project, chosen)
             st.session_state.pop("face_pick_error", None)
-        except ValueError as error:
+            if changed:
+                rerun_selection()
+            picks = chosen
+        except (ValueError, OSError) as error:
+            if result.picked.get("context") == picks.context:
+                begin_face_selection(project)
+                st.session_state.face_pick_error = str(error)
+                rerun_selection()
             st.session_state.face_pick_error = str(error)
     if st.session_state.get("face_pick_error"):
         st.warning(st.session_state.face_pick_error)
-    options = [None, *(i.id for i in a.interfaces)]
+    options = ([None] if picks.interface_id is None else []) + [
+        i.id for i in a.interfaces
+    ]
     labels = {i.id: face_label(i) for i in a.interfaces}
-    selected = st.selectbox(
+    face_key = "face-list-" + picks.context + str(picks.interface_id)
+    st.selectbox(
         "Mounting face",
         options,
         index=options.index(picks.interface_id),
         format_func=lambda v: labels.get(v, "Click a face or choose here"),
-        key="face-list-" + picks.context + str(picks.interface_id),
+        key=face_key,
+        on_change=_choose_from_list,
+        args=(project, face_key),
     )
-    if selected != picks.interface_id:
-        st.session_state.face_picks = FacePicks(interface_id=selected)
-        st.rerun()
     if picks.interface_id:
         interface = next(i for i in a.interfaces if i.id == picks.interface_id)
-        same = r.interface_id == interface.id and r.mounting_confirmed
-        holes = st.multiselect(
+        hole_key = (
+            "face-holes-" + picks.context + interface.id + str(r.mounting_hole_ids)
+        )
+        st.multiselect(
             "Mounting holes on this face",
             list(interface.hole_ids),
-            default=list(
-                (r.mounting_hole_ids or interface.hole_ids)
-                if r.part_attachment == "screws"
-                else ()
-            )
-            if same
-            else list(interface.hole_ids),
+            default=list(r.mounting_hole_ids) if r.interface_id == interface.id else [],
             format_func=lambda h: (
                 f"{h} · Ø{interface.diameters[interface.hole_ids.index(h)]:.3f} mm"
             ),
-            key="face-holes-" + picks.context + interface.id,
+            key=hole_key,
+            on_change=_choose_from_list,
+            args=(project, hole_key, True),
         )
-        valid = all(interface.contact_valid[interface.hole_ids.index(h)] for h in holes)
-        if not holes:
+        if not r.mounting_hole_ids:
             st.info(
-                "This face can support a fixture without screw holes. Choose how the part will be retained after applying the face."
+                "Face selected without screw holes. Click individual holes in Select mounting holes, or choose them in the list."
             )
-        if not valid:
-            st.warning(
-                "Some selected holes lack enough measured contact area on this side. Review the opposite flange face or remove those holes."
-            )
-        if r.interface_id != interface.id and (r.rear_passages or r.envelopes):
-            st.caption(
-                "Changing faces clears old face-relative passage choices and access boxes. Their positions must be reviewed in the new frame."
-            )
-        confirmed = st.checkbox(
-            "This is the mounting surface and the selected holes are for fasteners"
-            if holes
-            else "This is the surface that should contact the fixture",
-            value=same,
-            key="face-confirm-" + picks.context + interface.id,
-        )
-        if st.button("Use this mounting face", disabled=not confirmed):
-            try:
-                updated = use_picked_face(a, r, picks, holes, confirmed)
-                project.requirements = updated
-                project.highlights = (interface.id,)
-                project.error = None
-                project.stage = (
-                    "clarifying" if missing_questions(a, updated) else "proposing"
-                )
-                project.messages.append(
-                    dict(
-                        role="user",
-                        content=f"Selected {face_label(interface)} ({interface.id}) as the mounting surface in the 3D viewer. "
-                        + (
-                            f"Confirmed holes {', '.join(holes)} as fasteners. "
-                            if holes
-                            else "Use this surface without part screw holes; discuss retention. "
-                        )
-                        + "The fixture belongs on the indicated outside of this face.",
-                    )
-                )
-                project.save()
-                st.session_state.close_face_picker = True
-                st.rerun()
-            except ValueError as error:
-                st.error(str(error))
-    if st.button("Cancel face selection"):
-        st.session_state.close_face_picker = True
-        st.rerun()
+    st.caption(
+        "Selections save immediately. Choosing another face clears incompatible holes. Generate a revision to change CAD."
+    )

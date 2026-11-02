@@ -1,21 +1,65 @@
-# Demonstration guide (about 2 minutes 35 seconds)
+# Demonstration and reproduction
 
-The supplied example is synthetic. Use the actual motor STEP for the final
-manufacturer-part demonstration. Subscription mode makes real cloud model calls;
-offline commands and `scripts/demo.py` do not. Never present the latter as live AI.
+The completed user-recorded demonstration is available as
+**[FixtureStudio-demo.mp4](../FixtureStudio-demo.mp4)**. GitHub offers a download
+if playback is unavailable. The current application and recording are on `main`.
 
-| Time | Action |
+## Run a deterministic example
+
+After following the [quick start](../README.md#quick-start), run:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\demo_sheet_metal.py --bent
+```
+
+This uses a synthetic sample to generate a formed L-bracket, change its sheet
+thickness and joints, and export verified STEP for both revisions. The script
+prints its saved project, STEP and ZIP paths under `artifacts`. Resume the printed
+project from the app sidebar to inspect the revisions. Omit `--bent` for separate
+tabbed/welded panels.
+
+Other examples:
+
+| Command | Coverage |
 | --- | --- |
-| 0:00–0:20 | Load synthetic_motor.step or the supplied actual motor. Orbit the source and show the measured interface. |
-| 0:20–0:45 | Describe six parts for continuous running. Show the real planner asking for stationary meaning, motion/loads and bench attachment. |
-| 0:45–1:10 | Answer with known facts or explicit unknowns. Confirm hole selection and clearance, review assumptions and compare the two supported proposals. |
-| 1:10–1:45 | Generate the plate. Show aligned sources, 24 holes for this sample, individual checks and unevaluated operating performance. |
-| 1:45–2:20 | Request open supports for rear tool access. Generate the revision, compare volume/body composition and preserve measured holes. |
-| 2:20–2:35 | Restore a previous revision if desired; export the ZIP. Explain real SMLib BRep and reproducible records. |
+| `python scripts/demo.py` | Six synthetic parts, plate-to-rails revision, native export and HTML viewer. Updates the bundled files under `demo`. |
+| `python scripts/demo_extensions.py` | Connector/base mounting, split clamp and convex-envelope nest with STEP exports. |
+| `python scripts/reproduce.py demo/example-export.zip artifacts/reproduced` | Rebuild an existing export from its saved, bounded operation plan. |
 
-Trim actual waiting transparently if editing a recording. The live subscription
-test record is `live-subscription-record.json`; its three actions came from actual
-model calls. `live-subscription-export.zip` is the resulting native CAD bundle.
-`assembly.html` is a standalone interactive viewer from the deterministic demo.
+Use `.\.venv\Scripts\python.exe` for these commands when the virtual environment
+is not activated. These examples make **no live AI calls**. Their selected sizes
+and quantities are scenario inputs, not hardcoded application decisions.
 
-No continuous screen recording has been captured in this implementation run.
+## Exercise the live conversation
+
+Choose an authenticated assistant in the sidebar, upload a STEP or load a bundled
+example, and select a mounting face and any part screw holes. Enter the task and
+operating context in **Fixture goal**, then select **Start design**. Answer the
+grouped questions, choose a proposal and generate it. Request a dimensional or
+layout revision, inspect the result, and prepare/download its STEP.
+
+The [README workflow](../README.md#design-workflow) describes the current controls.
+For a scripted live subscription check:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\prove_subscription.py --full
+```
+
+This requires Codex CLI ChatGPT sign-in, makes real cloud calls and consumes
+subscription allowance. Offline mode does not substitute for this integration.
+
+## Recorded evidence
+
+- [Live planning and revision record](live-subscription-record.json) and
+  [native export](live-subscription-export.zip).
+- [Live CAD feedback record](live-feedback-record.json) and
+  [reviewed export](live-feedback-export.zip).
+- [Live L-bracket record](live-l_bracket-record.json) and
+  [native export](live-l_bracket-export.zip).
+- [Interactive assembly](assembly.html) from the deterministic six-part example;
+  download and open locally to interact with it.
+
+These records and screenshots capture earlier verification runs. They are evidence
+of those runs, rather than a guarantee that a new model call returns the same prose.
+Synthetic samples and their sources are documented in
+[PROVENANCE.md](../samples/PROVENANCE.md).
