@@ -65,7 +65,7 @@ def welcome_panel():
         "<p>Use <b>STEP part</b> in the sidebar. Exploring first? Open <b>Try an example</b>, "
         "choose a specimen, and select <b>Load example</b>.</p></article>"
         "<article><span>02 / DEFINE THE SETUP</span><h3>Describe the job</h3>"
-        "<p>Start with <b>Fixture goal</b> and motion, cable and access notes in "
+        "<p>Start with <b>Fixture goal</b> and motion, access and load notes in "
         "<b>Design conversation</b>. Choose mounting features in <b>Model preview</b>.</p></article>"
         "<article><span>03 / MAKE IT YOURS</span><h3>Review and refine</h3>"
         "<p>Generate a proposal, inspect the model and checks, and request changes. "
@@ -89,7 +89,7 @@ def project_overview(project, questions=()):
         hint = (
             "Answer the current question in Design conversation. Use Model preview for mounting choices."
             if project.requirements.purpose
-            else "Start with Fixture goal and motion, cable and access notes in Design conversation. Use Model preview for mounting choices."
+            else "Start with Fixture goal and motion, access and load notes in Design conversation. Use Model preview for mounting choices."
         )
     else:
         badge, kind = "Choose a proposal", "saved"

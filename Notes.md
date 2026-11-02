@@ -12,6 +12,9 @@ item. Explicit through-access requirements and CAD checks are unchanged.
 Verification: 29 focused guided-brief, conversation UI, application UI and workflow
 tests passed. They cover proposing without cable answers, preservation of saved
 routing facts, edits/resume, and existing generation/revision behavior.
+Ten UI clarity tests also passed after updating the welcome guidance. Live browser
+verification confirmed the removed field and retained post-build opening tool;
+the user's saved project remained unchanged.
 
 ## Click-placed fixture openings (2026-11-01)
 
