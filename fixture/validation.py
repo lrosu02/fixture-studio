@@ -464,4 +464,8 @@ def validate(a, r, plan, bodies, cuts):
         from .fillets import validate_fillets
 
         validate_fillets(r, plan, bodies, add)
+    if plan.version >= 12:
+        from .sheet_metal import validate_sheet
+
+        validate_sheet(a, r, plan, bodies, add)
     return tuple(checks)

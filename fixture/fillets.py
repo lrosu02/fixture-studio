@@ -29,6 +29,10 @@ def root_segments(plan):
 
 
 def add_rib_fillets(r, plan):
+    from .manufacturing import is_sheet_metal
+
+    if is_sheet_metal(r.fabrication):
+        return plan
     if plan.composition != "l_bracket" or not r.reinforce or not r.auto_rib_fillets:
         return plan
     segments = root_segments(plan)

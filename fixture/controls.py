@@ -1,7 +1,8 @@
 import json
 import streamlit as st
 from .contracts import Envelope, HoleFastenerChoice
-from .manufacturing import FDM, CUSTOM, save_manufacturing
+from .manufacturing import FDM, CUSTOM, SHEET_METAL, is_sheet_metal, save_manufacturing
+from .sheet_controls import sheet_controls
 from .planning import patch_requirements, missing_questions
 from .structures import STRUCTURES
 from .clearance import passage_options
@@ -468,6 +469,11 @@ def requirement_controls(p):
                     "through_access_required",
                     "mounting_hole_ids",
                     "fabrication",
+                    "sheet_joint_style",
+                    "sheet_slot_clearance",
+                    "sheet_tab_width",
+                    "sheet_tab_count",
+                    "sheet_root_gap",
                 ],
                 default=[k for k in r.locks if k not in ("material", "print_settings")],
             )
@@ -529,14 +535,23 @@ def requirement_controls(p):
 def manufacturing_controls(p):
     r = p.requirements
     key = f"manufacturing-{p.id}-{hash(r.model_dump_json())}"
+    locked = "fabrication" in r.locks
     with st.expander("How the fixture will be made", expanded=r.fabrication is None):
         st.caption(f"Saved method: {r.fabrication or 'not specified'}")
-        processes = [None, "unknown", FDM, "Machined stock", CUSTOM]
-        current = FDM if r.fabrication == "3D printing (FDM/FFF)" else r.fabrication
+        processes = [None, "unknown", FDM, "Machined stock", SHEET_METAL, CUSTOM]
+        current = (
+            FDM
+            if r.fabrication == "3D printing (FDM/FFF)"
+            else SHEET_METAL
+            if is_sheet_metal(r.fabrication)
+            else r.fabrication
+        )
         process = st.selectbox(
             "Manufacturing method",
             processes,
-            index=processes.index(current) if current in processes else 4,
+            index=processes.index(current)
+            if current in processes
+            else processes.index(CUSTOM),
             format_func=lambda v: (
                 "Choose a method"
                 if v is None
@@ -545,6 +560,7 @@ def manufacturing_controls(p):
                 else v
             ),
             key=key + "-process",
+            disabled=locked,
         )
         if process == CUSTOM:
             process = (
@@ -552,6 +568,7 @@ def manufacturing_controls(p):
                     "Custom manufacturing method",
                     current if current not in processes else "",
                     key=key + "-custom-process",
+                    disabled=locked,
                 ).strip()
                 or None
             )
@@ -566,16 +583,25 @@ def manufacturing_controls(p):
                 "Printing adds chamfers to exposed base corners. Machining rounds corners "
                 "and adds cutter relief. Adjust these dimensions in Advanced."
             )
-        if st.button("Save manufacturing", key=key + "-save"):
+        if locked:
+            st.caption(
+                "The manufacturing method is locked. Unlock fabrication before changing it."
+            )
+        if st.button("Save manufacturing", key=key + "-save", disabled=locked):
             try:
                 save_manufacturing(p, process)
-                st.rerun()
-            except ValueError as error:
+                from .selection_ui import rerun_selection
+
+                rerun_selection()
+            except (ValueError, OSError) as error:
                 st.error(str(error))
+    sheet_controls(p)
 
 
 def fillet_controls(p):
     r = p.requirements
+    if is_sheet_metal(r.fabrication):
+        return
     with st.expander("Rib-to-base fillets", expanded=False):
         st.caption(
             "Round the inward joints on ribbed L-brackets. Applies when you generate or rebuild."

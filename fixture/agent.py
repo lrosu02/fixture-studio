@@ -68,6 +68,11 @@ class Changes(Record):
     fabrication: str | None = None
     manufacturing_features: bool | None = None
     process_radius: float | None = None
+    sheet_joint_style: Literal["tab_slot_weld", "weld_only"] | None = None
+    sheet_slot_clearance: float | None = None
+    sheet_tab_width: float | None = None
+    sheet_tab_count: int | None = None
+    sheet_root_gap: float | None = None
     motion_loads: str | None = None
     access: str | None = None
     appearance: str | None = None
@@ -234,7 +239,16 @@ null nominal means automatic from measurement. Preserve explicit clearance overr
 Numbered inch sizes #0–#6, #8, #10, #12 use the pinned supplier inch-series table, not ISO 273.
 Never mark assumptions accepted or mounting confirmed unless the user explicitly did so.
 Never change a locked value. Report a conflict instead. Use null for unchanged fields.
-Do not propose unsupported fabrication as verified; sheet metal unfolding and casting unsupported.
+Sheet metal — tabs & welding creates separate flat cut panels for screw-mounted plates,
+rails, L-brackets and bridges. thickness is sheet thickness (0.5–12 mm).
+sheet_joint_style is tab_slot_weld (default) or weld_only. sheet_tab_count is 1–8 per
+tabbed joint; sheet_tab_width is optional mm (automatic if unset). sheet_slot_clearance
+is PER SIDE in mm, default 0.15, bounded 0.05–1; sheet_root_gap is 0–1 mm, default 0.
+These are concept allowances, not a universal standard. Full-depth panel cutouts replace
+rear blind relief. Plain screw through holes only; recessed seats, driver pockets and
+hole-free sheet retention are unsupported. Existing rib fillet settings are inactive for sheet.
+Weld seams are recorded, but weld beads, weld sizing, strength, bends/unfolding and casting
+are unsupported. Do not claim welded capacity or ask the user to approve routine default fits.
 Manufacturing captures ONLY the method, such as '3D printing' or 'Machined stock'.
 Do not request printing material, machine, filament grade or slicer settings.
 Use the method when comparing supported structures: connected plates, L-brackets and bridges

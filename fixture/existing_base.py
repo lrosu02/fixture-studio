@@ -9,7 +9,7 @@ def base_footprints(plan):
     return [
         o
         for o in plan.operations
-        if (o.kind == "support" and o.id.startswith("base-foot"))
+        if (o.kind in ("support", "stock") and o.id.startswith("base-foot"))
         or (
             o.kind == "stock"
             and o.id.startswith("stock-")

@@ -4,6 +4,32 @@ Build a conversational CAD tool that accepts an existing STEP part, learns what 
 
 This is a handoff specification for the implementation agent. The six brushless motors are a demonstration scenario, not a fixed product configuration. The application must derive its mounting interface, quantity, layout, and fixture construction from the uploaded geometry and conversation. No motor dimensions, mounting patterns, or six-position layouts belong in the general application logic.
 
+## Sheet-metal extension checkpoint — November 1, 2026
+
+The user authorized a tabs-and-welding manufacturing option. Work is isolated on
+`codex/sheet-metal-tabs-welding` from `ac9000e`. Compiler 12 builds separate flat
+sheet panels with integral locating tabs and through slots, or weld-only butt
+joints, for the four screw-mounted structure families. Part patterns remain measured;
+sheet geometry contains no motor-specific dimensions or mounting decisions.
+
+Delivered controls select the method, sheet thickness, joint style, per-side slot
+clearance, tab width/count and root gap. The AI's typed edit contract exposes the
+same choices. Native validation checks panel thickness, panel interference, tabs,
+slots and remaining slot/weld lands in addition to the existing hole/access checks.
+Separate assembled panel solids export to verified STEP, and the reproducible
+design ZIP contains a panel/joint schedule. A deterministic synthetic demo exercises
+generation, thickness/joint revision, STEP reopening and ZIP reproduction.
+
+Boundaries: flat 0.5–12 mm sheets and plain through fastener holes; no bend unfolding,
+kerf compensation, DXF nesting, weld beads/sizing, hole-free sheet retention or
+structural weld validation. The adjustable 0.15 mm-per-side default is a fabrication
+concept allowance, not a universal standard. Detailed decisions and verification
+are recorded in README.md and Notes.md. Earlier checkpoints below remain historical.
+
+Acceptance evidence: **234 full-suite tests passed**, plus one added native imported-base
+integration test and **15 JavaScript viewer tests**. The live browser exercised method
+selection, atomic joint saves, generation and verified four-panel STEP download.
+
 ## Implementation checkpoint — October 30, 2026
 
 **Cumulative project time: 3 hours 30 minutes (3.5 hours), supplied by the user.**

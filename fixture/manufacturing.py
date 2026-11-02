@@ -1,13 +1,18 @@
 """Manufacturing method and proposal guidance. Legacy print profiles remain readable."""
 
-from .planning import patch_requirements, missing_questions
-
 FDM = "3D printing"
 CUSTOM = "Other / custom"
+SHEET_METAL = "Sheet metal — tabs & welding"
+
+
+def is_sheet_metal(fabrication):
+    return "sheet metal" in (fabrication or "").lower().replace("-", " ")
 
 
 def manufacturing_guidance(fabrication, composition):
     method = (fabrication or "").lower()
+    if is_sheet_metal(fabrication):
+        return "Separate flat sheet panels with locating tabs/slots or butt joints for welding. Review cutting and stock tolerances, assembly order and welding distortion; weld size and strength are not calculated."
     if "print" in method:
         return (
             "Printing concept: each disconnected rail is a separate printed part and needs its own base attachment."
@@ -35,6 +40,9 @@ def manufacturing_record(r):
 
 
 def save_manufacturing(p, fabrication):
+    from .planning import patch_requirements
+    from .selection_ui import save_selection
+
     old = p.requirements
     changes = {"fabrication": fabrication} if old.fabrication != fabrication else {}
     if not old.manufacturing_features:
@@ -43,18 +51,9 @@ def save_manufacturing(p, fabrication):
     unknowns = [k for k in updated.unknowns if k != "fabrication"]
     if fabrication is None or fabrication.strip().lower() == "unknown":
         unknowns.append("fabrication")
-    p.requirements = updated.model_copy(update={"unknowns": tuple(unknowns)})
-    if changes:
-        p.messages.append(
-            {
-                "role": "user",
-                "content": "Manufacturing method: "
-                + (fabrication or "not specified")
-                + ".",
-            }
-        )
-    p.stage = (
-        "clarifying" if missing_questions(p.analysis, p.requirements) else "proposing"
+    return save_selection(
+        p,
+        updated.model_copy(update={"unknowns": tuple(unknowns)}),
+        p.highlights,
+        "Manufacturing method: " + (fabrication or "not specified") + ".",
     )
-    p.error = None
-    p.save()

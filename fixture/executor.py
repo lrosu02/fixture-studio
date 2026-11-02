@@ -187,9 +187,10 @@ def execute(plan, analysis, path):
                             )
                         )
             elif op.kind == "relief":
-                bodies[op.target] = sm.booleans.boolean_difference(
-                    bodies[op.target], primitive(op)
-                )
+                for target in op.targets or (op.target,):
+                    bodies[target] = sm.booleans.boolean_difference(
+                        bodies[target], primitive(op)
+                    )
             elif op.kind == "combine":
                 fn = (
                     sm.booleans.boolean_union

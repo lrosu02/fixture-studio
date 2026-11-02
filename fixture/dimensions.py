@@ -82,7 +82,9 @@ def fields(r):
         chosen.append("split_gap")
     if r.base_mount:
         chosen += ["base_offset_x", "base_offset_y", "base_rotation"]
-    if r.manufacturing_features:
+    from .manufacturing import is_sheet_metal
+
+    if r.manufacturing_features and not is_sheet_metal(r.fabrication):
         chosen.append("process_radius")
     return chosen
 

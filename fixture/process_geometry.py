@@ -5,6 +5,8 @@ from .existing_base import base_footprints
 
 
 def policy(r):
+    from .manufacturing import is_sheet_metal
+
     method = (r.fabrication or "").lower()
     kind = (
         "printing"
@@ -14,7 +16,9 @@ def policy(r):
         else "unconfigured"
     )
     return {
-        "enabled": r.manufacturing_features and kind != "unconfigured",
+        "enabled": r.manufacturing_features
+        and kind != "unconfigured"
+        and not is_sheet_metal(r.fabrication),
         "method": kind,
         "corner_mm": r.process_radius or min(2.0, r.thickness / 3),
         "basis": "Explicit corner size"

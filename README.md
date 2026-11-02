@@ -5,6 +5,51 @@ OpenCASCADE measures the part; NVIDIA SMLib constructs the fixture's actual CAD.
 Review mounting evidence, clarify requirements, choose a plate, rails, L-bracket or bridge,
 generate geometry, revise it, and export a reproducible design record.
 
+## Sheet metal: tabs and welding — November 1, 2026
+
+In **Fabrication → Manufacturing method**, choose **Sheet metal — tabs & welding**
+and save. **Fixture thickness (mm)** becomes the common sheet thickness. Open
+**Tabs & welded joints** to choose locating tabs/slots or weld-only butt joints,
+adjust tab width/count, slot clearance per side and weld root gap. Generate a
+revision to apply changes. Saving controls does not rebuild CAD or call the AI.
+
+The sheet route creates separate flat panels for screw-mounted plates, rails,
+L-brackets and bridges. A ribbed L-bracket has four panels: wall, base and two ribs.
+Tabs fit into matching through slots at the base; the rib-to-wall seams are butt
+joints. Bridges use tabs at the leg/platform and leg/foot joints. Tab width is
+derived unless specified, and an unspecified L-bracket base grows to accommodate
+the requested tabs. Selected part holes and base-hole counts remain unchanged.
+
+The default slot allowance is **0.15 mm per side (0.30 mm total)**, with a zero
+root gap and two tabs per tabbed joint. This is an editable concept allowance,
+informed by [fabrication guidance](https://sendcutsend.com/blog/mastering-tab-and-slot-design-for-efficient-metal-fabrication/),
+not a universal fit standard. Check actual sheet/cutting tolerances and coatings.
+Native checks cover panel thickness, inter-panel interference, retained tabs,
+clear slots, 1 mm slot edge lands and sampled weld lands. Rear clearances become
+through cuts because flat sheets cannot contain blind pockets.
+
+**Prepare STEP download** exports the generated panels as separate solids at their
+assembled positions, without the uploaded part. **Export CAD + design record**
+also includes `sheet-metal.json`: panel thicknesses, joint pairs, seam endpoints,
+tabs, slots, root gaps and welding notes. It contains STEP after preparation.
+No weld beads, weld sizing/strength, bent-sheet unfolding, DXF nesting or kerf
+compensation are generated. This first route accepts 0.5–12 mm sheet and plain
+through fastener holes; recessed seats, driver pockets and hole-free sheet
+retention need further construction rules. Solid rib fillets/corner finishing
+are inactive for sheet, with their saved settings retained for other methods.
+
+Reproduce the synthetic example, including a thickness/tab-count revision and
+verified STEP exports:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/demo_sheet_metal.py
+```
+
+The script prints the saved project, STEP and design ZIP paths under `artifacts`.
+Resume that project from the sidebar to inspect both revisions. No AI credential
+or live model call is needed for this deterministic demo; normal conversation
+supports the new sheet settings through the existing bounded planner.
+
 ## Selection reliability — November 1, 2026
 
 Mounting face, hole and opening selection now share one persistent 3D viewer. Switching
@@ -181,7 +226,7 @@ and [engineering record](Notes.md#checkpoint-and-total-time--october-30-2026).
   ambiguous faces. Confirmed picks become the measured mounting pattern.
 - Matching **Select mounting face** and **Select mounting holes** buttons. Click
   a measured planar surface to highlight it and show the fixture-side arrow,
-  review its detected holes, then apply. Rotating or repeating a click does not
+  picks save immediately. Rotating or repeating a click does not
   deselect it. A face list is also available.
 - Hole-free faces support measured rectangular locating trays, optionally with
   through slots for an external retaining strap. Retention is an explicit choice;

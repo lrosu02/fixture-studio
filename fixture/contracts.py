@@ -204,6 +204,11 @@ class Requirements(Record):
     fabrication: str | None = None
     manufacturing_features: bool = False  # Legacy records keep their original geometry.
     process_radius: Positive | None = None
+    sheet_joint_style: Literal["tab_slot_weld", "weld_only"] = "tab_slot_weld"
+    sheet_slot_clearance: Annotated[float, Field(ge=0.05, le=1)] = 0.15
+    sheet_tab_width: Positive | None = None
+    sheet_tab_count: Annotated[int, Field(ge=1, le=8)] = 2
+    sheet_root_gap: Annotated[float, Field(ge=0, le=1)] = 0
     material: str | None = None
     print_settings: PrintSettings = Field(default_factory=PrintSettings)
     motion_loads: str | None = None
@@ -245,6 +250,7 @@ class Operation(Record):
     frame: Literal["interface"] = "interface"
     body: str | None = None
     target: str | None = None
+    targets: Annotated[tuple[str, ...], Field(max_length=MAX_BODIES)] = ()
     other: str | None = None
     shape: Literal[
         "box",
@@ -271,6 +277,12 @@ class Operation(Record):
 
     @model_validator(mode="after")
     def bounds(self):
+        if self.targets and (
+            self.kind != "relief" or len(set(self.targets)) != len(self.targets)
+        ):
+            raise ValueError(
+                "Multiple cut targets require a relief and unique body IDs."
+            )
         if self.kind == "finish" and (
             self.shape not in ("chamfer_box", "rounded_box") or self.axis != "y"
         ):
@@ -346,8 +358,28 @@ class FastenerClearance(Record):
     origin: Origin
 
 
+class SheetPanel(Record):
+    body: str
+    normal_axis: Literal["x", "y", "z"]
+    thickness: Positive
+
+
+class SheetJoint(Record):
+    id: str
+    owner: str
+    receiver: str
+    axis: Literal["x", "y", "z"]
+    seam_start: Vec
+    seam_end: Vec
+    root_gap: Annotated[float, Field(ge=0, le=1)]
+    tabs: Annotated[tuple[str, ...], Field(max_length=8)] = ()
+    slots: Annotated[tuple[str, ...], Field(max_length=8)] = ()
+    slot_clearance: Annotated[float, Field(ge=0.05, le=1)] = 0.15
+    weld_note: str = "Tack to locate, verify alignment, then weld to an approved joint procedure; weld size is not specified."
+
+
 class Plan(Record):
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] = 1
     source_hash: str
     interface_id: str
     composition: Composition
@@ -357,6 +389,8 @@ class Plan(Record):
     ]
     parameters: dict[str, float | str]
     clearances: tuple[FastenerClearance, ...] = ()
+    sheet_panels: Annotated[tuple[SheetPanel, ...], Field(max_length=MAX_BODIES)] = ()
+    sheet_joints: Annotated[tuple[SheetJoint, ...], Field(max_length=32)] = ()
 
     @model_validator(mode="after")
     def graph(self):
@@ -392,6 +426,14 @@ class Plan(Record):
                 if op.other not in bodies or op.other == op.target:
                     raise ValueError("Invalid combine reference.")
                 bodies.remove(op.other)
+            if op.targets and (
+                self.version < 12
+                or not set(op.targets) <= bodies
+                or op.target not in op.targets
+            ):
+                raise ValueError(
+                    "Sheet cuts require compiler 12 and existing target bodies."
+                )
             if op.kind in ("place", "mount") and op.interface_id != self.interface_id:
                 raise ValueError("Unknown interface reference.")
             if any(i < 0 or i >= len(self.placements) for i in op.instance_ids):
@@ -399,6 +441,32 @@ class Plan(Record):
             seen.add(op.id)
             if len(bodies) > MAX_BODIES:
                 raise ValueError("Body limit exceeded.")
+        if self.sheet_panels or self.sheet_joints:
+            panel_ids = [p.body for p in self.sheet_panels]
+            if (
+                self.version < 12
+                or len(set(panel_ids)) != len(panel_ids)
+                or set(panel_ids) != bodies
+            ):
+                raise ValueError(
+                    "Sheet panel schedule must match the final compiler-12 bodies."
+                )
+            joint_ids = set()
+            for joint in self.sheet_joints:
+                if (
+                    joint.id in joint_ids
+                    or joint.owner == joint.receiver
+                    or {joint.owner, joint.receiver} - bodies
+                    or len(joint.tabs) != len(joint.slots)
+                    or not set(joint.tabs + joint.slots) <= seen
+                    or any(
+                        abs(v) > MAX_DIM
+                        for point in (joint.seam_start, joint.seam_end)
+                        for v in point
+                    )
+                ):
+                    raise ValueError("Invalid bounded sheet joint references.")
+                joint_ids.add(joint.id)
         return self
 
 

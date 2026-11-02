@@ -1,5 +1,80 @@
 # Engineering record
 
+## Flat sheet assemblies, tabs and weld intent (2026-11-01)
+
+Implemented on `codex/sheet-metal-tabs-welding`, branched from `ac9000e` for rollback.
+Compiler 12 reuses the measured placements and mounting patterns, then replaces
+monolithic L-bracket/bridge support unions with separate constant-thickness panels.
+Small explicit SMLib box unions make integral tabs; matching oversized box cuts make
+through slots. Wall/base and rib/base joints are tabbed; rib/wall seams are butt joints.
+Bridge legs have tabs into the platform and feet. Weld-only joints omit all locators.
+Flat plates and rails are also accepted. Panel names, thickness axes, joint references,
+seam endpoints, root gaps and tab/slot IDs are bounded typed records in the plan.
+Temporary tab bodies are consumed by their owner, while final panels remain separate.
+
+The initial scope is flat cut-and-weld assembly, not bend unfolding. All construction
+remains in SMLib. OCCT only measures input and transfers/reopens generated STEP.
+The existing 256-operation/64-body/24-instance limits still apply. Compiler versions
+1–11 preserve earlier non-sheet behavior. Sheet plans require version 12; arbitrary
+code/coordinates from the model are still prohibited. Five bounded sheet requirement
+edits are exposed to the existing planner; no new live model invocation was needed
+to implement this feature. UI Man supplied the manufacturing/joint controls and
+browser QA, with lock-aware atomic saves and no CAD/AI calls until generation.
+
+Slot allowance defaults to 0.15 mm per side, not a standards claim. This is a
+metric concept starting point near the typical thin-sheet values discussed in
+[SendCutSend's tab/slot guidance](https://sendcutsend.com/blog/mastering-tab-and-slot-design-for-efficient-metal-fabrication/).
+Their [tolerance formula](https://sendcutsend.com/blog/designing-sheet-metal-parts-with-tab-and-slots/)
+also accounts for actual stock-thickness and cutting tolerances; those are not
+measured by this app. There is no hidden kerf compensation. Tabs terminate flush
+at the receiving panel's outside face; 0.01 mm overlap at the tab root makes the
+native union robust. Default end/gap lands depend on sheet thickness and allowance.
+The receiving base/platform grows locally to preserve closed slots. Explicit width,
+depth and tab choices fail when they cannot fit instead of silently changing them.
+An unspecified L-bracket base can grow to accommodate tabs, as with base screws.
+
+Sheet rear reliefs use the measured outline but become through cuts across the
+assembly. A bounded multi-target relief retains one source feature ID while cutting
+each panel, so the existing independent coverage checks still apply. Other selected
+access cuts also reach the separate bodies. Cuts that leave nonprismatic panels,
+damage tabs or remove required lands fail recoverably. Recessed fastener seats,
+driver pockets and hole-free sheet retention are explicitly unsupported initially.
+The user selects 0.5–12 mm thickness; switching fabrication does not erase saved
+fillet or joint choices. The irrelevant solid-corner dimension is hidden for sheet.
+
+Validation regenerates the expected joint tools from saved requirements, then
+checks native retained tab volumes, complete slot voids and a 1 mm material border
+after all cuts. Pairwise native intersections reject panel overlap. Two translated
+normal-overlap volume checks detect nonuniform sheet thickness/blind pockets; this
+is a sampled prismatic check, not a formal general-purpose sheet recognition solver.
+SMLib volume quadrature uses relative accuracy 1e-8 for this check, as default
+quadrature was insufficient around several curved base bores. Sampled seam lands
+must remain on both mating panels at the recorded root gap. Existing mounting,
+base-hole, access and export checks remain in force. Weld size, material/process,
+bead shape, assembly sequence, distortion and structural capacity are not solved.
+
+STEP preserves separate assembled solids; the design ZIP adds `sheet-metal.json`
+with a panel/joint schedule and explicit welding notes. No separate flat DXF/CAM
+files are advertised. `scripts/demo_sheet_metal.py` generates and exports a 3 mm
+ribbed bracket and a 4 mm/three-tab/root-gap revision from the permitted synthetic
+sample. Both include four panels and five joints, with no failed geometry checks.
+Additional tests cover all four families, weld-only joints, sheet revisions,
+native failure injection, automatic through reliefs, a second part with six
+instances, lock/limit rejection, STEP reopening and deterministic ZIP reproduction.
+Browser QA also found a settings-tab reset on manufacturing save; a stable public
+Streamlit tab key now preserves the active group across the pending-revision notice.
+
+Verification: `python -m pytest tests -q` passed **234 tests in 368.19 seconds**.
+A subsequent focused imported-base/sheet-stock expansion test passed separately
+(added after full-suite collection). Both viewer JavaScript suites passed **15 tests**;
+Ruff F checks and `git diff --check` passed. The browser generated four native sheet
+panels, prepared/reopened STEP with four matching OCCT solids, and preserved selected
+holes. Joint-only saves did not call CAD or AI; switching to weld-only retained the
+saved tab settings. Evidence is under ignored `artifacts/sheet-metal-20261101/`
+and `artifacts/ui-sheet-20261101/`. No live AI call was made for the sheet feature.
+
+No new cumulative development-time estimate is asserted for this extension.
+
 ## Persistent access selection, dimension clarity and joined corners (2026-11-01)
 
 Opening selection still mounted its own component after the face/hole viewer was

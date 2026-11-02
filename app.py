@@ -174,6 +174,12 @@ with st.sidebar:
         st.caption(
             "Download the displayed fixture in millimeters. The uploaded part is excluded."
         )
+        if p.current.plan.sheet_panels:
+            st.caption(
+                f"Sheet assembly: {len(p.current.plan.sheet_panels)} separate panels, "
+                f"{len(p.current.plan.sheet_joints)} joints. STEP preserves the assembled panel positions; "
+                "the design ZIP includes the panel and weld-joint schedule."
+            )
         if st.button("Prepare STEP download"):
             try:
                 with st.spinner("Converting and verifying solid STEP…"):

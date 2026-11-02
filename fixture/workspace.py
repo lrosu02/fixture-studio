@@ -185,7 +185,9 @@ def workspace(project, build):
                 "The viewer shows the last valid revision. Generate to apply edited requirements."
             )
     thickness_controls(p, build)
-    mounting, fabrication, advanced = st.tabs(["Mounting", "Fabrication", "Advanced"])
+    mounting, fabrication, advanced = st.tabs(
+        ["Mounting", "Fabrication", "Advanced"], key=f"workspace-settings-{p.id}"
+    )
     with mounting:
         if r.mounting_confirmed:
             count = len(r.mounting_hole_ids)

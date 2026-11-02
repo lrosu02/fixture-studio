@@ -263,7 +263,15 @@ def proposal_requirements(requirements, proposal):
     return patch_requirements(requirements, changes)
 
 
-def compile_plan(a, r, require_ready=True, compiler_version=11):
+def compile_plan(a, r, require_ready=True, compiler_version=12):
+    from .manufacturing import is_sheet_metal
+
+    if is_sheet_metal(r.fabrication):
+        if compiler_version != 12:
+            raise ValueError("Sheet assemblies require compiler version 12.")
+        from .sheet_metal import compile_sheet
+
+        return compile_sheet(a, r, require_ready)
     if compiler_version < 9:
         if (
             r.access_selections
@@ -278,7 +286,7 @@ def compile_plan(a, r, require_ready=True, compiler_version=11):
                 "Extended access, base, hardware and manufacturing choices need compiler version 9."
             )
         return _compile_plan(a, r, require_ready, compiler_version)
-    if compiler_version not in (9, 10, 11):
+    if compiler_version not in (9, 10, 11, 12):
         raise ValueError("Unsupported compiler version.")
     from .access import add_access
     from .existing_base import add_base
@@ -303,7 +311,7 @@ def compile_plan(a, r, require_ready=True, compiler_version=11):
     return plan
 
 
-def _compile_plan(a, r, require_ready=True, compiler_version=8):
+def _compile_plan(a, r, require_ready=True, compiler_version=8, allow_sheet=False):
     if compiler_version not in (1, 2, 3, 4, 5, 6, 7, 8):
         raise ValueError("Unsupported compiler version.")
     if r.bench_hole_count is not None and r.bench_hole_count > MAX_OPS:
@@ -339,7 +347,11 @@ def _compile_plan(a, r, require_ready=True, compiler_version=8):
         )
     if r.fabrication and any(
         w in r.fabrication.lower()
-        for w in ("sheet metal", "unfold", "casting", "cast ")
+        for w in (
+            ("unfold", "casting", "cast ")
+            if allow_sheet
+            else ("sheet metal", "unfold", "casting", "cast ")
+        )
     ):
         raise ValueError(
             "This executor supports solid stock, machining concepts or printing concepts. Select a supported route; unfolding and casting are not implemented."

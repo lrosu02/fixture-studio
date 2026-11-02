@@ -119,6 +119,7 @@ def is_activity_message(message):
                 "3D mounting selection:",
                 "Part retention:",
                 "Manufacturing method:",
+                "Sheet-metal joints:",
                 "Screw sizes for selected holes:",
                 "Make these measured rear recesses through passages:",
                 "Attach to uploaded base ",

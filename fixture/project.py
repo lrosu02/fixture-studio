@@ -30,7 +30,9 @@ class Project:
     last_attempt: BuildFeedback | None = None
     last_planner_attempt: dict | None = None
     _analysis_json: tuple = field(default=(), init=False, repr=False, compare=False)
-    _revision_json: dict = field(default_factory=dict, init=False, repr=False, compare=False)
+    _revision_json: dict = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
 
     @classmethod
     def new(cls, analysis):
@@ -234,6 +236,13 @@ class Project:
                 json.dumps([c.model_dump() for c in r.plan.clearances], indent=2),
             )
             z.writestr("requirements.json", r.requirements.model_dump_json(indent=2))
+            if r.plan.sheet_panels:
+                from .sheet_metal import manufacturing_record as sheet_record
+
+                z.writestr(
+                    "sheet-metal.json",
+                    json.dumps(sheet_record(r.requirements, r.plan), indent=2),
+                )
             if r.plan.version >= 9:
                 from .hardware import hardware_record
 
