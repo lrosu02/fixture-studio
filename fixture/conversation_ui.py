@@ -17,11 +17,6 @@ SETUP_FIELDS = (
         "What moves or rotates? Include travel and clearance, or unknown.",
     ),
     (
-        "cable_routing",
-        "Cable routing",
-        "Where do cables/connectors exit? Include routing or bend space, or unknown.",
-    ),
-    (
         "service_access",
         "Tool and service access",
         "What must stay reachable for assembly, adjustment or removal?",
@@ -66,7 +61,7 @@ def _brief_form(project, initial, ai_enabled):
                 disabled="quantity" in r.locks,
             )
         }
-        st.markdown("**Motion, routing & access**")
+        st.markdown("**Motion, access & loads**")
         st.caption(
             "Describe what you know. Type unknown if it is undecided; a blank answer stays unspecified."
         )

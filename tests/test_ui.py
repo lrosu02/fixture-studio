@@ -253,7 +253,6 @@ def test_start_design_questions_generate_feedback_and_no_repeat(monkeypatch):
     )
     for label in (
         "Moving or spinning parts",
-        "Cable routing",
         "Tool and service access",
         "Loads and forces",
     ):

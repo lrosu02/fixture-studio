@@ -1,5 +1,18 @@
 # Engineering record
 
+## Cable routing moved out of setup (2026-11-01)
+
+Removed the Cable routing field from the guided brief and saved-brief editor.
+Deterministic clarification and AI startup instructions no longer request routing
+before the first design. The post-build opening tool remains the entry point for
+cable holes. Existing or volunteered routing facts remain saved and available to
+the planner; an unspecified cable route no longer appears as an unanswered brief
+item. Explicit through-access requirements and CAD checks are unchanged.
+
+Verification: 29 focused guided-brief, conversation UI, application UI and workflow
+tests passed. They cover proposing without cable answers, preservation of saved
+routing facts, edits/resume, and existing generation/revision behavior.
+
 ## Click-placed fixture openings (2026-11-01)
 
 Implemented on `codex/click-through-openings` from `73ffed8`. User-positioned round

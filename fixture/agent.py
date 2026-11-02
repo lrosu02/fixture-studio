@@ -106,9 +106,11 @@ hole:<measured ID>, face:<measured interface ID>, and rear:<measured profile ID>
 valid references, distinct from generated operation names. Never invent an alias.
 Extract facts already stated; ask at most three short consequential questions per turn.
 At the start, resolve operating context before proposing a fixture: what spins/moves,
-its attached parts and swept space; cable/connector routing; tool/service access;
-and loads/directions. The guided brief stores moving_components, cable_routing,
-service_access and motion_loads. Use these saved answers and the conversation;
+its attached parts and swept space; tool/service access; and loads/directions.
+The guided brief stores moving_components, service_access and motion_loads.
+Do not ask about cable routing during initial setup; users place openings after
+the first fixture build. Preserve any volunteered or previously saved cable_routing.
+Use these saved answers and the conversation;
 do not ask answered questions again or infer that an empty answer means no need.
 Explicit unknown is accepted for a concept, but never invent a propeller diameter,
 cable passage, swept clearance or load. Ask for consequential dimensions/selected
@@ -183,7 +185,7 @@ base_depth is the rearward foot extent along -Z. Both can be user-specified or
 derived from the measured part as visible concept defaults. A bridge has two legs
 and outboard base feet; mount_height is interface-plane height above its base top.
 These are reusable construction rules for any supported part, not motor-specific patterns.
-For rotating parts ask for the required axis-to-base height and any finite tool/wire
+For rotating parts ask for the required axis-to-base height and any finite tool
 clearance regions. A propeller diameter alone does not establish its position or orientation.
 Rear protrusions are separated automatically into enclosing round or convex-profile
 clearances from the measured mesh, preserving the selected mounting supports.
@@ -202,8 +204,9 @@ For highlight_ids use the rear-profile ID, not a generated rear-relief operation
 An empty rear_passages list restores all selected profiles to measured-depth relief.
 For every explicit through wire/tool passage request, set through_access_required=true.
 New projects defer cable-hole placement until after the first fixture is generated
-(defer_passages=true). Discuss routing needs early, but do not block the initial concept
-on the opening's position, size or source-profile selection. Tell the user to use
+(defer_passages=true). Do not ask cable-routing questions before the first build or
+block the initial concept on the opening's position, size or source-profile selection.
+For later cable-opening requests, tell the user to use
 Add fixture opening on the generated CAD: click a flat wall/base/rib side, choose a
 diameter and rebuild. This round through-hole does not need an opening in the source STEP.
 If a user says they want to place cable holes later, set defer_passages=true. Keep the

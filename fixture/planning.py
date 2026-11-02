@@ -129,10 +129,6 @@ def missing_questions(a, r, automatic_clearance=True):
         questions.append(
             "Will anything move or rotate, what is attached, and what space must remain clear? Unknown is accepted for a concept."
         )
-    if r.brief_answers_recorded and r.cable_routing is None:
-        questions.append(
-            "Do cables or connectors need a route through or around the fixture? Say none or unknown if appropriate."
-        )
     if r.brief_answers_recorded and r.service_access is None:
         questions.append(
             "Which tools, plugs or surfaces must remain reachable? Say none or unknown if appropriate."
@@ -145,7 +141,7 @@ def missing_questions(a, r, automatic_clearance=True):
         )
     if r.access is None and not r.brief_answers_recorded:
         questions.append(
-            "Do cables or connectors need a route, and which tools or surfaces need access? Say none or unknown if appropriate."
+            "Which tools or surfaces need assembly or service access? Say none or unknown if appropriate."
         )
     if not r.interface_id or not r.mounting_confirmed:
         questions.append(

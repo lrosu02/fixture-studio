@@ -18,9 +18,10 @@ Positions stay in the fixture coordinate frame through later revisions; each ope
 belongs to a fixture body and is not automatically repeated for each workpiece.
 STEP includes these holes. Restoring a prior revision restores its opening choices.
 
-New projects allow cable-opening placement after the initial concept. Routing needs
-are still discussed at setup; required openings that have not been placed are marked
-pending. For an older project that requires selection before generation, tell the
+Cable routing is no longer a setup question. Add cable openings after the first
+fixture build using the opening tool; previously supplied routing requirements
+are preserved and required openings not yet placed remain marked pending.
+For an older project that requires selection before generation, tell the
 conversation to defer cable-opening placement until after the first build.
 **Select source access features** still handles measured source openings/keep-clear
 regions; the older measured-recess control is available under **Advanced**.
@@ -36,7 +37,7 @@ supported by this placement tool.
 ## Guided conversation, part colors and formed bends — November 1, 2026
 
 New projects start in one visible **Fixture goal** form. Enter the task and number
-of parts, then answer **Moving or spinning parts**, **Cable routing**, **Tool and
+of parts, then answer **Moving or spinning parts**, **Tool and
 service access**, and **Loads and forces**. Blank means unspecified; type `unknown`
 when undecided or explicitly say none. **Start design** saves these answers and
 asks the AI to resolve the remaining details before proposing a fixture. Offline

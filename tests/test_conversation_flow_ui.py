@@ -46,7 +46,6 @@ def fill_brief(ui):
     )
     for label, text in (
         ("Moving or spinning parts", "Motor shafts rotate; leave 20 mm clear."),
-        ("Cable routing", "Rear connectors need 30 mm for routing."),
         ("Tool and service access", "Screwdriver access from the front."),
         ("Loads and forces", "unknown"),
     ):
@@ -59,10 +58,10 @@ def test_initial_flow_has_one_guided_form_and_no_competing_composer():
     assert {x.label for x in ui.text_area} >= {
         "Fixture goal",
         "Moving or spinning parts",
-        "Cable routing",
         "Tool and service access",
         "Loads and forces",
     }
+    assert "Cable routing" not in {x.label for x in ui.text_area}
     assert not button(ui, "Start design").disabled
     assert (
         next(x for x in ui.number_input if x.label.startswith("How many parts")).value
@@ -78,7 +77,8 @@ def test_ai_start_saves_answers_once_and_does_not_generate():
     button(ui, "Start design").click().run()
     assert not ui.exception and not p.error and len(ui.session_state.calls) == 1
     assert p.requirements.quantity == 2 and p.requirements.motion_loads == "unknown"
-    assert p.requirements.cable_routing == "Rear connectors need 30 mm for routing."
+    assert p.requirements.cable_routing is None
+    assert "Cable routing: Not specified" not in p.messages[0]["content"]
     assert sum(m["content"].startswith("Design brief:") for m in p.messages) == 1
     assert not p.revisions and not ui.session_state.builds
     assert (

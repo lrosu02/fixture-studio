@@ -6,6 +6,10 @@ This is a handoff specification for the implementation agent. The six brushless 
 
 ## Sheet-metal extension checkpoint — November 1, 2026
 
+**Setup follow-up:** cable routing is no longer an initial brief field or required
+clarification. Users add cable holes after the first build with the fixture opening
+tool. Existing routing facts and explicit through-access requirements are retained.
+
 **Post-build opening extension on `codex/click-through-openings`:** generated fixture
 surfaces accept exact mouse positions for sized circular through-holes, independent
 of source openings. Compiler 14 records bounded cuts, native edge/path checks,

@@ -30,7 +30,7 @@ def plan_design(
         project.messages.append(
             {
                 "role": "user",
-                "content": "Start design using my brief, saved conversation, selected mounting face, part retention, any selected mounting holes and manufacturing method. First resolve unanswered moving/spinning components, swept space, cables/connectors, tool access and load questions. Reuse answers already saved; none and unknown are valid explicit answers. Then ask only the next relevant questions, or present a supported proposal for my review. Do not generate CAD yet.",
+                "content": "Start design using my brief, saved conversation, selected mounting face, part retention, any selected mounting holes and manufacturing method. First resolve unanswered moving/spinning components, swept space, tool access and load questions. Do not ask about cable routing at setup; cable openings can be placed after the first fixture build. Preserve any cable requirements already supplied. Reuse answers already saved; none and unknown are valid explicit answers. Then ask only the next relevant questions, or present a supported proposal for my review. Do not generate CAD yet.",
             }
         )
     try:

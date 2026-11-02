@@ -18,7 +18,9 @@ def test_guided_context_is_asked_first_and_saved_for_planner_and_resume():
     assert started(p) and not p.revisions
     questions = missing_questions(a, p.requirements)
     assert "move or rotate" in questions[0]
-    assert "cables" in questions[1] and "tools" in questions[2]
+    assert "tools" in questions[1] and "loads" in questions[2]
+    assert not any("cable" in q.lower() for q in questions)
+    assert "Cable routing:" not in p.messages[-1]["content"]
     text = save_brief(
         p,
         "Hold a motor for bench testing",
@@ -34,8 +36,23 @@ def test_guided_context_is_asked_first_and_saved_for_planner_and_resume():
     assert context["requirements"]["cable_routing"].startswith("Three wires")
     assert "Hex key" in p.requirements.access
     assert p.messages[-1]["content"] == text
+    save_brief(p, "Updated bench test", {"service_access": "Front hex key access"})
+    assert p.requirements.cable_routing == "Three wires exit the rear; route below"
+    assert "Cable routing: Three wires" in p.messages[-1]["content"]
     restored = Project.load(ROOT / "artifacts" / p.id / "project.json")
     assert restored.requirements == p.requirements and started(restored)
+
+
+def test_cable_routing_is_not_required_for_initial_proposal_or_legacy_access():
+    a, r = ready(moving_components="None", service_access="Front tools")
+    p = Project(a, r)
+    save_brief(p, "Hold for inspection", {})
+    assert p.requirements.cable_routing is None
+    assert not missing_questions(a, p.requirements)
+    assert p.stage == "proposing"
+    legacy_questions = missing_questions(a, r.model_copy(update={"access": None}))
+    assert any("service access" in q for q in legacy_questions)
+    assert not any("cable" in q.lower() for q in legacy_questions)
 
 
 def test_unknown_is_explicit_blank_is_not_no_and_edits_honor_locks(monkeypatch):

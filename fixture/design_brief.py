@@ -39,6 +39,7 @@ def save_brief(project, text, answers):
         + "\n".join(
             f"{label}: {getattr(updated, field) if getattr(updated, field) is not None else 'Not specified'}"
             for field, label in ANSWER_LABELS.items()
+            if field != "cable_routing" or updated.cable_routing is not None
         )
     )
     if (
