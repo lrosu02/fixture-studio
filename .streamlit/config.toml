@@ -1,6 +1,8 @@
 [server]
 address = "127.0.0.1"
 maxUploadSize = 30
+# Restart deliberately after verified updates; live CAD sessions hold typed records.
+fileWatcherType = "none"
 
 [browser]
 gatherUsageStats = false

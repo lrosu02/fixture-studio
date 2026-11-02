@@ -2,6 +2,7 @@
 
 from uuid import uuid4
 from datetime import datetime, timezone
+from pydantic import BaseModel
 from .agent import Action, apply_action, requests_geometry
 from .contracts import DesignReview, FeedbackRecord
 from .planning import missing_questions
@@ -9,6 +10,11 @@ from .questions import clean_questions, merge_questions
 from .review import repair_requirements, review_context, render_review
 
 INVITE = "What would you like to change next?"
+
+
+def _record_data(value):
+    """Cross provider/reload boundaries as data, not Python class identities."""
+    return value.model_dump(mode="python") if isinstance(value, BaseModel) else value
 
 
 def plan_design(
@@ -37,11 +43,13 @@ def plan_design(
     try:
         progress("Planning with AI")
         action = Action.model_validate(
-            planner(
-                project.analysis,
-                project.requirements,
-                project.messages,
-                project.current,
+            _record_data(
+                planner(
+                    project.analysis,
+                    project.requirements,
+                    project.messages,
+                    project.current,
+                )
             )
         )
         cleaned = clean_questions(action.questions)
@@ -74,7 +82,9 @@ def plan_design(
         checklist = merge_questions(action.questions, questions)
         if removed_invitation and not checklist and action.action != "unsupported":
             action = action.model_copy(
-                update={"explanation": "The proposal is ready. Choose a fixture concept below and select Generate."}
+                update={
+                    "explanation": "The proposal is ready. Choose a fixture concept below and select Generate."
+                }
             )
             project.last_planner_attempt["action"] = action.model_dump(mode="json")
         project.messages.append(
@@ -135,11 +145,14 @@ def generate_with_feedback(
             # Project captures this attempt's plan/checks/error and keeps the last valid CAD.
             revision = None
         build = project.last_attempt
+        # Generation may normalize retained openings after a type change. Any
+        # bounded repair must start from those actual attempted requirements.
+        candidate = build.requirements
         record = FeedbackRecord(
             run_id=run_id,
             attempt=attempt,
             provider=provider,
-            build=build,
+            build=_record_data(build),
             outcome="offline",
         )
         if build.failure_kind == "cad_export":
@@ -172,7 +185,7 @@ def generate_with_feedback(
             )
             context = review_context(project.analysis, build, 2 - attempt)
             review = DesignReview.model_validate(
-                reviewer(context, project.messages, images)
+                _record_data(reviewer(context, project.messages, images))
             )
             record = record.model_copy(update={"review": review})
             if review.verdict == "accept" and build.error:

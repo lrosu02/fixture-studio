@@ -8,6 +8,7 @@ from .contracts import (
     Requirements,
     PrintSettings,
     HoleFastenerChoice,
+    FixtureOpening,
     HardwareChoice,
     MM_TOL,
     MAX_OPS,
@@ -21,6 +22,19 @@ from .clearance import fixture_regions, footprint_distance
 
 def patch_requirements(current, changes, origin="user"):
     changes = dict(changes)
+    if "fixture_openings" in changes:
+        changes["fixture_openings"] = tuple(
+            FixtureOpening.model_validate(o) for o in changes["fixture_openings"]
+        )
+    if changes.get("composition", current.composition) != current.composition:
+        openings = changes.get("fixture_openings", current.fixture_openings)
+        if openings:
+            changes["fixture_openings"] = tuple(
+                o.model_copy(update={"needs_placement": True}) for o in openings
+            )
+            # The new shape must exist before its surfaces can be picked.
+            if changes.get("through_access_required", current.through_access_required):
+                changes.setdefault("defer_passages", True)
     if {"cable_routing", "service_access"}.intersection(
         changes
     ) and "access" not in changes:
@@ -193,7 +207,7 @@ def missing_questions(a, r, automatic_clearance=True):
         r.through_access_required
         and not r.defer_passages
         and not (
-            r.fixture_openings
+            any(not o.needs_placement for o in r.fixture_openings)
             or r.rear_passages
             or any(s.intent == "through" for s in r.access_selections)
         )
@@ -309,13 +323,21 @@ def compile_plan(a, r, require_ready=True, compiler_version=None):
     from .custom_openings import add_openings
 
     if compiler_version is None:
-        compiler_version = 14 if r.fixture_openings else 13
+        compiler_version = (
+            15
+            if any(o.needs_placement for o in r.fixture_openings)
+            else 14
+            if r.fixture_openings
+            else 13
+        )
+    if any(o.needs_placement for o in r.fixture_openings) and compiler_version < 15:
+        raise ValueError("Openings awaiting placement require compiler version 15.")
     if r.fixture_openings and compiler_version < 14:
         raise ValueError("User-placed openings require compiler version 14.")
 
     if is_sheet_metal(r.fabrication):
-        if compiler_version not in (12, 13, 14):
-            raise ValueError("Sheet assemblies require compiler version 12, 13 or 14.")
+        if compiler_version not in (12, 13, 14, 15):
+            raise ValueError("Sheet assemblies require compiler version 12 or later.")
         from .sheet_metal import compile_sheet
 
         plan = compile_sheet(a, r, require_ready, min(compiler_version, 13))
@@ -334,7 +356,7 @@ def compile_plan(a, r, require_ready=True, compiler_version=None):
                 "Extended access, base, hardware and manufacturing choices need compiler version 9."
             )
         return _compile_plan(a, r, require_ready, compiler_version)
-    if compiler_version not in (9, 10, 11, 12, 13, 14):
+    if compiler_version not in (9, 10, 11, 12, 13, 14, 15):
         raise ValueError("Unsupported compiler version.")
     from .access import add_access
     from .existing_base import add_base
@@ -376,7 +398,7 @@ def _compile_plan(a, r, require_ready=True, compiler_version=8, allow_sheet=Fals
         r.through_access_required
         and not r.defer_passages
         and not (
-            r.fixture_openings
+            any(not o.needs_placement for o in r.fixture_openings)
             or r.rear_passages
             or any(s.intent == "through" for s in r.access_selections)
         )

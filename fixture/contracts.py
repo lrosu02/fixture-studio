@@ -137,6 +137,8 @@ class FixtureOpening(Record):
     center: Vec
     axis: Literal["x", "y", "z"]
     diameter: Annotated[float, Field(ge=0.5, le=500)]
+    # Retain the previous location as reference, but never cut there until repicked.
+    needs_placement: bool = False
 
     @model_validator(mode="after")
     def bounded_center(self):
@@ -433,7 +435,7 @@ class SheetBend(Record):
 
 
 class Plan(Record):
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] = 1
     source_hash: str
     interface_id: str
     composition: Composition

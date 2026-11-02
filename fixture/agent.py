@@ -224,7 +224,14 @@ If a user says they want to place cable holes later, set defer_passages=true. Ke
 required intent recorded; a deferred opening has not yet been built or validated.
 Set defer_passages=false only if the user explicitly requires the passage in this build;
 then generation requires rear_passages, through access_selections or fixture_openings.
-fixture_openings are user-positioned and must be preserved. Do not invent their positions,
+fixture_openings are user-positioned and must be preserved. When composition changes,
+their sizes are retained but needs_placement=true marks them for new mouse positions.
+Generate the new fixture first; direct the user to Place on this fixture for each
+pending opening. Do not ask for coordinates or treat pending openings as cut geometry.
+The bridge has a horizontal mounting platform with its normal pointing up; an L-bracket
+has an upright mounting wall. Do not claim changing between these preserves an explicit
+shaft orientation. Explain the difference when proposing a different fixture type.
+Do not invent opening positions,
 redirect them to a source feature, or claim that cable bend/connector fit is proven.
 Existing measured source clearances still apply in both phases.
 Use earlier user descriptions/images of the opening to resolve its location; do not ask again

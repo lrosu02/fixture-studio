@@ -11,7 +11,7 @@ from fixture.planning import (
     proposal_requirements,
 )
 from fixture.agent import plan_turn, offline_turn, review_turn
-from fixture.workspace import workspace, request_assembly
+from fixture.workspace import workspace, request_assembly, BRIDGE_ORIENTATION
 from fixture.subscription import subscription_turn, subscription_review, executable
 from fixture.manufacturing import manufacturing_guidance, is_sheet_metal
 from fixture.workflow import generate_with_feedback
@@ -49,6 +49,7 @@ def load_part(data, name):
 
 
 def build(project, requirements=None, change="Generate reviewed proposal"):
+    previous_active = project.active_id
     opening_edit = bool(
         requirements is not None
         and project.current
@@ -68,7 +69,7 @@ def build(project, requirements=None, change="Generate reviewed proposal"):
         status.empty()
     except Exception as error:
         project.error = f"{type(error).__name__}: {error}"
-    if project.current:
+    if project.current and not (opening_edit and project.active_id == previous_active):
         request_assembly(project, fixture_only=opening_edit)
     st.rerun()
 
@@ -181,6 +182,15 @@ with st.sidebar:
         st.caption(
             "Download the displayed fixture in millimeters. The uploaded part is excluded."
         )
+        pending_openings = sum(
+            opening.needs_placement
+            for opening in p.current.requirements.fixture_openings
+        )
+        if pending_openings:
+            st.warning(
+                f"{pending_openings} opening(s) still need placement and are absent from this STEP. "
+                "Place them on this fixture and rebuild to include them."
+            )
         if p.current.plan.sheet_panels:
             st.caption(
                 f"Sheet assembly: {len(p.current.plan.sheet_panels)} fixture parts, "
@@ -324,6 +334,17 @@ with right, st.container(border=True, key="studio-conversation"):
             ):
                 st.markdown("**" + prop.title + "**")
                 st.write(prop.rationale)
+                if (
+                    r.fixture_openings
+                    and p.current
+                    and prop.composition != p.current.requirements.composition
+                ):
+                    st.caption(
+                        "Switching fixture type keeps saved opening sizes but requires new positions "
+                        "after this build. Place each opening again to include its cut."
+                    )
+                if prop.composition == "bridge":
+                    st.info(BRIDGE_ORIENTATION)
                 if prop.composition in ("l_bracket", "bridge"):
                     dims = prop.dimensions
                     st.caption(

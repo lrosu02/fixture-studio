@@ -2,6 +2,7 @@
 
 Picking is mesh-only. SMLib constructs and checks the actual cuts on rebuild.
 Positions are absolute in the fixture frame, and are not copied per source part.
+Changing fixture type retains opening sizes but requires new surface picks.
 """
 
 import math
@@ -57,6 +58,8 @@ def _current(project):
         raise ValueError("Generate the first fixture before adding openings.")
     if project.requirements.interface_id != project.current.requirements.interface_id:
         raise ValueError("The mounting frame changed. Rebuild before placing openings.")
+    if project.requirements.composition != project.current.requirements.composition:
+        raise ValueError("Generate the new fixture type before placing its openings.")
 
 
 def opening_candidate(project, event, diameter, opening_id=None):
@@ -68,7 +71,11 @@ def opening_candidate(project, event, diameter, opening_id=None):
     opening = FixtureOpening(
         id=opening_id or uuid4().hex[:12], diameter=diameter, **picked
     )
-    values = tuple(o for o in existing if o.id != opening.id) + (opening,)
+    values = (
+        tuple(opening if o.id == opening.id else o for o in existing)
+        if opening_id is not None
+        else existing + (opening,)
+    )
     return patch_requirements(project.requirements, {"fixture_openings": values})
 
 
@@ -76,6 +83,10 @@ def resize_opening(project, opening_id, diameter):
     _current(project)
     if opening_id not in {o.id for o in project.requirements.fixture_openings}:
         raise ValueError("This saved opening no longer exists.")
+    if next(
+        o for o in project.requirements.fixture_openings if o.id == opening_id
+    ).needs_placement:
+        raise ValueError("Place this opening on the new fixture before resizing it.")
     values = tuple(
         FixtureOpening.model_validate({**o.model_dump(), "diameter": diameter})
         if o.id == opening_id
@@ -86,7 +97,9 @@ def resize_opening(project, opening_id, diameter):
 
 
 def remove_opening(project, opening_id):
-    _current(project)
+    # Removing saved intent does not require a matching preview surface.
+    if project.current is None:
+        raise ValueError("Generate the first fixture before editing openings.")
     if opening_id not in {o.id for o in project.requirements.fixture_openings}:
         raise ValueError("This saved opening no longer exists.")
     return patch_requirements(
@@ -102,7 +115,8 @@ def remove_opening(project, opening_id):
 def opening_tools(r, plan):
     if len({o.id for o in r.fixture_openings}) != len(r.fixture_openings):
         raise ValueError("Fixture opening IDs must be unique.")
-    if not r.fixture_openings:
+    placed = tuple(o for o in r.fixture_openings if not o.needs_placement)
+    if not placed:
         return ()
     bodies = set()
     stock_bounds = []
@@ -115,7 +129,7 @@ def opening_tools(r, plan):
     low = np.min([b[0] for b in stock_bounds], axis=0) - 1
     high = np.max([b[1] for b in stock_bounds], axis=0) + 1
     tools = []
-    for opening in r.fixture_openings:
+    for opening in placed:
         if opening.body not in bodies:
             raise ValueError(
                 "An opening's fixture part no longer exists. Remove or reposition the opening."
@@ -144,6 +158,9 @@ def add_openings(r, plan):
         return plan
     if plan.version < 14:
         raise ValueError("User-placed openings require compiler version 14.")
+    pending = sum(o.needs_placement for o in r.fixture_openings)
+    if pending and plan.version < 15:
+        raise ValueError("Openings awaiting placement require compiler version 15.")
     operations = list(plan.operations)
     for tool in opening_tools(r, plan):
         operations.append(tool.model_copy(update={"depends_on": (operations[-1].id,)}))
@@ -153,7 +170,8 @@ def add_openings(r, plan):
             "operations": operations,
             "parameters": {
                 **plan.parameters,
-                "fixture_opening_count": len(r.fixture_openings),
+                "fixture_opening_count": len(r.fixture_openings) - pending,
+                **({"pending_fixture_opening_count": pending} if pending else {}),
             },
         }
     )
@@ -216,6 +234,16 @@ def validate_openings(r, plan, bodies, add):
     import usd_brep as sm
     from .executor import primitive
 
+    pending = tuple(o for o in r.fixture_openings if o.needs_placement)
+    if pending:
+        add(
+            "Fixture openings awaiting placement",
+            "Saved sizes retained after a fixture-type change; previous locations are not cut",
+            len(pending),
+            "not_evaluated",
+            units="openings",
+            correction="Select each pending opening and click its location on the new fixture, then rebuild.",
+        )
     expected = opening_tools(r, plan)
     actual = tuple(o for o in plan.operations if o.id.startswith(PREFIX))
     if not actual and not expected:

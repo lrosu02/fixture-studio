@@ -92,6 +92,31 @@ class Project:
         old = self.current
         self.last_attempt = BuildFeedback(requirements=candidate)
         try:
+            # Protect direct callers as well as proposal/planner requirement patches.
+            # A saved coordinate belongs to the old type until the user repicks it.
+            if old and old.requirements.composition != candidate.composition:
+                from .planning import patch_requirements
+
+                old_ids = {o.id for o in old.requirements.fixture_openings}
+                openings = tuple(
+                    o.model_copy(update={"needs_placement": True})
+                    if o.id in old_ids
+                    else o
+                    for o in candidate.fixture_openings
+                )
+                if openings != candidate.fixture_openings:
+                    candidate = patch_requirements(
+                        candidate,
+                        {
+                            "fixture_openings": openings,
+                            **(
+                                {"defer_passages": True}
+                                if candidate.through_access_required
+                                else {}
+                            ),
+                        },
+                    )
+                    self.last_attempt = BuildFeedback(requirements=candidate)
             for key in self.requirements.locks:
                 if getattr(candidate, key) != getattr(self.requirements, key):
                     raise ValueError(
@@ -133,9 +158,25 @@ class Project:
                             for op in plan.operations
                         )
                     ),
-                    "fixture_opening_count": float(len(candidate.fixture_openings)),
+                    "fixture_opening_count": float(
+                        sum(not o.needs_placement for o in candidate.fixture_openings)
+                    ),
+                    **(
+                        {
+                            "pending_fixture_opening_count": float(
+                                sum(
+                                    o.needs_placement
+                                    for o in candidate.fixture_openings
+                                )
+                            )
+                        }
+                        if any(o.needs_placement for o in candidate.fixture_openings)
+                        else {}
+                    ),
                 }
             summary = f"Built {len(bodies)} fixture solid(s) for {len(plan.placements)} part(s): {len(cuts)} part holes, {int(metrics['base_hole_count'])} base holes."
+            if metrics.get("pending_fixture_opening_count"):
+                summary += f" {int(metrics['pending_fixture_opening_count'])} opening(s) need placement on this fixture."
             revision = Revision(
                 id=rid,
                 parent=self.active_id,

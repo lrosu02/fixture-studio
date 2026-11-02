@@ -476,7 +476,7 @@ def validate(a, r, plan, bodies, cuts):
         r.through_access_required
         and r.defer_passages
         and not (
-            r.fixture_openings
+            any(not o.needs_placement for o in r.fixture_openings)
             or r.rear_passages
             or any(s.intent == "through" for s in r.access_selections)
         )

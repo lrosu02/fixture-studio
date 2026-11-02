@@ -1,5 +1,49 @@
 # Engineering record
 
+## Reposition openings after type changes; stable revision records (2026-11-01)
+
+The saved sheet-metal L-bracket-to-bridge attempt in project
+042f0872285d4d5fb145005459ab1b2f carried a 10 mm opening centered at
+Y=-31.8204 mm onto a bridge platform starting at Y=-34.5 mm. Its circle extended
+2.3204 mm beyond the edge. The native rejection was correct. The user explicitly
+chose to place openings again on the new fixture instead of enlarging stock.
+
+`FixtureOpening.needs_placement` preserves IDs, diameters and reference coordinates
+while suppressing obsolete cuts. Composition changes mark retained openings pending;
+direct generation callers receive the same normalization. Compiler 15 represents
+pending opening state and records not-evaluated checks/counts; compilers 1–14 retain
+their prior geometry behavior and reject pending state. Required passages become
+deferred for this intentional new-shape-first workflow, with locks still enforced.
+Pending records do not count as completed through paths. Replacing a selected opening
+keeps its ID and list order, and old revisions remain immutable. Same-type edits keep
+locations. Failed placement preserves the draft and previous CAD. Exports warn that
+pending openings are absent. Automatic review repairs start from the normalized
+attempt requirements so they cannot resurrect an obsolete opening position.
+
+The bridge still uses a horizontal platform (Z up), while the L-bracket has an upright
+wall (Y up). This is now explained on proposals and in model instructions; orientation
+is not silently changed to claim compliance with the user's horizontal-shaft brief.
+The independent bridge verification is a geometry test, not an orientation-matching
+replacement for that brief: five welded bodies, four part holes and four base holes,
+then a separately picked 10 mm passage with 0.0 mm³ residual in reopened STEP.
+
+The subsequent four-collar revision exposed a distinct Streamlit reload problem:
+FeedbackRecord rejected a BuildFeedback from an older module/class identity.
+The same-name/different-class failure is reproduced in a regression test. The local
+server now uses fileWatcherType=none and explicit restarts after code updates.
+Planner, review and feedback records cross the workflow boundary as validated data.
+An independent copy of the actual collar project successfully revised row→2×2 grid,
+retained twelve part holes and its four selected center passages, and exported STEP.
+The original user project was unchanged by these verification runs. Native evidence:
+`artifacts/bridge-reposition-repro/report.json` (ignored local artifact).
+
+Verification: 40 native opening/sheet/structure tests passed; 26 record-boundary,
+feedback and question tests passed; 34 app/conversation/reposition tests passed;
+seven opening-controls UI tests passed (suites overlap). The actual collar STEP
+was also checked independently: each of four 8 mm center cylinders had 0.0 mm³
+remaining fixture material. The historical pending bridge export reproduced with
+compiler 15, while restored earlier revisions retained their placed openings.
+
 ## Batched questions and opening export recovery (2026-11-01)
 
 Removed the deterministic three-question truncation and expanded planner/reviewer

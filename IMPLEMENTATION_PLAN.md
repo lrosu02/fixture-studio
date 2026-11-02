@@ -6,6 +6,14 @@ This is a handoff specification for the implementation agent. The six brushless 
 
 ## Sheet-metal extension checkpoint — November 1, 2026
 
+**Opening relocation / revision follow-up:** after changing fixture type, retain
+saved opening sizes and require new mouse locations on the generated shape, as
+requested by the user. Compiler 15 records pending openings without cutting stale
+positions; placement, removal, restore and export state remain explicit. Bridge
+orientation is explained before generation. Disable live module reload for the
+running app and validate feedback data across model-class boundaries. The actual
+four-collar row→grid revision was reproduced and exported successfully on a copy.
+
 **Conversation/export follow-up:** show the entire currently relevant question
 checklist, reuse saved answers, and make the Generate button sufficient when ready.
 Standalone generation invitations no longer block proposals. Persistent native

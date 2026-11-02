@@ -4,7 +4,12 @@ import streamlit as st
 from .viewer import assembly_figure
 from .display_controls import render_display_controls
 from .mounting_picker import render_mounting_picker
-from .opening_controls import render_opening_view
+from .opening_controls import (
+    render_opening_view,
+    begin_opening_placement,
+    can_place_opening,
+    opening_state,
+)
 from .dimensions import dimension_controls, thickness_controls
 from .ui_theme import workspace_intro
 from .controls import (
@@ -19,6 +24,22 @@ from .base_controls import base_controls
 from .hardware_controls import hardware_controls
 from .fasteners import resolve_clearances, clearance_summary, SOURCE
 from .planning import patch_requirements
+
+
+BRIDGE_ORIENTATION = (
+    "The bridge mounting platform is horizontal, with its mounting normal pointing up. "
+    "An L-bracket wall is upright. This changes the mounting orientation and may "
+    "conflict with a horizontal shaft requirement."
+)
+
+
+def activate_opening_placement(project, opening_id=None):
+    try:
+        begin_opening_placement(project, opening_id)
+    except ValueError as error:
+        opening_state(project)["error"] = str(error)
+    else:
+        set_workspace_mode("openings", project)
 
 
 def set_workspace_mode(mode, project):
@@ -111,15 +132,40 @@ def workspace(project, build):
     access_mode = st.session_state.get("access_mode", False)
     opening_mode = st.session_state.get("opening_mode", False)
     with st.container(key="fixture-opening-pending-" + p.id):
+        pending_openings = [
+            opening for opening in r.fixture_openings if opening.needs_placement
+        ]
+        if p.current and pending_openings:
+            st.warning(
+                f"{len(pending_openings)} opening(s) need placement. Saved sizes are kept; "
+                "choose new positions before including them in the rebuilt fixture."
+            )
+            if not can_place_opening(p):
+                st.caption(
+                    "Generate the new fixture type first. The viewer still shows the previous revision."
+                )
+            st.button(
+                "Place next opening",
+                key="place-next-opening-" + p.id,
+                on_click=activate_opening_placement,
+                args=(p, pending_openings[0].id),
+                disabled=not can_place_opening(p) or "fixture_openings" in r.locks,
+            )
+        if p.current and p.current.requirements.composition == "bridge":
+            st.info(BRIDGE_ORIENTATION)
         if (
             p.current
             and r.defer_passages
             and r.through_access_required
             and not r.fixture_openings
             and not r.rear_passages
-            and not any(selection.intent == "through" for selection in r.access_selections)
+            and not any(
+                selection.intent == "through" for selection in r.access_selections
+            )
         ):
-            st.info("Cable opening not added yet. Use Add a fixture opening to place it.")
+            st.info(
+                "Cable opening not added yet. Use Add a fixture opening to place it."
+            )
     selecting = pick_mode or face_mode or access_mode
     if selecting or p.current:
         views = st.columns(2)
@@ -151,8 +197,8 @@ def workspace(project, build):
         if p.current:
             st.button(
                 "Add a fixture opening",
-                on_click=set_workspace_mode,
-                args=("openings", p),
+                on_click=activate_opening_placement,
+                args=(p,),
                 type="primary" if opening_mode else "secondary",
             )
     if selecting and p.current:
@@ -189,6 +235,7 @@ def workspace(project, build):
                 envelopes=envelopes,
                 previous=previous,
                 on_done=lambda: set_workspace_mode("assembly", p),
+                on_place=lambda opening_id: activate_opening_placement(p, opening_id),
             )
         else:
             st.plotly_chart(

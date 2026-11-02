@@ -5,6 +5,26 @@ OpenCASCADE measures the part; NVIDIA SMLib constructs the fixture's actual CAD.
 Review mounting evidence, clarify requirements, choose a plate, rails, L-bracket or bridge,
 generate geometry, revise it, and export a reproducible design record.
 
+## Changing fixture type and placing openings again — November 1, 2026
+
+Switching between a plate, rails, L-bracket and bridge retains each opening's ID
+and diameter but marks it **Needs placement**. Generate the new fixture first,
+then choose **Place next opening** or **Place on this fixture**, click the new
+surface, and select **Place opening and rebuild**. Repositioning replaces that
+opening; it does not add a duplicate. Pending openings are visibly listed and
+absent from CAD/STEP until placed. Earlier revisions keep their original holes.
+Other edits within the same fixture type retain valid saved positions.
+
+A bridge has a horizontal mounting platform; an L-bracket has an upright wall.
+Switching to a bridge does not preserve a requirement for a horizontally mounted
+shaft normal to the mounting face. The proposal explains this difference before
+generation; no automatic rotation or reinterpretation of the brief occurs.
+
+The local app now disables automatic source-code reload. Restart Streamlit after
+code updates so an active CAD session uses one consistent set of data contracts.
+Feedback and planner boundaries validate serialized record data rather than relying
+on Python class identity, preventing the reported same-name `BuildFeedback` error.
+
 ## Questions together and reliable opening saves — November 1, 2026
 
 The conversation shows all currently unanswered design questions in one visible
@@ -28,7 +48,7 @@ CAD. **Add opening and rebuild** creates a checked revision with a real round
 through-hole. It does not require a matching hole or recess in the uploaded STEP.
 
 Under **Existing fixture openings**, resize or remove an opening and rebuild.
-Positions stay in the fixture coordinate frame through later revisions; each opening
+Positions stay in the fixture coordinate frame through revisions of the same type; each opening
 belongs to a fixture body and is not automatically repeated for each workpiece.
 STEP includes these holes. Restoring a prior revision restores its opening choices.
 

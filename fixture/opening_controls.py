@@ -27,8 +27,10 @@ def opening_state(project):
             preview=None,
             error=None,
             diameter=state.get("diameter", 10.0) if state else 10.0,
+            opening_id=None,
         )
         st.session_state[key] = state
+    state.setdefault("opening_id", None)
     return state
 
 
@@ -50,6 +52,39 @@ def apply_opening_event(project, event):
 def clear_opening_position(project):
     state = opening_state(project)
     state.update(sequence=state["sequence"] + 1, event=None, preview=None, error=None)
+
+
+def can_place_opening(project):
+    return bool(
+        project.current
+        and project.requirements.composition == project.current.requirements.composition
+        and project.requirements.interface_id
+        == project.current.requirements.interface_id
+    )
+
+
+def begin_opening_placement(project, opening_id=None):
+    """Prepare a UI draft from a callback, before rendering the diameter widget."""
+    if not can_place_opening(project):
+        raise ValueError("Generate the new fixture type before placing its openings.")
+    if "fixture_openings" in project.requirements.locks:
+        raise ValueError("Fixture openings are locked. Unlock them in Advanced first.")
+    target = next(
+        (
+            opening
+            for opening in project.requirements.fixture_openings
+            if opening.id == opening_id
+        ),
+        None,
+    )
+    if opening_id is not None and target is None:
+        raise ValueError("This saved opening no longer exists.")
+    state = opening_state(project)
+    clear_opening_position(project)
+    state["opening_id"] = opening_id
+    if target:
+        state["diameter"] = target.diameter
+    st.session_state["fixture-opening-diameter-" + project.id] = state["diameter"]
 
 
 @st.cache_resource
@@ -134,17 +169,35 @@ def render_opening_view(
     envelopes,
     previous,
     on_done=None,
+    on_place=None,
 ):
     revision = project.current
     state = opening_state(project)
     locked = "fixture_openings" in project.requirements.locks
     diameter_key = "fixture-opening-diameter-" + project.id
+    target = next(
+        (
+            opening
+            for opening in project.requirements.fixture_openings
+            if opening.id == state["opening_id"]
+        ),
+        None,
+    )
     # Keep the component's sibling position stable when the toolbar is hidden.
     # Otherwise Streamlit remounts its DOM element and drops the live camera.
     with st.container(key="fixture-opening-header-" + project.id):
         diameter = state["diameter"]
         if enabled:
-            st.markdown("**Add an opening to this fixture**")
+            st.markdown(
+                "**Place a saved opening on this fixture**"
+                if target
+                else "**Add an opening to this fixture**"
+            )
+            if target:
+                st.caption(
+                    f"Saved opening {target.id[:6]} · Ø {target.diameter:g} mm. "
+                    "Click its new position; the previous location is a reference only."
+                )
             st.caption(
                 "Click a flat fixture wall, base or rib side, then choose the hole diameter. "
                 "Curved and sloped surfaces are unsupported. The preview does not change CAD."
@@ -191,7 +244,7 @@ def render_opening_view(
             sequence=state["sequence"],
             preview=state["preview"],
             diameter=diameter,
-            enabled=enabled and not locked,
+            enabled=enabled and not locked and can_place_opening(project),
             geometry_key=geometry_key,
             figure=opening_geometry(
                 geometry_key,
@@ -218,9 +271,9 @@ def render_opening_view(
         height=550,
     )
     apply_opening_event(project, getattr(result, "picked", None))
+    if state["error"]:
+        st.warning(state["error"])
     if enabled:
-        if state["error"]:
-            st.warning(state["error"])
         if state["preview"]:
             pick = state["preview"]
             st.caption(
@@ -235,20 +288,28 @@ def render_opening_view(
             st.info(
                 "Fixture openings are locked. Unlock them in Advanced to make changes."
             )
+        if not can_place_opening(project):
+            st.info("Generate the new fixture type before placing its openings.")
         if project.requirements != revision.requirements:
             st.caption("Rebuilding also applies your pending design settings.")
         if st.button(
-            "Add opening and rebuild",
+            "Place opening and rebuild" if target else "Add opening and rebuild",
             type="primary",
             key=key + "-add",
             disabled=not state["event"]
             or locked
-            or len(project.requirements.fixture_openings) >= 32,
+            or not can_place_opening(project)
+            or (target is None and len(project.requirements.fixture_openings) >= 32),
         ):
             try:
-                candidate = opening_candidate(project, state["event"], diameter)
+                candidate = opening_candidate(
+                    project, state["event"], diameter, opening_id=state["opening_id"]
+                )
                 _rebuild(
-                    project, build, candidate, f"Add Ø {diameter:g} mm fixture opening"
+                    project,
+                    build,
+                    candidate,
+                    f"{'Place' if target else 'Add'} Ø {diameter:g} mm fixture opening",
                 )
             except (ValueError, OSError) as error:
                 st.error(str(error))
@@ -265,21 +326,72 @@ def render_opening_view(
             "Rebuilding checks the through path and a 0.5 mm geometric rim. "
             "Load capacity, cable bend radius and connector fit still need review."
         )
-    saved_opening_controls(project, build)
+    saved_opening_controls(
+        project,
+        build,
+        on_place=on_place
+        or (lambda opening_id: begin_opening_placement(project, opening_id)),
+    )
 
 
-def saved_opening_controls(project, build):
+def saved_opening_controls(project, build, on_place=None):
     openings = project.requirements.fixture_openings
     if not openings:
         return
     locked = "fixture_openings" in project.requirements.locks
-    with st.expander(f"Existing fixture openings ({len(openings)})", expanded=False):
+    pending = sum(opening.needs_placement for opening in openings)
+    label = (
+        f"Fixture openings ({len(openings)}) — {pending} need placement"
+        if pending
+        else f"Existing fixture openings ({len(openings)})"
+    )
+    with st.expander(label, expanded=bool(pending)):
         st.caption(
-            "Resize or remove an opening with an explicit rebuild. Positions stay in the fixture frame."
+            "Place, resize or remove openings with an explicit rebuild. "
+            "Openings marked Needs placement are not cut until positioned on this fixture."
         )
         for number, opening in enumerate(openings, 1):
             key = f"opening-edit-{project.id}-{project.active_id}-{opening.id}-{opening.diameter}"
             st.markdown(f"**Opening {number} · {opening.body}**")
+            if opening.needs_placement:
+                st.warning(f"Needs placement · saved diameter {opening.diameter:g} mm")
+                st.caption(
+                    "Previous position (reference only): "
+                    + ", ".join(
+                        f"{axis.upper()} {value:.2f}"
+                        for axis, value in zip("xyz", opening.center)
+                    )
+                    + f" mm · through {opening.axis.upper()}"
+                )
+            if on_place:
+                st.button(
+                    "Place on this fixture"
+                    if opening.needs_placement
+                    else "Reposition",
+                    key=key + "-place",
+                    on_click=on_place,
+                    args=(opening.id,),
+                    disabled=locked or not can_place_opening(project),
+                )
+            if opening.needs_placement:
+                if not can_place_opening(project):
+                    st.caption(
+                        "Generate the new fixture type first, then place this opening."
+                    )
+                if st.button(
+                    "Remove and rebuild", key=key + "-remove", disabled=locked
+                ):
+                    try:
+                        candidate = remove_opening(project, opening.id)
+                        _rebuild(
+                            project,
+                            build,
+                            candidate,
+                            f"Remove unplaced opening {number}",
+                        )
+                    except (ValueError, OSError) as error:
+                        st.error(str(error))
+                continue
             diameter = st.number_input(
                 f"Diameter · Opening {number} (mm)",
                 min_value=0.5,
