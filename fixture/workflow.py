@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from .agent import Action, apply_action, requests_geometry
 from .contracts import DesignReview, FeedbackRecord
 from .planning import missing_questions
+from .questions import clean_questions, merge_questions
 from .review import repair_requirements, review_context, render_review
 
 INVITE = "What would you like to change next?"
@@ -30,7 +31,7 @@ def plan_design(
         project.messages.append(
             {
                 "role": "user",
-                "content": "Start design using my brief, saved conversation, selected mounting face, part retention, any selected mounting holes and manufacturing method. First resolve unanswered moving/spinning components, swept space, tool access and load questions. Do not ask about cable routing at setup; cable openings can be placed after the first fixture build. Preserve any cable requirements already supplied. Reuse answers already saved; none and unknown are valid explicit answers. Then ask only the next relevant questions, or present a supported proposal for my review. Do not generate CAD yet.",
+                "content": "Start design using my brief, saved conversation, selected mounting face, part retention, any selected mounting holes and manufacturing method. Ask all currently relevant unanswered moving/spinning, swept-space, tool-access, load and mounting questions together in one concise checklist. Do not ask about cable routing at setup; cable openings can be placed after the first fixture build. Preserve any cable requirements already supplied. Reuse answers already saved; none and unknown are valid explicit answers. When ready, present a supported proposal and direct me to its Generate button without asking another permission question. Do not generate CAD yet.",
             }
         )
     try:
@@ -43,11 +44,19 @@ def plan_design(
                 project.current,
             )
         )
+        cleaned = clean_questions(action.questions)
+        removed_invitation = bool(action.questions) and not cleaned
+        action = action.model_copy(update={"questions": cleaned})
+        # A model asking permission has not requested a build. The Generate
+        # button handles that decision; never turn a discarded prompt into CAD.
+        if removed_invitation and action.action in ("build", "revise"):
+            action = action.model_copy(update={"action": "propose"})
         # Store only the validated decision, never raw provider output/credentials.
         project.last_planner_attempt["action"] = action.model_dump(mode="json")
         if action.action == "unsupported":
             # A limitation response may not smuggle a substitute design into requirements.
             project.stage = "clarifying"
+            questions = ()
         else:
             candidate = apply_action(
                 project.analysis, project.requirements, action, origin=origin
@@ -62,11 +71,17 @@ def plan_design(
             project.stage = (
                 "clarifying" if questions or action.questions else "proposing"
             )
+        checklist = merge_questions(action.questions, questions)
+        if removed_invitation and not checklist and action.action != "unsupported":
+            action = action.model_copy(
+                update={"explanation": "The proposal is ready. Choose a fixture concept below and select Generate."}
+            )
+            project.last_planner_attempt["action"] = action.model_dump(mode="json")
         project.messages.append(
             {
                 "role": "assistant",
                 "content": action.explanation
-                + ("\n\n" + "\n\n".join(action.questions) if action.questions else ""),
+                + ("\n\n" + "\n\n".join(checklist) if checklist else ""),
             }
         )
         project.error = None
@@ -75,11 +90,8 @@ def plan_design(
             and requests_geometry(action)
             and (questions := missing_questions(project.analysis, project.requirements))
         ):
-            project.messages.append(
-                {
-                    "role": "assistant",
-                    "content": "Before generating:\n\n" + "\n\n".join(questions),
-                }
+            project.messages[-1]["content"] = (
+                "Before generating:\n\n" + project.messages[-1]["content"]
             )
             return False
         return not start and requests_geometry(action) and not action.questions

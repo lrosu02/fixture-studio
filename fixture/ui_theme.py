@@ -2,8 +2,11 @@
 
 from html import escape
 from pathlib import Path
+import re
 
 import streamlit as st
+
+from .questions import clean_questions, merge_questions
 
 
 def apply_theme():
@@ -87,7 +90,7 @@ def project_overview(project, questions=()):
     elif questions:
         badge, kind = "Define your setup", "neutral"
         hint = (
-            "Answer the current question in Design conversation. Use Model preview for mounting choices."
+            "Answer the design questions together in Design conversation. Use Model preview for mounting choices."
             if project.requirements.purpose
             else "Start with Fixture goal and motion, access and load notes in Design conversation. Use Model preview for mounting choices."
         )
@@ -176,7 +179,7 @@ def conversation_questions(project, questions=()):
     clarifying = getattr(project, "stage", None) == "clarifying" and not getattr(
         project, "error", None
     )
-    current = action.get("questions", ()) if clarifying else ()
+    current = clean_questions(action.get("questions", ()) or ()) if clarifying else ()
     if clarifying and not current:
         revision = getattr(project, "current", None)
         latest = next(
@@ -190,8 +193,27 @@ def conversation_questions(project, questions=()):
             None,
         )
         if getattr(latest, "outcome", None) == "needs_input":
-            current = getattr(getattr(latest, "review", None), "questions", ()) or ()
-    return tuple(dict.fromkeys([*current, *questions]))
+            current = clean_questions(
+                getattr(getattr(latest, "review", None), "questions", ()) or ()
+            )
+    return merge_questions(current, questions)
+
+
+def reply_summary(text, questions):
+    """Hide exact repeated questions in the summary; retain the original transcript."""
+
+    def key(value):
+        return " ".join(value.split()).casefold().rstrip(" ?.!")
+
+    shown = {key(question) for question in questions}
+    lines = []
+    for line in text.splitlines():
+        candidate = re.sub(r"^\s*(?:\d+[.)]|[-*•])\s+", "", line).strip().strip("*_")
+        # The same cleaner also suppresses a saved permission-only prompt.
+        if candidate and (key(candidate) in shown or not clean_questions((candidate,))):
+            continue
+        lines.append(line)
+    return "\n".join(lines).strip()
 
 
 def conversation_panel(project, questions=()):
@@ -206,7 +228,10 @@ def conversation_panel(project, questions=()):
             "Review the error below, then retry or describe a change.",
         )
     elif questions:
-        step, prompt = "Complete the setup", questions[0]
+        step, prompt = (
+            "Design questions",
+            "Answer the questions below together in one reply.",
+        )
     elif pending:
         step, prompt = (
             "Review your changes",
@@ -222,26 +247,37 @@ def conversation_panel(project, questions=()):
             "Choose a fixture concept",
             "Review the proposals below and generate the approach you want.",
         )
+    checklist = (
+        '<ol aria-label="Unanswered design questions" '
+        'style="padding-left:1.3rem;margin:.65rem 0 0;color:#e4faf5;font-size:.86rem;line-height:1.6">'
+        + "".join(
+            f'<li style="margin:.4rem 0">{escape(question)}</li>'
+            for question in questions
+        )
+        + "</ol>"
+        if questions
+        else ""
+    )
     st.html(
         '<section class="studio-conversation-step" aria-label="Current design step">'
         '<span class="studio-eyebrow">CURRENT STEP</span>'
-        f"<h4>{escape(step)}</h4><p>{escape(prompt)}</p></section>"
+        f"<h4>{escape(step)}</h4><p>{escape(prompt)}</p>{checklist}</section>"
     )
-    if len(questions) > 1:
-        with st.expander("Other setup details", expanded=False):
-            for question in questions[1:]:
-                st.write(question)
     if sections["latest_user"]:
         with st.expander("Your latest message", expanded=False):
             st.write(sections["latest_user"]["content"])
     if reply := sections["latest_reply"]:
-        st.markdown("**Latest assistant reply**")
-        with st.chat_message("assistant"):
-            text = reply["content"]
-            st.write(text if len(text) <= 650 else text[:650].rsplit(" ", 1)[0] + "…")
-            if len(text) > 650:
-                with st.expander("Read full assistant reply", expanded=False):
-                    st.write(text)
+        original = reply["content"]
+        text = reply_summary(original, questions)
+        if text:
+            st.markdown("**Latest assistant reply**")
+            with st.chat_message("assistant"):
+                st.write(
+                    text if len(text) <= 650 else text[:650].rsplit(" ", 1)[0] + "…"
+                )
+        if text != original or len(text) > 650:
+            with st.expander("Read full assistant reply", expanded=False):
+                st.write(original)
     if sections["history"]:
         with st.expander("Earlier conversation", expanded=False):
             for message in sections["history"]:

@@ -578,7 +578,7 @@ class DesignReview(Record):
     summary: str = Field(min_length=1, max_length=3000)
     findings: tuple[str, ...] = Field(max_length=8)
     changes: RepairChanges
-    questions: tuple[str, ...] = Field(max_length=3)
+    questions: tuple[str, ...] = Field(max_length=24)
 
     @model_validator(mode="after")
     def consistent_decision(self):

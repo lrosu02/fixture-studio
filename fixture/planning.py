@@ -205,7 +205,7 @@ def missing_questions(a, r, automatic_clearance=True):
         questions.append(
             "Review and accept the visible concept assumptions, or replace the defaults."
         )
-    return questions[:3]
+    return questions
 
 
 def proposals(a, r):

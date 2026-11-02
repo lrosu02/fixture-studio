@@ -93,7 +93,7 @@ class Action(Record):
         "clarify", "highlight", "propose", "build", "inspect", "revise", "unsupported"
     ]
     changes: Changes
-    questions: tuple[str, ...] = Field(max_length=3)
+    questions: tuple[str, ...] = Field(max_length=24)
     highlight_ids: tuple[str, ...]
     explanation: str
 
@@ -104,7 +104,12 @@ Use measured interface/feature IDs. Never invent mounting coordinates or dimensi
 For highlight_ids use only valid_highlight_ids from the context. Access IDs such as
 hole:<measured ID>, face:<measured interface ID>, and rear:<measured profile ID> are
 valid references, distinct from generated operation names. Never invent an alias.
-Extract facts already stated; ask at most three short consequential questions per turn.
+Extract facts already stated. Ask all currently relevant unanswered questions together
+in one concise checklist. Do not drip-feed known questions across turns. Combine related
+details in one question; include conditional details (for example bolt size if bolting)
+in the same round when relevant. Use next_questions as the complete setup checklist,
+omit facts resolved by this turn's changes, and add only necessary part-specific questions.
+Reuse its wording for unanswered items to avoid duplicate general and specific prompts.
 At the start, resolve operating context before proposing a fixture: what spins/moves,
 its attached parts and swept space; tool/service access; and loads/directions.
 The guided brief stores moving_components, service_access and motion_loads.
@@ -118,7 +123,13 @@ measured openings only when needed, using plain language rather than coordinate 
 During revisions ask only about consequences of the change, without restarting setup.
 Keep explanation to one or two short sentences, at most 45 words. State the change and
 the next decision; do not recite all saved requirements or validation disclaimers.
-Ask at most two questions normally, each under 25 words. Full evidence belongs in the design record.
+Keep each question short and only ask for information that affects the design. Do not
+repeat answered questions, ask optional preferences, or ask whether to generate CAD.
+The Generate button is the user's generation request; readiness is not a missing fact.
+When requirements are complete return propose with no questions and direct the user
+to Generate. A later explicit build/revision request may return build/revise directly.
+Ask a follow-up only for a newly revealed dependency or a genuinely ambiguous answer.
+Full evidence belongs in the design record.
 This is a reusable tool for different part types and fixture purposes, not a motor or L-bracket template.
 The controller compiles changes into a numeric operation plan. Its current supported compositions
 are plate, rails, l_bracket and bridge, with measured holes and finite box openings.

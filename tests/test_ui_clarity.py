@@ -6,7 +6,11 @@ from streamlit.testing.v1 import AppTest
 
 from fixture.dimensions import value, value_label, dimension_figure
 from fixture.project import Project
-from fixture.ui_theme import conversation_sections, conversation_questions
+from fixture.ui_theme import (
+    conversation_sections,
+    conversation_questions,
+    reply_summary,
+)
 from tests.test_geometry import ready
 
 
@@ -53,11 +57,16 @@ conversation_panel(st.session_state.project, ['How will it attach?', 'Which mate
     ui.run()
     assert not ui.exception
     assert {x.label for x in ui.expander} >= {
-        "Other setup details",
         "Your latest message",
         "Earlier conversation",
         "Selection and save activity",
     }
+    assert "Other setup details" not in {x.label for x in ui.expander}
+    card = ui.get("html")[0].proto.body
+    assert 'aria-label="Unanswered design questions"' in card
+    assert card.count("<li ") == 2
+    assert card.index("How will it attach?") < card.index("Which material?")
+    assert "Answer the questions below together in one reply." in card
     assert all(not x.proto.expanded for x in ui.expander)
     assert any(x.value == "**Latest assistant reply**" for x in ui.markdown)
     assert p.messages == original
@@ -89,12 +98,118 @@ def test_current_review_questions_use_same_answer_flow_without_stale_replay():
     assert conversation_questions(p) == ("Confirm the cable bend radius.",)
     p.last_planner_attempt = {"action": {"questions": ["Which connector?"]}}
     assert conversation_questions(p) == ("Which connector?",)
+    p.last_planner_attempt = {
+        "action": {"questions": ["Would you like to generate CAD now?"]}
+    }
+    assert conversation_questions(p) == ("Confirm the cable bend radius.",)
     p.last_planner_attempt = None
     p.current = SimpleNamespace(id="different")
     assert conversation_questions(p) == ()
     p.current = SimpleNamespace(id="current")
     p.stage = "presented"
     assert conversation_questions(p) == ()
+
+
+def test_all_merged_questions_are_visible_once_with_escaped_design_text():
+    p = SimpleNamespace(
+        current=None,
+        error=None,
+        stage="clarifying",
+        last_planner_attempt={
+            "action": {
+                "questions": [
+                    "Would you like to generate CAD now?",
+                    "Which material?",
+                    "which material?",
+                    "What is the <max> load?",
+                ]
+            }
+        },
+        messages=[dict(role="assistant", content="Use the measured mounting face.")],
+    )
+    questions = (
+        "Which material?",
+        "How many parts?",
+        "What must remain reachable?",
+        "Should I generate a 4 mm or 6 mm wall?",
+    )
+    original = deepcopy(p.__dict__)
+    ui = AppTest.from_string("""
+import streamlit as st
+from fixture.ui_theme import conversation_panel
+conversation_panel(st.session_state.project, st.session_state.questions)
+""")
+    ui.session_state.project, ui.session_state.questions = p, questions
+    ui.run()
+    assert not ui.exception
+    card = ui.get("html")[0].proto.body
+    assert card.count("<li ") == 5
+    assert card.count("Which material?") == 1
+    assert "Would you like to generate CAD now?" not in card
+    assert "What is the &lt;max&gt; load?" in card
+    assert "Should I generate a 4 mm or 6 mm wall?" in card
+    assert not any(x.label == "Other setup details" for x in ui.expander)
+    assert p.__dict__ == original
+
+
+def test_reply_summary_omits_repeated_questions_without_changing_transcript():
+    questions = ("Which material?", "What load?")
+    text = (
+        "The measured mounting face is suitable.\n\n"
+        "1. **Which material?**\n2. What load?\n\n"
+        "Would you like to generate CAD now?"
+    )
+    p = SimpleNamespace(
+        current=None,
+        error=None,
+        messages=[dict(role="assistant", content=text)],
+    )
+    original = deepcopy(p.messages)
+    ui = AppTest.from_string("""
+import streamlit as st
+from fixture.ui_theme import conversation_panel
+conversation_panel(st.session_state.project, ('Which material?', 'What load?'))
+""")
+    ui.session_state.project = p
+    ui.run()
+    assert not ui.exception
+    assert reply_summary(text, questions) == "The measured mounting face is suitable."
+    assert reply_summary("Explain why 'Which material?' matters.", questions) == (
+        "Explain why 'Which material?' matters."
+    )
+    assert (
+        ui.chat_message[0].markdown[0].value
+        == "The measured mounting face is suitable."
+    )
+    full_reply = next(x for x in ui.expander if x.label == "Read full assistant reply")
+    assert not full_reply.proto.expanded and full_reply.markdown[0].value == text
+    assert p.messages == original
+
+
+def test_legacy_generate_permission_only_shows_proposal_step_and_keeps_history():
+    text = "Would you like to generate CAD now?"
+    p = SimpleNamespace(
+        current=None,
+        error=None,
+        stage="clarifying",
+        last_planner_attempt={"action": {"questions": [text]}},
+        messages=[dict(role="assistant", content=text)],
+    )
+    ui = AppTest.from_string("""
+import streamlit as st
+from fixture.ui_theme import conversation_panel
+conversation_panel(st.session_state.project)
+""")
+    ui.session_state.project = p
+    ui.run()
+    assert not ui.exception and conversation_questions(p) == ()
+    card = ui.get("html")[0].proto.body
+    assert "Choose a fixture concept" in card
+    assert "Unanswered design questions" not in card
+    assert not ui.chat_message
+    full_reply = next(x for x in ui.expander if x.label == "Read full assistant reply")
+    assert not full_reply.proto.expanded and full_reply.markdown[0].value == text
+    assert p.messages == [dict(role="assistant", content=text)]
 
 
 def test_display_values_survive_selection_mode_and_do_not_touch_requirements():

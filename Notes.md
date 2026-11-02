@@ -1,5 +1,44 @@
 # Engineering record
 
+## Batched questions and opening export recovery (2026-11-01)
+
+Removed the deterministic three-question truncation and expanded planner/reviewer
+question records to 24 items. Prompts request all relevant unanswered facts together,
+reuse recorded answers, and reserve follow-up turns for newly revealed dependencies.
+The UI displays the complete checklist and omits duplicate question lines from the
+short reply while preserving the original transcript. A conservative full-string
+filter removes standalone Generate permission invitations from both new decisions
+and restored UI state; dimension/conditional/design questions remain blockers.
+Removing a permission prompt never triggers an automatic build.
+
+The actual opening failure on project b5443f182e5b4d24ac7bae926866dcbb was three
+OpenUSD SafeOutputFile rename denials on Windows, each leaving only a USD header.
+The recorded 10 mm opening compiled successfully in a standalone process and five
+worker-thread reproductions. The application log does not identify which process
+held the file, so this is not attributed to a specific watcher or antivirus.
+After existing bounded retries, export recovery serializes the unchanged SMLib
+BReps to binary native files, exports them in a fresh hidden Python process in OS
+temporary storage, and verifies the returned USD against the original solids.
+Publication uses a separate sibling file and atomic replacement. Recovery is
+limited to one process with a 30-second timeout. No CAD parameters, locks, source
+selection, or geometry operations change, and a failed recovery preserves prior CAD.
+
+The user's exact failed opening was reproduced on a separate project with all
+three parent-process saves deliberately failed. Isolated recovery succeeded;
+STEP reopened in OCCT with eight part holes, four base holes and the requested
+10 mm opening. Intersection with its full-depth cylinder was 0.0 mm³; all native
+checks passed. The original project was unchanged. Evidence is in ignored
+`artifacts/hole-export-repro/recovery-report.json`.
+
+Verification: 64 focused backend/native tests passed; the integrated application,
+review, question and UI suite passed 41 tests; the final question-deduplication/UI
+suite passed 26 tests (these suites overlap). Coverage includes isolated recovery,
+true hole voids, corrupt exports/timeouts retaining old files, unchanged saved
+requirements, grouped questions and genuine follow-up blockers. Live ChatGPT
+subscription checks returned six relevant questions in one round for incomplete
+setup and a question-free proposal for completed setup. Provider calls used copies
+of requirements and did not change the user's project.
+
 ## Cable routing moved out of setup (2026-11-01)
 
 Removed the Cable routing field from the guided brief and saved-brief editor.

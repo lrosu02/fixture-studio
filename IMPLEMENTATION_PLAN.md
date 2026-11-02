@@ -6,6 +6,12 @@ This is a handoff specification for the implementation agent. The six brushless 
 
 ## Sheet-metal extension checkpoint — November 1, 2026
 
+**Conversation/export follow-up:** show the entire currently relevant question
+checklist, reuse saved answers, and make the Generate button sufficient when ready.
+Standalone generation invitations no longer block proposals. Persistent native
+save failures receive one isolated, verified SMLib serialization recovery; the
+user's recorded 10 mm opening passed native and reopened STEP checks through it.
+
 **Setup follow-up:** cable routing is no longer an initial brief field or required
 clarification. Users add cable holes after the first build with the fixture opening
 tool. Existing routing facts and explicit through-access requirements are retained.

@@ -5,6 +5,20 @@ OpenCASCADE measures the part; NVIDIA SMLib constructs the fixture's actual CAD.
 Review mounting evidence, clarify requirements, choose a plate, rails, L-bracket or bridge,
 generate geometry, revise it, and export a reproducible design record.
 
+## Questions together and reliable opening saves — November 1, 2026
+
+The conversation shows all currently unanswered design questions in one visible
+checklist. Answer them together in the reply box. Saved answers are reused; only a
+new dependency or ambiguous answer should require another round. Once ready,
+choose **Generate** on a proposal without answering a separate permission question.
+The controller no longer hides setup questions after the first three.
+
+CAD saving now has an isolated recovery path for the Windows temporary-file rename
+failure seen when adding an opening. After three local retries, the app passes the
+same native SMLib solids to one hidden export process (30-second timeout), verifies
+the reopened CAD, and publishes it atomically. It does not alter dimensions or ask
+AI to repair a storage failure. If recovery fails, the last valid fixture remains.
+
 ## Place openings after the first design — November 1, 2026
 
 Generate the fixture first, then choose **Add a fixture opening** above its preview.
@@ -425,7 +439,8 @@ manual generation workflow with geometric checks and no AI review. Review errors
 or timeouts preserve generated CAD and are visibly marked incomplete.
 
 CAD saves use private staging files, native reopen checks and atomic publication.
-Transient save failures are retried at most three times with the same geometry.
+Transient save failures are retried three times with the same geometry, followed
+by one isolated native export attempt if needed. Verified CAD is published atomically.
 An incomplete or mismatching export cannot become a valid revision. Persistent
 file-save errors preserve prior CAD and ask you to retry Generate; they do not
 trigger AI changes to dimensions or consume an AI review call.
