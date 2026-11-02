@@ -30,7 +30,7 @@ def plan_design(
         project.messages.append(
             {
                 "role": "user",
-                "content": "Start design using my brief, saved conversation, selected mounting face, part retention, any selected mounting holes and manufacturing method. Ask only the next relevant questions, or present a supported proposal for my review. Do not generate CAD yet.",
+                "content": "Start design using my brief, saved conversation, selected mounting face, part retention, any selected mounting holes and manufacturing method. First resolve unanswered moving/spinning components, swept space, cables/connectors, tool access and load questions. Reuse answers already saved; none and unknown are valid explicit answers. Then ask only the next relevant questions, or present a supported proposal for my review. Do not generate CAD yet.",
             }
         )
     try:
@@ -59,7 +59,9 @@ def plan_design(
                 h.split(":", 1)[1] if h.startswith(("face:", "hole:", "rear:")) else h
                 for h in action.highlight_ids
             )
-            project.stage = "clarifying" if questions else "proposing"
+            project.stage = (
+                "clarifying" if questions or action.questions else "proposing"
+            )
         project.messages.append(
             {
                 "role": "assistant",
@@ -80,7 +82,7 @@ def plan_design(
                 }
             )
             return False
-        return not start and requests_geometry(action)
+        return not start and requests_geometry(action) and not action.questions
     except Exception as error:
         project.requirements, project.highlights = (
             original_requirements,
@@ -93,7 +95,7 @@ def plan_design(
                 "role": "assistant",
                 "content": "Planning failed: "
                 + project.error[:1000]
-                + "\n\nNo design changes were applied. Your saved choices and CAD are retained. Retry Start design.",
+                + "\n\nNo design changes were applied. Your saved choices and CAD are retained. Retry the request in the conversation.",
             }
         )
         project.stage = "presented" if project.current else "clarifying"
@@ -181,6 +183,7 @@ def generate_with_feedback(
                 record = record.model_copy(update={"outcome": "accepted"})
             elif review.verdict == "needs_input":
                 record = record.model_copy(update={"outcome": "needs_input"})
+                project.stage = "clarifying"
             elif attempt == 2:
                 record = record.model_copy(
                     update={

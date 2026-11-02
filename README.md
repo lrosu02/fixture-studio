@@ -5,6 +5,46 @@ OpenCASCADE measures the part; NVIDIA SMLib constructs the fixture's actual CAD.
 Review mounting evidence, clarify requirements, choose a plate, rails, L-bracket or bridge,
 generate geometry, revise it, and export a reproducible design record.
 
+## Guided conversation, part colors and formed bends — November 1, 2026
+
+New projects start in one visible **Fixture goal** form. Enter the task and number
+of parts, then answer **Moving or spinning parts**, **Cable routing**, **Tool and
+service access**, and **Loads and forces**. Blank means unspecified; type `unknown`
+when undecided or explicitly say none. **Start design** saves these answers and
+asks the AI to resolve the remaining details before proposing a fixture. Offline
+mode uses **Save design brief** without an AI call. Quantity is not assumed.
+
+After setup there is one message box: **Answer the design questions**, **Discuss
+this proposal**, or **Request a revision**, depending on the current step. Revision
+requests go there. **Edit saved brief** is collapsed and saves setup changes without
+calling the AI or rebuilding. Saved questions survive project resume. Unanswered
+planner questions prevent generation; geometric checks still guard every build.
+
+Separate fixture parts have consistent individual preview colors, with legend
+entries identifying each body. Uploaded workpieces and an imported base remain gray.
+Colors persist across revisions and source visibility changes; geometry is unchanged.
+
+For a formed L-bracket, choose **Fabrication → Sheet metal — tabs & welding →
+Tabs & welded joints → Sheet construction → Bent L-bracket with welded ribs**.
+The wall and base become one continuous 90° sheet bend; optional ribs remain separate
+parts and are trimmed around its inside curve. There is no welded wall/base seam
+or tab between those two flanges. Rib-to-base locating tabs remain optional.
+**Inside bend radius (mm; 0 = automatic)** defaults to the sheet thickness; the
+outside radius equals inside radius plus thickness. Generate a revision to apply it.
+
+The actual radius must match the material and tooling, as described in
+[SendCutSend's bending process guidance](https://sendcutsend.com/faq/how-do-you-bend-parts/).
+This option models the formed geometry, not springback, press-brake access, weld
+strength or a developed flat pattern. It currently supports 90° L-brackets; other
+families use separate cut panels. Existing saved designs keep their construction
+choice. STEP includes analytic curved surfaces and separate welded support bodies.
+
+Reproduce the bent demo and a thickness/joint revision:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/demo_sheet_metal.py --bent
+```
+
 ## Sheet metal: tabs and welding — November 1, 2026
 
 In **Fabrication → Manufacturing method**, choose **Sheet metal — tabs & welding**
@@ -13,7 +53,7 @@ and save. **Fixture thickness (mm)** becomes the common sheet thickness. Open
 adjust tab width/count, slot clearance per side and weld root gap. Generate a
 revision to apply changes. Saving controls does not rebuild CAD or call the AI.
 
-The sheet route creates separate flat panels for screw-mounted plates, rails,
+The **Separate cut panels** route creates flat panels for screw-mounted plates, rails,
 L-brackets and bridges. A ribbed L-bracket has four panels: wall, base and two ribs.
 Tabs fit into matching through slots at the base; the rib-to-wall seams are butt
 joints. Bridges use tabs at the leg/platform and leg/foot joints. Tab width is

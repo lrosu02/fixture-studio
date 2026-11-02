@@ -73,7 +73,12 @@ class Changes(Record):
     sheet_tab_width: float | None = None
     sheet_tab_count: int | None = None
     sheet_root_gap: float | None = None
+    sheet_construction: Literal["cut_weld", "bent_weld"] | None = None
+    sheet_bend_radius: float | None = None
     motion_loads: str | None = None
+    moving_components: str | None = None
+    cable_routing: str | None = None
+    service_access: str | None = None
     access: str | None = None
     appearance: str | None = None
     envelopes: tuple[Envelope, ...] | None = None
@@ -99,6 +104,15 @@ For highlight_ids use only valid_highlight_ids from the context. Access IDs such
 hole:<measured ID>, face:<measured interface ID>, and rear:<measured profile ID> are
 valid references, distinct from generated operation names. Never invent an alias.
 Extract facts already stated; ask at most three short consequential questions per turn.
+At the start, resolve operating context before proposing a fixture: what spins/moves,
+its attached parts and swept space; cable/connector routing; tool/service access;
+and loads/directions. The guided brief stores moving_components, cable_routing,
+service_access and motion_loads. Use these saved answers and the conversation;
+do not ask answered questions again or infer that an empty answer means no need.
+Explicit unknown is accepted for a concept, but never invent a propeller diameter,
+cable passage, swept clearance or load. Ask for consequential dimensions/selected
+measured openings only when needed, using plain language rather than coordinate jargon.
+During revisions ask only about consequences of the change, without restarting setup.
 Keep explanation to one or two short sentences, at most 45 words. State the change and
 the next decision; do not recite all saved requirements or validation disclaimers.
 Ask at most two questions normally, each under 25 words. Full evidence belongs in the design record.
@@ -247,8 +261,14 @@ is PER SIDE in mm, default 0.15, bounded 0.05–1; sheet_root_gap is 0–1 mm, d
 These are concept allowances, not a universal standard. Full-depth panel cutouts replace
 rear blind relief. Plain screw through holes only; recessed seats, driver pockets and
 hole-free sheet retention are unsupported. Existing rib fillet settings are inactive for sheet.
-Weld seams are recorded, but weld beads, weld sizing, strength, bends/unfolding and casting
-are unsupported. Do not claim welded capacity or ask the user to approve routine default fits.
+sheet_construction=cut_weld preserves separate panels. bent_weld currently supports only
+L-brackets: a continuous 90-degree wall/base bend, optional separately welded ribs trimmed
+to the inner curve. sheet_bend_radius is optional inside radius in mm, at most 100;
+unset uses sheet thickness as an editable concept assumption. Outer radius=inner+thickness.
+Do not silently substitute bent construction for an existing cut-panel design.
+Weld seams are recorded, but weld beads, weld sizing/strength, bend unfolding, tooling
+feasibility and casting are unsupported. Radius depends on material/tooling. Do not claim
+welded capacity or ask the user to approve routine default fits.
 Manufacturing captures ONLY the method, such as '3D printing' or 'Machined stock'.
 Do not request printing material, machine, filament grade or slicer settings.
 Use the method when comparing supported structures: connected plates, L-brackets and bridges

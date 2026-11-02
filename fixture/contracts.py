@@ -209,9 +209,15 @@ class Requirements(Record):
     sheet_tab_width: Positive | None = None
     sheet_tab_count: Annotated[int, Field(ge=1, le=8)] = 2
     sheet_root_gap: Annotated[float, Field(ge=0, le=1)] = 0
+    sheet_construction: Literal["cut_weld", "bent_weld"] = "cut_weld"
+    sheet_bend_radius: Annotated[float, Field(gt=0, le=100)] | None = None
     material: str | None = None
     print_settings: PrintSettings = Field(default_factory=PrintSettings)
     motion_loads: str | None = None
+    brief_answers_recorded: bool = False
+    moving_components: Annotated[str, Field(max_length=2000)] | None = None
+    cable_routing: Annotated[str, Field(max_length=2000)] | None = None
+    service_access: Annotated[str, Field(max_length=2000)] | None = None
     access: str | None = None
     appearance: str | None = None
     envelopes: tuple[Envelope, ...] = ()
@@ -261,8 +267,11 @@ class Operation(Record):
         "slot",
         "wedge",
         "prism",
+        "quarter_bend",
+        "bend_relief",
     ] = "box"
     corner_radius: Positive | None = None
+    bend_radius: Positive | None = None
     profile: Annotated[tuple[Vec2, ...], Field(max_length=48)] = ()
     axis: Literal["x", "y", "z"] = "z"
     origin: Vec = (0, 0, 0)
@@ -277,6 +286,22 @@ class Operation(Record):
 
     @model_validator(mode="after")
     def bounds(self):
+        if self.shape == "quarter_bend":
+            if (
+                self.kind != "stock"
+                or self.axis != "x"
+                or self.bend_radius is None
+                or self.bend_radius >= self.size[1]
+                or abs(self.size[1] - self.size[2]) > 1e-8
+            ):
+                raise ValueError(
+                    "Quarter bends need bounded X-axis annular sheet stock."
+                )
+        elif self.shape == "bend_relief":
+            if self.kind != "relief" or self.axis != "x" or self.bend_radius is None:
+                raise ValueError("Bend relief needs a bounded X-axis corner cutter.")
+        elif self.bend_radius is not None:
+            raise ValueError("Bend radius is only valid on quarter-bend stock.")
         if self.targets and (
             self.kind != "relief" or len(set(self.targets)) != len(self.targets)
         ):
@@ -362,12 +387,14 @@ class SheetPanel(Record):
     body: str
     normal_axis: Literal["x", "y", "z"]
     thickness: Positive
+    form: Literal["flat", "bent"] = "flat"
 
 
 class SheetJoint(Record):
     id: str
     owner: str
     receiver: str
+    receiver_land: str | None = None
     axis: Literal["x", "y", "z"]
     seam_start: Vec
     seam_end: Vec
@@ -378,8 +405,17 @@ class SheetJoint(Record):
     weld_note: str = "Tack to locate, verify alignment, then weld to an approved joint procedure; weld size is not specified."
 
 
+class SheetBend(Record):
+    id: str
+    body: str
+    inner_radius: Positive
+    thickness: Positive
+    angle_degrees: Literal[90] = 90
+    flat_lands: tuple[str, str]
+
+
 class Plan(Record):
-    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] = 1
+    version: Literal[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13] = 1
     source_hash: str
     interface_id: str
     composition: Composition
@@ -391,6 +427,7 @@ class Plan(Record):
     clearances: tuple[FastenerClearance, ...] = ()
     sheet_panels: Annotated[tuple[SheetPanel, ...], Field(max_length=MAX_BODIES)] = ()
     sheet_joints: Annotated[tuple[SheetJoint, ...], Field(max_length=32)] = ()
+    sheet_bends: Annotated[tuple[SheetBend, ...], Field(max_length=4)] = ()
 
     @model_validator(mode="after")
     def graph(self):
@@ -418,6 +455,8 @@ class Plan(Record):
                 raise ValueError("Operation references a missing body.")
             if op.kind == "fillet" and self.version < 10:
                 raise ValueError("Fillets require compiler version 10.")
+            if op.shape in ("quarter_bend", "bend_relief") and self.version < 13:
+                raise ValueError("Bent sheet requires compiler version 13.")
             if op.kind == "finish" and self.version < 11:
                 raise ValueError(
                     "Joined corner finishing requires compiler version 11."
@@ -459,6 +498,10 @@ class Plan(Record):
                     or {joint.owner, joint.receiver} - bodies
                     or len(joint.tabs) != len(joint.slots)
                     or not set(joint.tabs + joint.slots) <= seen
+                    or (
+                        joint.receiver_land
+                        and (self.version < 13 or joint.receiver_land not in seen)
+                    )
                     or any(
                         abs(v) > MAX_DIM
                         for point in (joint.seam_start, joint.seam_end)
@@ -467,6 +510,14 @@ class Plan(Record):
                 ):
                     raise ValueError("Invalid bounded sheet joint references.")
                 joint_ids.add(joint.id)
+        if self.sheet_bends:
+            if self.version < 13 or any(
+                b.body not in bodies
+                or b.id not in seen
+                or not set(b.flat_lands) <= seen
+                for b in self.sheet_bends
+            ):
+                raise ValueError("Invalid bent-sheet references.")
         return self
 
 

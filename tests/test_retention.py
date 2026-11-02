@@ -82,7 +82,7 @@ def test_real_trays_step_revision_and_no_part_holes(tmp_path, attachment, quanti
     project = Project(a, r)
     rev = project.generate()
     assert (
-        rev.plan.version == 12
+        rev.plan.version == 13
         and rev.metrics["hole_count"] == 0
         and rev.metrics["base_hole_count"] == 4
     )

@@ -445,6 +445,7 @@ def requirement_controls(p):
             locks = st.multiselect(
                 "Lock requirement values",
                 [
+                    "purpose",
                     "quantity",
                     "layout",
                     "columns",
@@ -470,10 +471,16 @@ def requirement_controls(p):
                     "mounting_hole_ids",
                     "fabrication",
                     "sheet_joint_style",
+                    "sheet_construction",
+                    "sheet_bend_radius",
                     "sheet_slot_clearance",
                     "sheet_tab_width",
                     "sheet_tab_count",
                     "sheet_root_gap",
+                    "moving_components",
+                    "cable_routing",
+                    "service_access",
+                    "motion_loads",
                 ],
                 default=[k for k in r.locks if k not in ("material", "print_settings")],
             )

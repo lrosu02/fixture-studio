@@ -14,7 +14,13 @@ JOINT_STYLES = {
     "tab_slot_weld": "Locating tabs & slots, then weld",
     "weld_only": "Weld-only butt joints",
 }
+CONSTRUCTIONS = {
+    "cut_weld": "Separate cut panels",
+    "bent_weld": "Bent L-bracket with welded ribs",
+}
 SHEET_FIELDS = (
+    "sheet_construction",
+    "sheet_bend_radius",
     "sheet_joint_style",
     "sheet_slot_clearance",
     "sheet_tab_width",
@@ -36,10 +42,39 @@ def sheet_controls(project):
         st.caption(
             f"Sheet thickness: {r.thickness:g} mm. Change Fixture thickness (mm) below the preview to adjust it."
         )
-        st.caption(
-            "STEP contains separate flat panels. Tabs locate the panels for welding; "
-            "they do not establish joint strength."
+        construction = st.selectbox(
+            "Sheet construction",
+            list(CONSTRUCTIONS),
+            index=list(CONSTRUCTIONS).index(r.sheet_construction),
+            format_func=CONSTRUCTIONS.get,
+            key=key + "-construction",
+            disabled="sheet_construction" in locked,
         )
+        changes = {"sheet_construction": construction}
+        if construction == "bent_weld":
+            st.caption(
+                "L-bracket only: the wall and base form one bent sheet, with separate welded ribs. Choose an L-bracket concept to generate this route."
+            )
+            changes["sheet_bend_radius"] = (
+                st.number_input(
+                    "Inside bend radius (mm; 0 = automatic)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=float(r.sheet_bend_radius or 0),
+                    step=0.5,
+                    key=key + "-bend-radius",
+                    disabled="sheet_bend_radius" in locked,
+                    help="Automatic inside radius equals the sheet thickness. This is a concept assumption, not a material or tooling qualification.",
+                )
+                or None
+            )
+            st.caption(
+                f"Automatic inside radius: {r.thickness:g} mm, equal to sheet thickness. Material, tooling and springback are not evaluated."
+            )
+        else:
+            st.caption(
+                "STEP contains separate flat panels. Tabs locate the panels for welding; they do not establish joint strength."
+            )
         if locked.intersection(SHEET_FIELDS):
             st.info(
                 "Some assembly settings are locked. Unlock them in Advanced before changing them."
@@ -52,10 +87,12 @@ def sheet_controls(project):
             key=key + "-style",
             disabled="sheet_joint_style" in locked,
         )
-        changes = {"sheet_joint_style": style}
+        changes["sheet_joint_style"] = style
         if style == "tab_slot_weld":
             st.caption(
-                "Tabs and slots are used at panel-to-base joints. Other panel seams are welded butt joints."
+                "Tab settings apply only to supported flat weld lands; there is no wall/base tab joint across the continuous bend."
+                if construction == "bent_weld"
+                else "Tabs and slots are used at panel-to-base joints. Other panel seams are welded butt joints."
             )
             changes["sheet_slot_clearance"] = st.number_input(
                 "Slot clearance per side (mm)",
@@ -104,17 +141,17 @@ def sheet_controls(project):
             format="%.2f",
             key=key + "-gap",
             disabled="sheet_root_gap" in locked,
-            help="Assembly gap at the modeled weld seams. This does not select a weld size or welding process.",
+            help="Assembly gap at modeled weld seams, rather than at continuous bends. This does not select a weld size or welding process.",
         )
         with st.expander("Fabrication scope & welding notes", expanded=False):
             st.caption(
-                "Supported concepts: flat plates/rails, separate L-bracket wall/base/ribs, "
-                "and bridge platform/legs/feet. Sheet thickness must be 0.5–12 mm, with plain "
+                "Cut panels support flat plates/rails, L-bracket wall/base/ribs, and bridge platform/legs/feet. "
+                "The bent route supports L-brackets only. Sheet thickness must be 0.5–12 mm, with plain "
                 "through holes rather than recessed fastener seats or driver pockets."
             )
             st.caption(
                 "Weld size, welding process and load capacity are not automatically established. "
-                "This option does not create bent-sheet unfoldings or weld-bead solids."
+                "Neither route creates flat patterns, unfolding or weld-bead solids."
             )
         if st.button("Save assembly joints", key=key + "-save"):
             try:
@@ -132,7 +169,14 @@ def sheet_controls(project):
                     updated,
                     project.highlights,
                     "Sheet-metal joints: "
+                    + CONSTRUCTIONS[updated.sheet_construction]
+                    + "; "
                     + JOINT_STYLES[updated.sheet_joint_style]
+                    + (
+                        f"; inside bend radius {updated.sheet_bend_radius or 'automatic'}"
+                        if construction == "bent_weld"
+                        else ""
+                    )
                     + f"; slot clearance {updated.sheet_slot_clearance:g} mm per side"
                     + f"; tab width {updated.sheet_tab_width or 'automatic'}"
                     + f"; {updated.sheet_tab_count} tabs per tabbed joint"

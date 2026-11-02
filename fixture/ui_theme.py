@@ -32,7 +32,7 @@ def workflow_strip(project=None, questions=()):
         active = 3
     steps = (
         ("Import", "Bring in your STEP part"),
-        ("Define", "Choose the mounting setup"),
+        ("Define", "Brief, motion & mounting"),
         ("Generate", "Build and check a revision"),
         ("Export", "Prepare your CAD download"),
     )
@@ -65,8 +65,8 @@ def welcome_panel():
         "<p>Use <b>STEP part</b> in the sidebar. Exploring first? Open <b>Try an example</b>, "
         "choose a specimen, and select <b>Load example</b>.</p></article>"
         "<article><span>02 / DEFINE THE SETUP</span><h3>Describe the job</h3>"
-        "<p>Choose the mounting face or holes, then explain what the fixture should do "
-        "in <b>Design conversation</b>.</p></article>"
+        "<p>Start with <b>Fixture goal</b> and motion, cable and access notes in "
+        "<b>Design conversation</b>. Choose mounting features in <b>Model preview</b>.</p></article>"
         "<article><span>03 / MAKE IT YOURS</span><h3>Review and refine</h3>"
         "<p>Generate a proposal, inspect the model and checks, and request changes. "
         "Prepare a STEP download when you are ready.</p></article>"
@@ -86,7 +86,11 @@ def project_overview(project, questions=()):
         hint = "Inspect your fixture, refine the design, or prepare a STEP download in the sidebar."
     elif questions:
         badge, kind = "Define your setup", "neutral"
-        hint = "Choose mounting features below, then describe the job in Design conversation."
+        hint = (
+            "Answer the current question in Design conversation. Use Model preview for mounting choices."
+            if project.requirements.purpose
+            else "Start with Fixture goal and motion, cable and access notes in Design conversation. Use Model preview for mounting choices."
+        )
     else:
         badge, kind = "Choose a proposal", "saved"
         hint = "Review Mounting proposals in Design conversation and generate your preferred approach."
@@ -106,7 +110,7 @@ def workspace_intro():
 
 def conversation_intro():
     st.caption(
-        "Answer the next question, review the response, then choose a fixture concept."
+        "Start with the guided brief. Use the reply box for follow-up answers and revisions."
     )
 
 
@@ -169,11 +173,24 @@ def conversation_questions(project, questions=()):
     """Prefer the planner's current clarification over the general setup checklist."""
     attempt = getattr(project, "last_planner_attempt", None) or {}
     action = attempt.get("action") or {}
-    current = (
-        action.get("questions", ())
-        if getattr(project, "stage", None) == "clarifying" and not project.error
-        else ()
+    clarifying = getattr(project, "stage", None) == "clarifying" and not getattr(
+        project, "error", None
     )
+    current = action.get("questions", ()) if clarifying else ()
+    if clarifying and not current:
+        revision = getattr(project, "current", None)
+        latest = next(
+            (
+                record
+                for record in reversed(getattr(project, "feedback", ()) or ())
+                if revision
+                and getattr(getattr(record, "build", None), "revision_id", None)
+                == getattr(revision, "id", None)
+            ),
+            None,
+        )
+        if getattr(latest, "outcome", None) == "needs_input":
+            current = getattr(getattr(latest, "review", None), "questions", ()) or ()
     return tuple(dict.fromkeys([*current, *questions]))
 
 
@@ -215,7 +232,7 @@ def conversation_panel(project, questions=()):
             for question in questions[1:]:
                 st.write(question)
     if sections["latest_user"]:
-        with st.expander("Your latest request", expanded=False):
+        with st.expander("Your latest message", expanded=False):
             st.write(sections["latest_user"]["content"])
     if reply := sections["latest_reply"]:
         st.markdown("**Latest assistant reply**")

@@ -113,6 +113,10 @@ def test_manufacturing_ui_only_asks_method(monkeypatch):
     control("button", "Save manufacturing").click().run()
     assert not app.exception
     assert app.session_state["project"].requirements.fabrication == FDM
+    # New projects enter through the guided brief before showing proposals/chat.
+    control("selectbox", "Conversation mode").select("Offline commands").run()
+    control("text_area", "Fixture goal").set_value("Inspection fixture")
+    control("button", "Save design brief").click().run()
     assert any("single printed part" in x.value for x in app.caption)
     monkeypatch.setattr(
         "fixture.subscription.subscription_turn",

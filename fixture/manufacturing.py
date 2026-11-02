@@ -12,7 +12,7 @@ def is_sheet_metal(fabrication):
 def manufacturing_guidance(fabrication, composition):
     method = (fabrication or "").lower()
     if is_sheet_metal(fabrication):
-        return "Separate flat sheet panels with locating tabs/slots or butt joints for welding. Review cutting and stock tolerances, assembly order and welding distortion; weld size and strength are not calculated."
+        return "Sheet construction uses separate cut panels or a continuous bent L-bracket with welded ribs. Tabs/slots or butt welds join separate parts. Review material/tooling, stock tolerances and welding distortion; weld strength is not calculated."
     if "print" in method:
         return (
             "Printing concept: each disconnected rail is a separate printed part and needs its own base attachment."

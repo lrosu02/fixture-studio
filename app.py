@@ -13,8 +13,9 @@ from fixture.planning import (
 from fixture.agent import plan_turn, offline_turn, review_turn
 from fixture.workspace import workspace, request_assembly
 from fixture.subscription import subscription_turn, subscription_review, executable
-from fixture.manufacturing import manufacturing_guidance
-from fixture.workflow import plan_design, generate_with_feedback
+from fixture.manufacturing import manufacturing_guidance, is_sheet_metal
+from fixture.workflow import generate_with_feedback
+from fixture.conversation_ui import render_conversation
 from fixture.step_export import prepare_step, prepared_step
 from fixture.ui_theme import (
     apply_theme,
@@ -22,8 +23,7 @@ from fixture.ui_theme import (
     workflow_strip,
     welcome_panel,
     project_overview,
-    conversation_intro,
-    conversation_panel,
+    conversation_questions,
 )
 
 ROOT = Path(__file__).resolve().parent
@@ -151,8 +151,9 @@ if "project" not in st.session_state:
 p = st.session_state.project
 a = p.analysis
 r = p.requirements
-workflow_strip(p, missing_questions(a, r))
-project_overview(p, missing_questions(a, r))
+setup_questions = conversation_questions(p, missing_questions(a, r))
+workflow_strip(p, setup_questions)
+project_overview(p, setup_questions)
 planner = (
     subscription_turn
     if mode == modes[0]
@@ -176,9 +177,9 @@ with st.sidebar:
         )
         if p.current.plan.sheet_panels:
             st.caption(
-                f"Sheet assembly: {len(p.current.plan.sheet_panels)} separate panels, "
-                f"{len(p.current.plan.sheet_joints)} joints. STEP preserves the assembled panel positions; "
-                "the design ZIP includes the panel and weld-joint schedule."
+                f"Sheet assembly: {len(p.current.plan.sheet_panels)} fixture parts, "
+                f"{len(p.current.plan.sheet_joints)} joints, {len(p.current.plan.sheet_bends)} modeled bends. "
+                "STEP preserves the assembled part positions; the design ZIP includes the part and weld-joint schedule."
             )
         if st.button("Prepare STEP download"):
             try:
@@ -276,45 +277,12 @@ with left, st.container(key="studio-workspace"):
             st.json(p.current.plan.model_dump())
 with right, st.container(border=True, key="studio-conversation"):
     st.subheader("Design conversation")
-    conversation_intro()
-    conversation_panel(p, missing_questions(a, r))
-    with st.expander(
-        "Start with a design brief", expanded=not (p.current or p.messages)
-    ):
-        brief = st.text_area(
-            "Design brief",
-            placeholder="What should this fixture do? Describe the task and any preferences.",
-            key="design-brief-" + p.id,
-            height=100,
-        )
-        st.caption("The assistant will ask for missing details and prepare proposals.")
-        if st.button("Start design", type="primary", disabled=reviewer is None):
-            with st.spinner("Planning with AI…"):
-                plan_design(p, planner, text=brief, start=True)
-            st.rerun()
-    if reviewer is None:
-        st.caption(
-            "Choose an AI conversation mode to use Start design and automatic feedback. Offline generation runs geometric checks only."
-        )
-    if p.error:
-        st.error(
-            p.error
-            + (
-                " The previous valid design is unchanged."
-                if p.current
-                else " No CAD revision was saved for this attempt."
-            )
-        )
-    st.markdown("**Your reply or change request**")
-    text = st.chat_input("Describe the task or request a revision")
-    if text:
-        with st.spinner("Planning from measured features…"):
-            generate = plan_design(p, planner, text=text, origin="user")
-        if generate:
-            build(p, change=text)
-        st.rerun()
-    questions = missing_questions(a, r)
-    if r.interface_id:
+    design_started = render_conversation(
+        p, planner, build, ai_enabled=reviewer is not None
+    )
+    r = p.requirements
+    questions = conversation_questions(p, missing_questions(a, r))
+    if design_started and r.interface_id:
         st.subheader("Mounting proposals")
         st.caption(
             f"Concept dimensions: thickness {r.thickness:g} mm · margin {r.margin:g} mm · part gap {r.gap:g} mm."
@@ -360,9 +328,14 @@ with right, st.container(border=True, key="studio-conversation"):
                         f"{int(prop.dimensions.get('base_hole_count', 0))} base attachment holes, separate from the selected part holes."
                     )
                     if prop.dimensions.get("rear_region_count"):
-                        st.caption(
-                            f"{int(prop.dimensions['rear_region_count'])} rear clearances; {int(prop.dimensions.get('rear_passage_count', 0))} through passages. Unselected recesses may remain blind."
-                        )
+                        if is_sheet_metal(r.fabrication):
+                            st.caption(
+                                f"{int(prop.dimensions.get('rear_passage_count', prop.dimensions['rear_region_count']))} full-depth sheet cutouts follow the measured rear profiles."
+                            )
+                        else:
+                            st.caption(
+                                f"{int(prop.dimensions['rear_region_count'])} rear clearances; {int(prop.dimensions.get('rear_passage_count', 0))} through passages. Unselected recesses may remain blind."
+                            )
                     if prop.composition == "l_bracket":
                         st.caption(
                             "Side ribs: "

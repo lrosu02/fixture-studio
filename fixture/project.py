@@ -70,6 +70,10 @@ class Project:
         ]
         obj.last_planner_attempt = data.get("last_planner_attempt")
         obj.stage = "presented" if obj.current else "analyzed"
+        if data.get("stage") in ("clarifying", "proposing", "presented", "exported"):
+            obj.stage = data["stage"]
+        elif ((obj.last_planner_attempt or {}).get("action") or {}).get("questions"):
+            obj.stage = "clarifying"
         return obj
 
     @property
@@ -180,6 +184,7 @@ class Project:
         folder.mkdir(parents=True, exist_ok=True)
         snapshot = {
             "version": 1,
+            "stage": self.stage,
             "requirements": self.requirements.model_dump(),
             "active_id": self.active_id,
             "messages": self.messages,

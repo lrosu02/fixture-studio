@@ -92,7 +92,7 @@ def test_standard_defaults_without_clearance_questions(fit, diameter):
     )
     assert missing_questions(a, r) == []
     plan = compile_plan(a, r)
-    assert plan.version == 12
+    assert plan.version == 13
     assert {c.diameter for c in plan.clearances} == {diameter}
     assert all(
         c.standard == "ISO 273" and c.source_url == SOURCE and c.origin == "derived"

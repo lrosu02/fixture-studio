@@ -54,7 +54,7 @@ conversation_panel(st.session_state.project, ['How will it attach?', 'Which mate
     assert not ui.exception
     assert {x.label for x in ui.expander} >= {
         "Other setup details",
-        "Your latest request",
+        "Your latest message",
         "Earlier conversation",
         "Selection and save activity",
     }
@@ -75,6 +75,26 @@ def test_current_planner_question_precedes_general_checklist_without_stale_repla
     )
     p.stage = "proposing"
     assert conversation_questions(p, []) == ()
+
+
+def test_current_review_questions_use_same_answer_flow_without_stale_replay():
+    review = SimpleNamespace(
+        outcome="needs_input",
+        build=SimpleNamespace(revision_id="current"),
+        review=SimpleNamespace(questions=("Confirm the cable bend radius.",)),
+    )
+    p = SimpleNamespace(
+        stage="clarifying", current=SimpleNamespace(id="current"), feedback=[review]
+    )
+    assert conversation_questions(p) == ("Confirm the cable bend radius.",)
+    p.last_planner_attempt = {"action": {"questions": ["Which connector?"]}}
+    assert conversation_questions(p) == ("Which connector?",)
+    p.last_planner_attempt = None
+    p.current = SimpleNamespace(id="different")
+    assert conversation_questions(p) == ()
+    p.current = SimpleNamespace(id="current")
+    p.stage = "presented"
+    assert conversation_questions(p) == ()
 
 
 def test_display_values_survive_selection_mode_and_do_not_touch_requirements():

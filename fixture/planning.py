@@ -21,6 +21,25 @@ from .clearance import fixture_regions, footprint_distance
 
 def patch_requirements(current, changes, origin="user"):
     changes = dict(changes)
+    if {"cable_routing", "service_access"}.intersection(
+        changes
+    ) and "access" not in changes:
+        cable = changes.get("cable_routing", current.cable_routing)
+        service = changes.get("service_access", current.service_access)
+        # Legacy free-text access stays visible until replaced explicitly.
+        if "service_access" not in changes and current.service_access is None:
+            service = current.access
+        changes["access"] = (
+            "\n".join(
+                f"{label}: {value}"
+                for label, value in (
+                    ("Cable routing", cable),
+                    ("Tool/service access", service),
+                )
+                if value
+            )
+            or None
+        )
     for key in ("part_hardware", "base_hardware"):
         if key in changes:
             changes[key] = HardwareChoice.model_validate(changes[key])
@@ -100,6 +119,30 @@ def missing_questions(a, r, automatic_clearance=True):
         questions.append(
             "How many parts should it hold, and is footprint or individual access more important?"
         )
+    if (
+        r.brief_answers_recorded or r.motion_loads is None
+    ) and r.moving_components is None:
+        questions.append(
+            "Will anything move or rotate, what is attached, and what space must remain clear? Unknown is accepted for a concept."
+        )
+    if r.brief_answers_recorded and r.cable_routing is None:
+        questions.append(
+            "Do cables or connectors need a route through or around the fixture? Say none or unknown if appropriate."
+        )
+    if r.brief_answers_recorded and r.service_access is None:
+        questions.append(
+            "Which tools, plugs or surfaces must remain reachable? Say none or unknown if appropriate."
+        )
+    if r.motion_loads is None and (
+        r.brief_answers_recorded or r.moving_components is not None
+    ):
+        questions.append(
+            "What loads and directions should the fixture support? Unknown is accepted for a concept."
+        )
+    if r.access is None and not r.brief_answers_recorded:
+        questions.append(
+            "Do cables or connectors need a route, and which tools or surfaces need access? Say none or unknown if appropriate."
+        )
     if not r.interface_id or not r.mounting_confirmed:
         questions.append(
             "Select and confirm the surface that should contact the fixture. Select fastener holes only if the part will be screwed down."
@@ -130,10 +173,6 @@ def missing_questions(a, r, automatic_clearance=True):
         questions.append(
             "What fixture clearance-hole diameter should be used (mm)? Nominal thread and engagement may remain unknown."
         )
-    if r.motion_loads is None:
-        questions.append(
-            "Will anything move or rotate, what is attached, and what space must remain clear? Unknown is accepted for a concept."
-        )
     if r.surroundings == "unknown":
         questions.append(
             "Will the fixture be clamped, bolted, or left free floating with no external attachment?"
@@ -149,10 +188,6 @@ def missing_questions(a, r, automatic_clearance=True):
     if r.fabrication is None:
         questions.append(
             "Which manufacturing method should the design use, and are thickness constraints known?"
-        )
-    if r.access is None:
-        questions.append(
-            "Which ports, cables, tools or surfaces need access? Give finite clearance dimensions when known."
         )
     if r.through_access_required and not (
         r.rear_passages or any(s.intent == "through" for s in r.access_selections)
@@ -263,15 +298,15 @@ def proposal_requirements(requirements, proposal):
     return patch_requirements(requirements, changes)
 
 
-def compile_plan(a, r, require_ready=True, compiler_version=12):
+def compile_plan(a, r, require_ready=True, compiler_version=13):
     from .manufacturing import is_sheet_metal
 
     if is_sheet_metal(r.fabrication):
-        if compiler_version != 12:
-            raise ValueError("Sheet assemblies require compiler version 12.")
+        if compiler_version not in (12, 13):
+            raise ValueError("Sheet assemblies require compiler version 12 or 13.")
         from .sheet_metal import compile_sheet
 
-        return compile_sheet(a, r, require_ready)
+        return compile_sheet(a, r, require_ready, compiler_version)
     if compiler_version < 9:
         if (
             r.access_selections
@@ -286,7 +321,7 @@ def compile_plan(a, r, require_ready=True, compiler_version=12):
                 "Extended access, base, hardware and manufacturing choices need compiler version 9."
             )
         return _compile_plan(a, r, require_ready, compiler_version)
-    if compiler_version not in (9, 10, 11, 12):
+    if compiler_version not in (9, 10, 11, 12, 13):
         raise ValueError("Unsupported compiler version.")
     from .access import add_access
     from .existing_base import add_base

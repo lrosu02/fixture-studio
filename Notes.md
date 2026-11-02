@@ -1,5 +1,75 @@
 # Engineering record
 
+## Guided operating context and formed sheet (2026-11-01 follow-up)
+
+Work is isolated on `codex/design-conversation-flow` from `49aa465`. The startup
+brief and chat no longer compete: an initial form collects goal/quantity, moving
+components, cables, tool/service access and loads, followed by one state-dependent
+answer/discussion/revision composer. New nullable context fields are included in
+the typed planner contract and saved requirements. Empty answers remain unspecified;
+explicit unknown/none remain user facts. A legacy-default-false brief marker enables
+the detailed setup questions without making older CAD exports unreproducible.
+New guided briefs prioritize motion/routing/access before mounting/manufacturing.
+The existing generic access field is synchronized with the new access answers.
+
+`design_brief.save_brief` validates all edits, respects locks and atomically saves
+requirements/transcript/stage. A failed save rolls back those changes. Starting an
+AI design invokes planning once after this save; offline saves do not invoke a fake
+planner. Editing setup neither calls the model nor generates CAD. Actual AI questions
+keep the workflow in clarification and block generation. Conversation stage is saved
+and restored, and current-revision review questions appear in the same answer box.
+UI Man implemented and exercised the frontend with explicitly simulated planner/
+reviewer adapters; real AI wrappers were forbidden in that browser harness.
+
+Fixture preview colors derive from stable body IDs, independent of mesh order and
+revision/source visibility. Source and base references are gray. This is presentation
+only and does not alter native geometry or claim STEP appearance metadata.
+
+Compiler 13 adds a bounded 90° annular sheet-stock primitive and a matching constant-
+thickness gusset corner cutter. For the bent L route, the straight wall/base flanges
+are trimmed at tangent lines and united through the annular bend in SMLib. One blank
+therefore becomes one valid native solid; the separately welded gussets fit its inner
+curve, respecting the selected root gap. The wall/base weld/tabs disappear. Gusset
+tabs/slots are regenerated on the remaining flat base land. Generated base holes are
+distributed within that land without changing count; measured imported base holes
+are never relocated. Out-of-land holes or cuts into the bend fail native validation.
+
+Inside radius defaults to sheet thickness as an editable concept assumption, with
+outside radius = inside radius + thickness. This is not a material-independent
+manufacturing standard: [air bending depends on material and tooling](https://sendcutsend.com/faq/how-do-you-bend-parts/).
+The supported route is L-brackets only, optional ribs, 90°. No K-factor/unfolding,
+flat-pattern/DXF production, springback, tooling collision, minimum-flange tooling
+qualification or weld strength is asserted. Legacy cut-and-weld designs keep their
+existing route and compiler-12 reproduction; the new option requires version 13.
+
+Native checks compare the complete formed bend against the expected annular region
+using a symmetric difference. This detects a square filled corner, missing radius,
+wrong thickness or an access cut crossing the bend. Straight flange portions and
+flat ribs retain the normal-overlap thickness checks, mounting/access checks, weld
+lands and panel-interference checks. Through profiles are recomputed after forming;
+testing the saved two-motor STEP exposed stale clearance extents from the old wider
+flat-foot outline, which were corrected without changing the measured profile.
+
+A separate copy of the saved NEMA17 fixture generated three valid formed/welded
+bodies, eight part holes, four base holes and four through rear profiles, with no
+failed checks. STEP reopened successfully; original user project/revision data was
+preserved. Synthetic tests cover inside/outside cylindrical STEP radii, optional ribs,
+nonzero root gaps, gauge/radius revisions, ZIP reproduction, invalid-bend rejection,
+last-valid retention, and deliberate square-corner corruption. The deterministic
+`scripts/demo_sheet_metal.py --bent` reproduces a public synthetic example.
+
+Verification: `.venv\Scripts\python.exe -m pytest tests -q` passed all 258 tests
+in 402.39 seconds. All 15 JavaScript viewer tests passed. Focused follow-up tests
+confirmed the final through-cut metadata and compiler-12 compatibility; the new
+count assertion also passed. The native demo exercised both initial generation
+and a 3-to-4 mm sheet revision, with three STEP solids and no failed checks.
+Browser conversation checks use a simulated planner/reviewer with real native CAD;
+they do not establish a new live-model integration result.
+The browser run verified first setup, generation blocked by unanswered questions,
+one follow-up composer, setup edits without AI/CAD calls, explicit 3 mm generation,
+a 4 mm revision and stable teal/blue/orange part colors. The downloaded STEP
+contained three fixture-only bodies in millimetres and passed its adapter report.
+
 ## Flat sheet assemblies, tabs and weld intent (2026-11-01)
 
 Implemented on `codex/sheet-metal-tabs-welding`, branched from `ac9000e` for rollback.

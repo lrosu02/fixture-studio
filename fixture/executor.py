@@ -14,6 +14,23 @@ KERNEL_LOCK = threading.RLock()
 def primitive(op):
     x, y, z = op.origin
     a, b, c = op.size
+    if op.shape == "bend_relief":
+        center = (x, y + b, z)
+        keep = sm.primitives.create_cylinder(center, op.bend_radius, a)
+        keep = sm.transforms.rotate(keep, center, (0.0, 1.0, 0.0), 90.0)
+        return sm.booleans.boolean_difference(
+            sm.primitives.create_box((x, y, z), a, b, c), keep
+        )
+    if op.shape == "quarter_bend":
+        center = (x, y + b, z)
+        outer = sm.primitives.create_cylinder(center, b, a)
+        inner = sm.primitives.create_cylinder(center, op.bend_radius, a)
+        outer = sm.transforms.rotate(outer, center, (0.0, 1.0, 0.0), 90.0)
+        inner = sm.transforms.rotate(inner, center, (0.0, 1.0, 0.0), 90.0)
+        ring = sm.booleans.boolean_difference(outer, inner)
+        return sm.booleans.boolean_intersection(
+            ring, sm.primitives.create_box((x, y, z), a, b, c)
+        )
     if op.shape == "box":
         return sm.primitives.create_box((x, y, z), a, b, c)
     if op.shape in ("rounded_box", "chamfer_box"):

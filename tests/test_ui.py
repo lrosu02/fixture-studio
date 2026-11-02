@@ -19,10 +19,15 @@ def test_upload_slice():
     assert app.session_state["project"].analysis.selected_bodies == (0, 1)
     assert not any(x.label == "Bodies representing one part" for x in app.multiselect)
     assert not any(x.label == "Analyze selected bodies" for x in app.button)
-    app.chat_input[0].set_value("A fixture for inspection").run()
+    assert not app.chat_input
+    next(x for x in app.text_area if x.label == "Fixture goal").set_value(
+        "A fixture for inspection"
+    )
+    next(b for b in app.button if b.label == "Save design brief").click().run()
     assert (
-        app.session_state["project"].messages[0]["content"]
-        == "A fixture for inspection"
+        app.session_state["project"]
+        .messages[0]["content"]
+        .startswith("Design brief: A fixture for inspection")
     )
 
 
@@ -243,9 +248,16 @@ def test_start_design_questions_generate_feedback_and_no_repeat(monkeypatch):
     assert not next(
         x for x in app.expander if x.label.startswith("Advanced")
     ).proto.expanded
-    next(x for x in app.text_area if x.label == "Design brief").set_value(
+    next(x for x in app.text_area if x.label == "Fixture goal").set_value(
         "Hold two of these parts for inspection."
     )
+    for label in (
+        "Moving or spinning parts",
+        "Cable routing",
+        "Tool and service access",
+        "Loads and forces",
+    ):
+        next(x for x in app.text_area if x.label == label).set_value("unknown")
     button("Start design").click().run()
     assert len(calls) == 1 and not reviews
     assert app.session_state["project"].current is None
@@ -267,7 +279,8 @@ def test_start_design_questions_generate_feedback_and_no_repeat(monkeypatch):
     next(x for x in app.selectbox if x.label == "Conversation mode").select(
         "Offline commands"
     ).run()
-    assert button("Start design").disabled
+    assert not any(b.label == "Start design" for b in app.button)
+    assert len(app.chat_input) == 1
 
 
 def test_saved_project_selection_survives_new_project_files():

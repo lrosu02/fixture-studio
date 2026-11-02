@@ -1,6 +1,7 @@
 """Repeatable sheet assembly + thickness/joint revision using the synthetic sample."""
 
 from pathlib import Path
+import argparse
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,13 @@ from fixture.step_export import prepare_step
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--bent",
+        action="store_true",
+        help="Form one wall/base blank with a real 90-degree bend and fitted welded ribs",
+    )
+    args = parser.parse_args()
     analysis = analyze_file(ROOT / "samples" / "synthetic_motor.step")
     requirements = Requirements(
         purpose="Sheet assembly demonstration",
@@ -30,6 +38,7 @@ def main():
         bench_fastener="M3",
         bench_hole_count=4,
         fabrication=SHEET_METAL,
+        sheet_construction="bent_weld" if args.bent else "cut_weld",
         motion_loads="Static inspection; strength not evaluated",
         access="Rear access",
         assumptions_accepted=True,

@@ -55,7 +55,7 @@ def joint_tools(joint, panels, stocks, r):
         if n == 1
         else np.linspace(lo + margin + width / 2, hi - margin - width / 2, n)
     )
-    receiver = stocks[joint.receiver]
+    receiver = stocks[joint.receiver_land or joint.receiver]
     owner = stocks[joint.owner]
     receiver_lo = receiver.origin[axis]
     receiver_hi = receiver_lo + receiver.size[axis]
@@ -106,7 +106,13 @@ def joint_tools(joint, panels, stocks, r):
     return result
 
 
-def compile_sheet(a, r, require_ready=True):
+def compile_sheet(a, r, require_ready=True, compiler_version=13):
+    if r.sheet_construction == "bent_weld":
+        if compiler_version < 13:
+            raise ValueError("Bent sheet requires compiler version 13.")
+        from .bent_sheet import compile_bent
+
+        return compile_bent(a, r, require_ready)
     from .planning import _compile_plan
     from .existing_base import add_base
     from .access import add_access
@@ -152,7 +158,7 @@ def compile_sheet(a, r, require_ready=True):
             update={"base_depth": max(initial.parameters["base_depth_mm"], min_depth)}
         )
     plan = _compile_plan(a, adjusted, require_ready, 8, allow_sheet=True)
-    plan = plan.model_copy(update={"version": 12})
+    plan = plan.model_copy(update={"version": compiler_version})
     t, gap = r.thickness, r.sheet_root_gap
     lip = (
         max(1.0, t / 2) + r.sheet_slot_clearance
@@ -325,13 +331,24 @@ def compile_sheet(a, r, require_ready=True):
         if op.id in regions:
             op = regions[op.id].model_copy(update={"targets": tuple(stocks)})
         operations.append(op)
-    return _resequence(plan, operations)
+    return _resequence(
+        plan,
+        operations,
+        parameters={
+            **plan.parameters,
+            **({"rear_passage_count": len(regions)} if compiler_version >= 13 else {}),
+        },
+    )
 
 
 def manufacturing_record(r, plan):
     return {
         "units": "mm",
-        "method": "Separate flat panels, assembled then welded",
+        "method": "Bent wall/base with welded ribs"
+        if plan.sheet_bends
+        else "Separate flat panels, assembled then welded",
+        "construction": r.sheet_construction,
+        "bends": [b.model_dump() for b in plan.sheet_bends],
         "joint_style": r.sheet_joint_style,
         "slot_clearance_per_side_mm": r.sheet_slot_clearance,
         "root_gap_mm": r.sheet_root_gap,
@@ -342,7 +359,7 @@ def manufacturing_record(r, plan):
             "Slot clearance is an editable concept allowance, not a universal standard or kerf compensation.",
             "Review actual stock thickness, cutting process, assembly sequence, weld access and distortion.",
             "Weld size, process, filler, material and strength are not specified or validated.",
-            "STEP contains assembled separate panels, without weld beads or bend unfolding.",
+            "STEP contains formed/assembled fixture parts, without weld beads or a developed flat pattern.",
         ],
     }
 
@@ -355,13 +372,12 @@ def validate_sheet(a, r, plan, bodies, add):
 
     expected = compile_sheet(a, r)
     panels = {p.body: p for p in expected.sheet_panels}
-    stocks = {
-        o.body: o for o in expected.operations if o.kind == "stock" and o.body in panels
-    }
+    stocks = {o.body: o for o in expected.operations if o.kind == "stock"}
     valid = (
         set(bodies) == set(panels)
         and plan.sheet_panels == expected.sheet_panels
         and plan.sheet_joints == expected.sheet_joints
+        and plan.sheet_bends == expected.sheet_bends
     )
     add(
         "Sheet panel schedule",
@@ -374,22 +390,35 @@ def validate_sheet(a, r, plan, bodies, add):
     for name, panel in panels.items():
         if name not in bodies:
             continue
-        body = bodies[name]
-        axis = "xyz".index(panel.normal_axis)
-        for fraction in (0.371, 0.618):
-            offset = [0.0, 0.0, 0.0]
-            offset[axis] = fraction * r.thickness
-            moved = sm.transforms.translate(body.copy(), tuple(offset))
-            overlap = abs(
-                sm.booleans.boolean_intersection(body.copy(), moved).volume(
-                    relative_accuracy=1e-8
+        if panel.form == "bent":
+            bend = next(b for b in expected.sheet_bends if b.body == name)
+            lands = [
+                (
+                    sm.booleans.boolean_intersection(
+                        bodies[name].copy(), primitive(stocks[land])
+                    ),
+                    "y" if land.startswith("base-foot") else "z",
                 )
-            )
-            volume = abs(body.volume(relative_accuracy=1e-8))
-            expected_volume = volume * (1 - fraction)
-            max_error = max(
-                max_error, abs(overlap - expected_volume) / max(1.0, volume)
-            )
+                for land in bend.flat_lands
+            ]
+        else:
+            lands = [(bodies[name], panel.normal_axis)]
+        for body, normal in lands:
+            axis = "xyz".index(normal)
+            for fraction in (0.371, 0.618):
+                offset = [0.0, 0.0, 0.0]
+                offset[axis] = fraction * r.thickness
+                moved = sm.transforms.translate(body.copy(), tuple(offset))
+                overlap = abs(
+                    sm.booleans.boolean_intersection(body.copy(), moved).volume(
+                        relative_accuracy=1e-8
+                    )
+                )
+                volume = abs(body.volume(relative_accuracy=1e-8))
+                expected_volume = volume * (1 - fraction)
+                max_error = max(
+                    max_error, abs(overlap - expected_volume) / max(1.0, volume)
+                )
     add(
         "Flat sheet thickness",
         "Native overlap at two normal offsets; detects blind pockets/nonprismatic material",
@@ -469,7 +498,7 @@ def validate_sheet(a, r, plan, bodies, add):
                 if k != axis:
                     lo[k] -= 1
                     size[k] += 2
-            lo[axis] = stocks[j.receiver].origin[axis]
+            lo[axis] = stocks[j.receiver_land or j.receiver].origin[axis]
             size[axis] = r.thickness
             outer = primitive(
                 slot.model_copy(update={"origin": tuple(lo), "size": tuple(size)})
@@ -519,3 +548,7 @@ def validate_sheet(a, r, plan, bodies, add):
         "not_evaluated",
         units="engineering",
     )
+    if expected.sheet_bends:
+        from .bent_sheet import validate_bends
+
+        validate_bends(r, expected, bodies, add)

@@ -138,6 +138,7 @@ def test_start_design_ui_accepts_access_highlight_and_free_floating(monkeypatch)
     next(s for s in ui.selectbox if s.label == "Conversation mode").select(
         "ChatGPT subscription (Codex CLI)"
     ).run()
+    next(x for x in ui.text_area if x.label == "Fixture goal").set_value("Inspect this part")
     next(b for b in ui.button if b.label == "Start design").click().run()
     p = ui.session_state["project"]
     assert not ui.exception and not p.error and len(calls) == 1

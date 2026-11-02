@@ -6,6 +6,23 @@ This is a handoff specification for the implementation agent. The six brushless 
 
 ## Sheet-metal extension checkpoint — November 1, 2026
 
+**Follow-up on `codex/design-conversation-flow`:** guided initial operating-context
+questions now precede proposals; follow-ups and revisions share one clearly labeled
+composer. Separate fixture bodies use stable individual preview colors. Compiler 13
+adds a continuous 90° wall/base bend and curve-fitted welded ribs for L-brackets,
+with typed bend records, native thickness/bend/interference checks and analytic STEP
+export. Original cut-panel construction remains available and historical compiler-12
+exports retain their behavior. Formed geometry does not establish tooling feasibility,
+produce an unfolded blank or calculate weld strength. Details and test evidence are
+in the current README/Notes sections; the checkpoint below describes the preceding
+flat-panel implementation.
+
+Follow-up acceptance: **258 Python regression tests** and **15 JavaScript viewer
+tests** passed. Native formed-sheet tests cover gauge/radius revisions, retained
+mounting holes, through openings, STEP cylindrical surfaces, ZIP reproduction and
+rejection of a deliberately filled square corner. A separate copy of the saved
+two-motor project also passed with three bodies and all twelve mounting holes.
+
 The user authorized a tabs-and-welding manufacturing option. Work is isolated on
 `codex/sheet-metal-tabs-welding` from `ac9000e`. Compiler 12 builds separate flat
 sheet panels with integral locating tabs and through slots, or weld-only butt
