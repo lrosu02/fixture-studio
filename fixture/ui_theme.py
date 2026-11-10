@@ -6,7 +6,8 @@ import re
 
 import streamlit as st
 
-from .questions import clean_questions, merge_questions
+from .questions import clean_questions
+from .lifecycle import active_questions, workflow_state, presentation, DesignPhase
 
 
 def apply_theme():
@@ -23,16 +24,7 @@ def studio_header():
 
 
 def workflow_strip(project=None, questions=()):
-    current = project.current if project else None
-    pending = bool(current and current.requirements != project.requirements)
-    if project is None:
-        active = 0
-    elif questions:
-        active = 1
-    elif current is None or pending:
-        active = 2
-    else:
-        active = 3
+    active = presentation(workflow_state(project, questions))[2] if project else 0
     steps = (
         ("Import", "Bring in your STEP part"),
         ("Define", "Brief, motion & mounting"),
@@ -80,23 +72,14 @@ def welcome_panel():
 
 def project_overview(project, questions=()):
     current = project.current
-    pending = bool(current and current.requirements != project.requirements)
-    if pending:
+    state = workflow_state(project, questions)
+    step, hint, _ = presentation(state)
+    if state.phase == DesignPhase.CHANGES:
         badge, kind = "Changes awaiting generation", "attention"
-        hint = "The model shows your saved revision. Generate a new revision to apply your changes."
-    elif current:
+    elif state.phase == DesignPhase.REVIEW:
         badge, kind = "Revision " + current.id[:6], "saved"
-        hint = "Inspect your fixture, refine the design, or prepare a STEP download in the sidebar."
-    elif questions:
-        badge, kind = "Define your setup", "neutral"
-        hint = (
-            "Answer the design questions together in Design conversation. Use Model preview for mounting choices."
-            if project.requirements.purpose
-            else "Start with Fixture goal and motion, access and load notes in Design conversation. Use Model preview for mounting choices."
-        )
     else:
-        badge, kind = "Choose a proposal", "saved"
-        hint = "Review Mounting proposals in Design conversation and generate your preferred approach."
+        badge, kind = step, "attention" if state.error else "neutral"
     source = escape(project.analysis.source_name)
     st.html(
         '<section class="studio-project" aria-label="Current project">'
@@ -173,30 +156,8 @@ def conversation_sections(project):
 
 
 def conversation_questions(project, questions=()):
-    """Prefer the planner's current clarification over the general setup checklist."""
-    attempt = getattr(project, "last_planner_attempt", None) or {}
-    action = attempt.get("action") or {}
-    clarifying = getattr(project, "stage", None) == "clarifying" and not getattr(
-        project, "error", None
-    )
-    current = clean_questions(action.get("questions", ()) or ()) if clarifying else ()
-    if clarifying and not current:
-        revision = getattr(project, "current", None)
-        latest = next(
-            (
-                record
-                for record in reversed(getattr(project, "feedback", ()) or ())
-                if revision
-                and getattr(getattr(record, "build", None), "revision_id", None)
-                == getattr(revision, "id", None)
-            ),
-            None,
-        )
-        if getattr(latest, "outcome", None) == "needs_input":
-            current = clean_questions(
-                getattr(getattr(latest, "review", None), "questions", ()) or ()
-            )
-    return merge_questions(current, questions)
+    """Compatibility import for callers; domain readiness lives in lifecycle."""
+    return active_questions(project, questions)
 
 
 def reply_summary(text, questions):
@@ -217,36 +178,10 @@ def reply_summary(text, questions):
 
 
 def conversation_panel(project, questions=()):
-    questions = conversation_questions(project, questions)
+    state = workflow_state(project, questions)
+    questions = state.questions
     sections = conversation_sections(project)
-    pending = bool(
-        project.current and project.current.requirements != project.requirements
-    )
-    if project.error:
-        step, prompt = (
-            "Resolve the last attempt",
-            "Review the error below, then retry or describe a change.",
-        )
-    elif questions:
-        step, prompt = (
-            "Design questions",
-            "Answer the questions below together in one reply.",
-        )
-    elif pending:
-        step, prompt = (
-            "Review your changes",
-            "Choose Generate on a fixture concept to apply your saved changes to the CAD.",
-        )
-    elif project.current:
-        step, prompt = (
-            "Review the fixture",
-            "Inspect the model, request a change, or prepare a STEP download.",
-        )
-    else:
-        step, prompt = (
-            "Choose a fixture concept",
-            "Review the proposals below and generate the approach you want.",
-        )
+    step, prompt, _ = presentation(state)
     checklist = (
         '<ol aria-label="Unanswered design questions" '
         'style="padding-left:1.3rem;margin:.65rem 0 0;color:#e4faf5;font-size:.86rem;line-height:1.6">'

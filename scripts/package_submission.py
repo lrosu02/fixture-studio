@@ -14,6 +14,7 @@ def main():
             "app.py",
             "README.md",
             "CHANGELOG.md",
+            "STATE_MACHINES.md",
             "Notes.md",
             "IMPLEMENTATION_PLAN.md",
             "requirements.lock",

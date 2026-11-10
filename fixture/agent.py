@@ -18,7 +18,7 @@ from .contracts import (
     HardwareChoice,
 )
 from .review import CAPABILITIES, REVIEW_SYSTEM
-from .planning import patch_requirements, missing_questions
+from .planning import patch_requirements
 
 
 class Changes(Record):
@@ -313,7 +313,11 @@ only enter them if the user supplies the region dimensions. Access text alone is
 The user reviews proposals before first generation; use propose until they request a build.
 Revisions may change quantity, layout, gap, composition or add a real access cut; preserve measured IDs.
 After a build, invite changes to layout, spacing, mounting approach, access or appearance.
-Send user-supplied changes only. Do not fill unknown factual fields with suggestions."""
+Send user-supplied changes only. Do not fill unknown factual fields with suggestions.
+workflow_state is the controller's current readiness and question ownership. CAD may
+be absent, current or outdated relative to saved requirements. An available action
+is not permission: Start design still only proposes; build requires a user request.
+Export always targets the saved revision, and pending openings are not cut yet."""
 
 
 def strict_schema(schema):
@@ -327,10 +331,20 @@ def strict_schema(schema):
     return schema
 
 
-def planner_context(analysis, requirements, current=None):
+def planner_context(analysis, requirements, current=None, workflow_state=None):
     from .fasteners import resolve_clearances
     from .clearance import passage_options
     from .hardware import TABLES
+
+    if workflow_state is None:
+        from types import SimpleNamespace
+        from .lifecycle import workflow_state as describe_state
+
+        workflow_state = describe_state(
+            SimpleNamespace(
+                analysis=analysis, requirements=requirements, current=current
+            )
+        ).model_dump(mode="json")
 
     try:
         fasteners = [c.model_dump() for c in resolve_clearances(analysis, requirements)]
@@ -353,6 +367,7 @@ def planner_context(analysis, requirements, current=None):
         access_choices = []
     return {
         "capabilities": CAPABILITIES,
+        "workflow_state": workflow_state,
         "valid_highlight_ids": sorted(feature_references(analysis, requirements)),
         "hardware_profiles": {
             style: [f"M{size}" for size in sizes] for style, sizes in TABLES.items()
@@ -382,19 +397,21 @@ def planner_context(analysis, requirements, current=None):
         "limitations": analysis.limitations,
         "current_plan": current.plan.model_dump() if current else None,
         "checks": [c.model_dump() for c in current.checks] if current else [],
-        "next_questions": missing_questions(analysis, requirements),
+        "next_questions": workflow_state["questions"],
         "automatic_clearances": fasteners,
         "rear_clearance_profiles": rear_profiles,
         "rear_clearance_error": rear_error,
     }
 
 
-def plan_turn(analysis, requirements, messages, current=None, client=None):
+def plan_turn(
+    analysis, requirements, messages, current=None, client=None, workflow_state=None
+):
     return _api_decision(
         Action,
         "design_action",
         SYSTEM,
-        planner_context(analysis, requirements, current),
+        planner_context(analysis, requirements, current, workflow_state),
         messages,
         (),
         client,

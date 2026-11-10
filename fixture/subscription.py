@@ -22,12 +22,17 @@ def executable():
 
 
 def subscription_turn(
-    analysis, requirements, messages, current=None, runner=subprocess.run
+    analysis,
+    requirements,
+    messages,
+    current=None,
+    runner=subprocess.run,
+    workflow_state=None,
 ):
     return _subscription_decision(
         Action,
         SYSTEM,
-        planner_context(analysis, requirements, current),
+        planner_context(analysis, requirements, current, workflow_state),
         messages,
         (),
         runner,

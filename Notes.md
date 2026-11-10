@@ -1,5 +1,43 @@
 # Engineering record
 
+## Explicit workflow state audit (2026-11-09)
+
+Work is isolated on `codex/explicit-workflow-state`, branched from submitted
+`main` at `918ddd6`. [STATE_MACHINES.md](STATE_MACHINES.md) inventories 25 application
+machines/protocols, their state owners, transition guards and retained boundaries.
+The decision is a shared pure readiness projection plus explicit local modes and
+question ownership, rather than a framework or a single global state machine.
+
+The header, workflow strip and conversation now use the same typed readiness as
+both planner adapters. The state distinguishes unbuilt requirements from saved CAD,
+active questions from transcript history, and export availability from design
+completion. Four-argument planner callables remain supported. A read-only JSON
+inspector exposes the same contract plus STEP hash-verified readiness.
+
+Publication and restore failures now roll back active revision, requirements and
+history in memory. Planning-save and initial-import failures retain prior accepted
+state. Save errors cannot trigger dimensional AI repair. Project snapshots v2 retain
+error/attempt diagnostics and explicit planner/reviewer question ownership; v1 files
+keep their legacy interpretation. Review questions from failed builds can be shown
+without a current revision. Export no longer clears the clarification stage, and
+restore explicitly clears attempt questions. Interrupted transient stages load as
+recoverable errors without replaying CAD or model calls.
+
+Workspace routing now uses one validated, project-scoped mode; legacy booleans are
+compatibility mirrors. Existing geometry caches, camera behavior, event sequence
+checks, native operations, compiler versions and STEP verification remain in place.
+The new inspector read the original four-collar project and correctly reported
+pending layout changes against its saved revision; its file hash was unchanged.
+Live AI calls are not required for this audit; provider integration is checked
+through both real adapters with explicit test doubles.
+
+Verification on this branch: **324 Python tests passed in 508.75 seconds**, and
+all **20 JavaScript viewer tests passed**. The suite includes native CAD/export,
+UI behavior, legacy project loading, question ownership and save/restore failure
+recovery. Ruff fatal-error checks and `git diff --check` passed. Test evidence is
+under `artifacts/state-machines-*`; no live model calls were made. The submitted
+main branch and its existing submission archive were left unchanged.
+
 ## Final submission consolidation (2026-11-02)
 
 The final application revision (`d59a882`, from `codex/click-through-openings`)

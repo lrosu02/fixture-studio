@@ -24,6 +24,7 @@ from .base_controls import base_controls
 from .hardware_controls import hardware_controls
 from .fasteners import resolve_clearances, clearance_summary, SOURCE
 from .planning import patch_requirements
+from .lifecycle import WorkspaceMode
 
 
 BRIDGE_ORIENTATION = (
@@ -43,11 +44,10 @@ def activate_opening_placement(project, opening_id=None):
 
 
 def set_workspace_mode(mode, project):
-    st.session_state.face_mode = mode == "face"
-    st.session_state.pick_mode = mode == "holes"
-    st.session_state.access_mode = mode == "access"
-    st.session_state.opening_mode = mode == "openings"
-    if mode == "openings":
+    mode = WorkspaceMode(mode)  # Reject unknown events before changing any state.
+    st.session_state["workspace-mode"] = (project.id, mode.value)
+    _mode_flags(mode)
+    if mode == WorkspaceMode.OPENINGS:
         for name, value in (
             ("source", False),
             ("fixture", True),
@@ -56,6 +56,25 @@ def set_workspace_mode(mode, project):
             ("compare", False),
         ):
             st.session_state[view_key(project, name)] = value
+
+
+def _mode_flags(mode):
+    # Compatibility mirrors for old callbacks; routing reads the one enum below.
+    st.session_state.face_mode = mode == "face"
+    st.session_state.pick_mode = mode == "holes"
+    st.session_state.access_mode = mode == "access"
+    st.session_state.opening_mode = mode == "openings"
+
+
+def workspace_mode(project):
+    saved = st.session_state.get("workspace-mode")
+    mode = (
+        WorkspaceMode(saved[1])
+        if saved and saved[0] == project.id
+        else WorkspaceMode.ASSEMBLY
+    )
+    _mode_flags(mode)
+    return mode
 
 
 def request_assembly(project, fixture_only=False):
@@ -95,13 +114,11 @@ def workspace(project, build):
     st.subheader("Model preview")
     workspace_intro()
     if st.session_state.pop("close_hole_picker", False):
-        st.session_state.pick_mode = False
+        set_workspace_mode("assembly", p)
     if st.session_state.pop("close_face_picker", False):
-        st.session_state.face_mode = False
-    selecting = any(
-        st.session_state.get(name, False)
-        for name in ("face_mode", "pick_mode", "access_mode")
-    )
+        set_workspace_mode("assembly", p)
+    mode = workspace_mode(p)
+    selecting = mode in (WorkspaceMode.FACE, WorkspaceMode.HOLES, WorkspaceMode.ACCESS)
     with st.expander(
         "Choose mounting face and holes",
         expanded=not r.mounting_confirmed or selecting,
@@ -111,7 +128,7 @@ def workspace(project, build):
             "to fasten the part. Picks save immediately."
         )
         face_button, hole_button = st.columns(2)
-        for button, label, mode, flag in (
+        for button, label, target_mode, flag in (
             (face_button, "Select mounting face", "face", "face_mode"),
             (hole_button, "Select mounting holes", "holes", "pick_mode"),
             (st, "Select source access features", "access", "access_mode"),
@@ -120,17 +137,17 @@ def workspace(project, build):
                 label,
                 width="stretch",
                 on_click=set_workspace_mode,
-                args=(mode, p),
+                args=(target_mode, p),
                 type="primary" if st.session_state.get(flag) else "secondary",
             )
         st.caption(
             "Source access features reserve space around the uploaded part. "
             "New fixture holes can be placed after the first build."
         )
-    face_mode = st.session_state.get("face_mode", False)
-    pick_mode = st.session_state.get("pick_mode", False)
-    access_mode = st.session_state.get("access_mode", False)
-    opening_mode = st.session_state.get("opening_mode", False)
+    face_mode = mode == WorkspaceMode.FACE
+    pick_mode = mode == WorkspaceMode.HOLES
+    access_mode = mode == WorkspaceMode.ACCESS
+    opening_mode = mode == WorkspaceMode.OPENINGS
     with st.container(key="fixture-opening-pending-" + p.id):
         pending_openings = [
             opening for opening in r.fixture_openings if opening.needs_placement

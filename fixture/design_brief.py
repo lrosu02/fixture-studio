@@ -1,6 +1,7 @@
 """Atomic guided brief persistence; planning and CAD stay explicit user actions."""
 
 from .planning import patch_requirements, missing_questions
+from .lifecycle import set_questions
 
 ANSWER_LABELS = {
     "quantity": "Number of parts",
@@ -54,6 +55,7 @@ def save_brief(project, text, answers):
         project.error,
         list(project.messages),
         project.last_planner_attempt,
+        project.clarification,
     )
     try:
         project.requirements = updated
@@ -66,6 +68,7 @@ def save_brief(project, text, answers):
         project.last_planner_attempt = (
             None  # Old clarification no longer describes this edited brief.
         )
+        set_questions(project)
         project.messages.append({"role": "user", "content": message})
         project.save()
     except Exception:
@@ -75,6 +78,7 @@ def save_brief(project, text, answers):
             project.error,
             project.messages,
             project.last_planner_attempt,
+            project.clarification,
         ) = previous
         raise
     return message

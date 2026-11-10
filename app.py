@@ -11,7 +11,12 @@ from fixture.planning import (
     proposal_requirements,
 )
 from fixture.agent import plan_turn, offline_turn, review_turn
-from fixture.workspace import workspace, request_assembly, BRIDGE_ORIENTATION
+from fixture.workspace import (
+    workspace,
+    request_assembly,
+    set_workspace_mode,
+    BRIDGE_ORIENTATION,
+)
 from fixture.subscription import subscription_turn, subscription_review, executable
 from fixture.manufacturing import manufacturing_guidance, is_sheet_metal
 from fixture.workflow import generate_with_feedback
@@ -39,13 +44,12 @@ def short_text(text, limit=300):
 def load_part(data, name):
     with st.spinner("Reading STEP and identifying interfaces…"):
         analysis = analyze_bytes(data, name)
-    st.session_state.project = Project.new(analysis)
-    st.session_state.project.save()
+    candidate = Project.new(analysis)
+    candidate.save()
+    st.session_state.project = candidate
     st.session_state.source_data = data
     st.session_state.source_name = name
-    st.session_state.pick_mode = False
-    st.session_state.face_mode = False
-    st.session_state.access_mode = False
+    set_workspace_mode("assembly", candidate)
 
 
 def build(project, requirements=None, change="Generate reviewed proposal"):

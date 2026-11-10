@@ -11,6 +11,7 @@ from .executor import execute, KERNEL_LOCK
 from .validation import validate
 from .manufacturing import manufacturing_record
 from .cad_io import CadExportError
+from .lifecycle import QuestionState, set_questions
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -29,6 +30,7 @@ class Project:
     feedback: list = field(default_factory=list)
     last_attempt: BuildFeedback | None = None
     last_planner_attempt: dict | None = None
+    clarification: QuestionState | None = None
     _analysis_json: tuple = field(default=(), init=False, repr=False, compare=False)
     _revision_json: dict = field(
         default_factory=dict, init=False, repr=False, compare=False
@@ -51,6 +53,8 @@ class Project:
         if not path.is_relative_to((ROOT / "artifacts").resolve()):
             raise ValueError("Project must be in local artifacts.")
         data = json.loads(path.read_text(encoding="utf-8"))
+        if data.get("version", 1) not in (1, 2):
+            raise ValueError("Unsupported saved project version.")
         obj = cls(
             Analysis.model_validate(data["analysis"]),
             Requirements.model_validate(data["requirements"]),
@@ -65,13 +69,20 @@ class Project:
                 )
             obj.revisions.append(rev)
         obj.active_id = data["active_id"]
+        if obj.active_id is not None and obj.current is None:
+            raise ValueError("Saved active revision is missing from project history.")
         obj.messages = data["messages"]
         obj.feedback = [
             FeedbackRecord.model_validate(x) for x in data.get("feedback", [])
         ]
         obj.last_planner_attempt = data.get("last_planner_attempt")
+        obj.error = data.get("error")
+        if data.get("last_attempt") is not None:
+            obj.last_attempt = BuildFeedback.model_validate(data["last_attempt"])
+        if data.get("clarification") is not None:
+            obj.clarification = QuestionState.model_validate(data["clarification"])
         obj.stage = "presented" if obj.current else "analyzed"
-        if data.get("stage") in ("clarifying", "proposing", "presented", "exported"):
+        if data.get("stage") in ("clarifying", "proposing", "presented"):
             obj.stage = data["stage"]
         elif not obj.current and (
             (obj.last_planner_attempt or {}).get("action") or {}
@@ -79,6 +90,8 @@ class Project:
             # Legacy snapshots did not save stage. With existing CAD, retain
             # their review state rather than replaying a pre-build question.
             obj.stage = "clarifying"
+        if data.get("stage") in ("generating", "revising", "checking"):
+            obj.error = "The previous CAD attempt was interrupted. Retry explicitly; the last saved revision is retained."
         return obj
 
     @property
@@ -90,6 +103,12 @@ class Project:
     ):
         candidate = requirements or self.requirements
         old = self.current
+        previous = (
+            self.active_id,
+            self.requirements,
+            len(self.revisions),
+            self.clarification,
+        )
         self.last_attempt = BuildFeedback(requirements=candidate)
         try:
             # Protect direct callers as well as proposal/planner requirement patches.
@@ -203,40 +222,81 @@ class Project:
             self.requirements = candidate
             self.error = None
             self.stage = "presented"
+            set_questions(self)
             self.save()
             return revision
         except Exception as error:
+            # Publishing the project snapshot is the commit point. A valid CAD
+            # file alone must never replace the previously saved active revision.
+            self.active_id, self.requirements, count, self.clarification = previous
+            del self.revisions[count:]
             self.error = f"{type(error).__name__}: {error}"
             self.last_attempt = self.last_attempt.model_copy(
                 update={
                     "error": self.error,
+                    "revision_id": None,
                     "failure_kind": "cad_export"
-                    if isinstance(error, CadExportError)
+                    if isinstance(error, (CadExportError, OSError))
                     else "design",
                 }
             )
             self.stage = "presented" if old else "proposing"
+            try:
+                self.save()
+            except OSError:
+                # Keep the original failure; unavailable storage cannot record it.
+                pass
             raise
 
     def restore(self, rid):
-        revision = next(r for r in self.revisions if r.id == rid)
-        self.active_id = rid
-        self.requirements = revision.requirements
-        self.stage = "presented"
-        self.error = None
-        self.save()
+        revision = next((r for r in self.revisions if r.id == rid), None)
+        if revision is None:
+            raise ValueError("Choose a revision from this project's history.")
+        previous = (
+            self.active_id,
+            self.requirements,
+            self.stage,
+            self.error,
+            self.last_attempt,
+            self.clarification,
+        )
+        try:
+            self.active_id = rid
+            self.requirements = revision.requirements
+            self.stage = "presented"
+            self.error = None
+            self.last_attempt = None
+            set_questions(self)
+            self.save()
+        except Exception:
+            (
+                self.active_id,
+                self.requirements,
+                self.stage,
+                self.error,
+                self.last_attempt,
+                self.clarification,
+            ) = previous
+            raise
 
     def save(self):
         folder = ROOT / "artifacts" / self.id
         folder.mkdir(parents=True, exist_ok=True)
         snapshot = {
-            "version": 1,
+            "version": 2,
             "stage": self.stage,
             "requirements": self.requirements.model_dump(),
             "active_id": self.active_id,
             "messages": self.messages,
             "feedback": [f.model_dump() for f in self.feedback],
             "last_planner_attempt": self.last_planner_attempt,
+            "error": self.error,
+            "last_attempt": self.last_attempt.model_dump()
+            if self.last_attempt
+            else None,
+            "clarification": self.clarification.model_dump()
+            if self.clarification
+            else None,
         }
         temp = folder / "project.tmp"
         # Immutable geometry dominates large projects. Serialize it once and
@@ -265,6 +325,7 @@ class Project:
         temp.replace(folder / "project.json")
 
     def export(self, mark_exported=True):
+        """Export the saved revision; legacy mark_exported never changes readiness."""
         r = self.current
         if not r:
             raise ValueError("Generate a valid revision before export.")
@@ -334,6 +395,4 @@ class Project:
                 "README.txt",
                 "Fixture geometry is real SMLib USD BRep in millimeters. If STEP was prepared, fixture.step contains the generated fixture solids and step-export.json records native/STEP verification. Source parts are not included in either CAD format. Source meshes are previews only. Supply the original STEP with matching SHA256 for re-analysis. Reproduction: python scripts/reproduce.py <this.zip> <output-folder>. No physical performance certification.\n",
             )
-        if mark_exported:
-            self.stage = "exported"
         return output.getvalue()

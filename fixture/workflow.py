@@ -2,12 +2,14 @@
 
 from uuid import uuid4
 from datetime import datetime, timezone
+from inspect import signature
 from pydantic import BaseModel
 from .agent import Action, apply_action, requests_geometry
 from .contracts import DesignReview, FeedbackRecord
 from .planning import missing_questions
 from .questions import clean_questions, merge_questions
 from .review import repair_requirements, review_context, render_review
+from .lifecycle import set_questions, workflow_state
 
 INVITE = "What would you like to change next?"
 
@@ -25,6 +27,8 @@ def plan_design(
         project.requirements,
         project.highlights,
     )
+    original_stage, original_clarification = project.stage, project.clarification
+    state = workflow_state(project).model_dump(mode="json")
     project.last_planner_attempt = {
         "at": datetime.now(timezone.utc).isoformat(),
         "source_hash": project.analysis.source_hash,
@@ -42,6 +46,13 @@ def plan_design(
         )
     try:
         progress("Planning with AI")
+        # The optional typed state preserves the four-argument provider API used
+        # by offline commands, existing adapters and test doubles.
+        try:
+            parameters = signature(planner).parameters
+        except (ValueError, TypeError):
+            parameters = {}  # Some extension callables do not expose a signature.
+        kwargs = {"workflow_state": state} if "workflow_state" in parameters else {}
         action = Action.model_validate(
             _record_data(
                 planner(
@@ -49,6 +60,7 @@ def plan_design(
                     project.requirements,
                     project.messages,
                     project.current,
+                    **kwargs,
                 )
             )
         )
@@ -80,6 +92,7 @@ def plan_design(
                 "clarifying" if questions or action.questions else "proposing"
             )
         checklist = merge_questions(action.questions, questions)
+        set_questions(project, "planner", action.questions)
         if removed_invitation and not checklist and action.action != "unsupported":
             action = action.model_copy(
                 update={
@@ -110,6 +123,7 @@ def plan_design(
             original_requirements,
             original_highlights,
         )
+        project.clarification = original_clarification
         project.error = f"{type(error).__name__}: {error}"
         project.last_planner_attempt["error"] = project.error
         project.messages.append(
@@ -120,10 +134,23 @@ def plan_design(
                 + "\n\nNo design changes were applied. Your saved choices and CAD are retained. Retry the request in the conversation.",
             }
         )
-        project.stage = "presented" if project.current else "clarifying"
+        project.stage = original_stage
         return False
     finally:
-        project.save()
+        try:
+            project.save()
+        except Exception as error:
+            project.requirements, project.highlights = (
+                original_requirements,
+                original_highlights,
+            )
+            project.stage, project.clarification = (
+                original_stage,
+                original_clarification,
+            )
+            project.error = f"{type(error).__name__}: {error}"
+            project.last_planner_attempt["error"] = project.error
+            raise
 
 
 def generate_with_feedback(
@@ -208,6 +235,7 @@ def generate_with_feedback(
                 record = record.model_copy(update={"outcome": "accepted"})
             elif review.verdict == "needs_input":
                 record = record.model_copy(update={"outcome": "needs_input"})
+                set_questions(project, "review", review.questions, build.revision_id)
                 project.stage = "clarifying"
             elif attempt == 2:
                 record = record.model_copy(

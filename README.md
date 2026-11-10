@@ -136,3 +136,6 @@ blanks, DXF nesting or weld sizing. Native kernel process crashes are not fully 
 See [Notes.md](Notes.md) for architecture, decisions and verification evidence,
 [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for acceptance criteria, and
 [CHANGELOG.md](CHANGELOG.md) for historical checkpoints.
+
+For developers and agents, [STATE_MACHINES.md](STATE_MACHINES.md) maps the workflow,
+selection, persistence and export lifecycles, including read-only JSON inspection.

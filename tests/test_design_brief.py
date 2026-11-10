@@ -136,6 +136,10 @@ def test_resume_preserves_completed_legacy_design_and_explicit_clarification():
     p.save()
     path = ROOT / "artifacts" / p.id / "project.json"
     data = json.loads(path.read_text(encoding="utf-8"))
+    # This fixture represents the v1 snapshot format, before explicit ownership.
+    data["version"] = 1
+    for field in ("clarification", "error", "last_attempt"):
+        data.pop(field, None)
     data.pop("stage")
     path.write_text(json.dumps(data), encoding="utf-8")
     restored = Project.load(path)
